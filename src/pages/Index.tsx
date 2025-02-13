@@ -1,4 +1,3 @@
-
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 
@@ -44,7 +43,7 @@ const Index = () => {
                 <span className="text-blue-600 text-2xl">🎁</span>
                 <h3 className="text-xl font-semibold text-blue-800">What You Could Win:</h3>
               </div>
-              <ul className="space-y-3 text-blue-700">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {[
                   "Premium School Backpack",
                   "Complete Crayola Art Set",
@@ -52,12 +51,15 @@ const Index = () => {
                   "Essential School Supplies",
                   "Cleaning & Sanitizing Items"
                 ].map((item, index) => (
-                  <li key={index} className="flex items-center gap-3 p-2 hover:bg-blue-100/50 rounded-lg transition-colors">
-                    <span className="text-blue-500 font-bold">✓</span>
-                    <span className="font-medium">{item}</span>
-                  </li>
+                  <div 
+                    key={index} 
+                    className="flex items-center gap-2 p-3 hover:bg-blue-100/50 rounded-lg transition-colors"
+                  >
+                    <span className="text-blue-500 font-bold flex-shrink-0">✓</span>
+                    <span className="font-medium text-blue-700">{item}</span>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
           </div>
         </div>
