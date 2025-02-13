@@ -74,18 +74,16 @@ export default function Admin() {
   const testWebhook = async () => {
     setIsTestingWebhook(true);
     try {
-      const response = await fetch(
-        'https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/test-webhook',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      // Instead of using fetch directly, use supabase.functions.invoke
+      const { data, error } = await supabase.functions.invoke('test-webhook', {
+        method: 'POST',
+      });
 
-      const data = await response.json();
       console.log('Webhook test response:', data);
+
+      if (error) {
+        throw error;
+      }
 
       if (data.success) {
         toast({
