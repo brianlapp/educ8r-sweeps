@@ -46,7 +46,10 @@ export const EntryForm = () => {
 
       // Save referral code to localStorage for the thank you page
       if (data?.referral_code) {
+        console.log('Saving referral code to localStorage:', data.referral_code);
         localStorage.setItem('referralCode', data.referral_code);
+      } else {
+        console.error('No referral code received from server');
       }
 
       // Redirect to thank you page

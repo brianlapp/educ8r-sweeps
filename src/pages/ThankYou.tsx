@@ -21,10 +21,15 @@ const ThankYou = () => {
   useEffect(() => {
     // Get the unique referral code that was saved during signup
     const code = localStorage.getItem("referralCode");
+    console.log('Retrieved referral code from localStorage:', code);
+    
     if (!code) {
       console.error("No referral code found in localStorage");
       return;
     }
+    
+    // Clear the code from localStorage to prevent reuse
+    localStorage.removeItem("referralCode");
     setReferralCode(code);
   }, []);
 
