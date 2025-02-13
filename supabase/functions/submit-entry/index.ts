@@ -18,6 +18,7 @@ serve(async (req) => {
 
   try {
     const { firstName, lastName, email, referredBy } = await req.json()
+    console.log('Received submission with referral:', { firstName, lastName, email, referredBy })
 
     // Initialize Supabase client
     const supabaseClient = createClient(
@@ -54,6 +55,23 @@ serve(async (req) => {
       )
     }
 
+    // Verify the referral code exists if one was provided
+    if (referredBy) {
+      const { data: referrerEntry, error: referrerError } = await supabaseClient
+        .from('entries')
+        .select('referral_code')
+        .eq('referral_code', referredBy)
+        .single()
+
+      if (referrerError) {
+        console.error('Error verifying referral code:', referrerError)
+        // Invalid referral code - we'll continue without it
+        console.log('Invalid referral code provided:', referredBy)
+      } else {
+        console.log('Valid referral code found:', referredBy)
+      }
+    }
+
     // If email doesn't exist, proceed with insertion
     const { data: entry, error: supabaseError } = await supabaseClient
       .from('entries')
@@ -70,6 +88,8 @@ serve(async (req) => {
       console.error('Supabase error:', supabaseError)
       throw new Error(supabaseError.message)
     }
+
+    console.log('Successfully created entry:', entry)
 
     // Step 1: Initialize base tags array
     const tags = ['sweeps'];  // Base tag for all sweepstakes entries
