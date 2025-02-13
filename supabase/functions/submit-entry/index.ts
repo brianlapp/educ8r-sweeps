@@ -25,7 +25,36 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Insert entry into Supabase
+    // First check if the email already exists
+    const { data: existingEntry, error: lookupError } = await supabaseClient
+      .from('entries')
+      .select('referral_code')
+      .eq('email', email)
+      .single()
+
+    if (lookupError && lookupError.code !== 'PGRST116') { // PGRST116 means no rows found
+      console.error('Error checking for existing entry:', lookupError)
+      throw new Error(lookupError.message)
+    }
+
+    if (existingEntry) {
+      // If entry exists, return it with a specific flag
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: existingEntry,
+          isExisting: true
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+    }
+
+    // If email doesn't exist, proceed with insertion
     const { data: entry, error: supabaseError } = await supabaseClient
       .from('entries')
       .insert({
@@ -105,7 +134,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        data: entry 
+        data: entry,
+        isExisting: false
       }),
       { 
         headers: { 

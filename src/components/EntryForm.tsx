@@ -44,15 +44,27 @@ export const EntryForm = () => {
 
       if (error) throw error;
 
-      // Save referral code to localStorage for the thank you page
-      if (data?.referral_code) {
-        console.log('Saving referral code to localStorage:', data.referral_code);
+      if (data.isExisting) {
+        // If the email already exists, we still have their referral code
+        console.log('Using existing referral code:', data.referral_code);
         localStorage.setItem('referralCode', data.referral_code);
+        
+        toast({
+          title: "Welcome Back!",
+          description: "You've already entered the sweepstakes. We'll take you to your referral page.",
+        });
       } else {
-        console.error('No referral code received from server');
+        // New entry
+        console.log('Saving new referral code:', data.referral_code);
+        localStorage.setItem('referralCode', data.referral_code);
+        
+        toast({
+          title: "Success!",
+          description: "Your entry has been submitted successfully.",
+        });
       }
 
-      // Redirect to thank you page
+      // Redirect to thank you page in both cases
       navigate('/thank-you');
 
     } catch (error) {
