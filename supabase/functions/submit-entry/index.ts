@@ -42,26 +42,35 @@ serve(async (req) => {
       throw new Error(supabaseError.message)
     }
 
-    // Step 1: Create/Update BeehiiV subscription with initial tags
-    const tags = ['sweeps', 'comprendi']; // Base tags for all sweepstakes entries
+    // Step 1: Initialize base tags array
+    const tags = ['sweeps'];  // Base tag for all sweepstakes entries
+    const customTag = 'comprendi';
+    if (customTag) {
+      tags.push(customTag);  // Add the sweepstakes-specific tag
+    }
 
+    // Step 2: Create/Update BeehiiV subscription
+    const subscriberData = {
+      email: email,
+      first_name: firstName,
+      last_name: lastName,
+      utm_source: 'sweepstakes',
+      utm_medium: customTag || 'organic',
+      utm_campaign: customTag || undefined,
+      tags: tags,
+      reactivate: true,
+      referral_code: entry.referral_code
+    }
+
+    console.log('Sending subscription data to BeehiiV:', subscriberData)
+    
     const subscribeResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
       },
-      body: JSON.stringify({
-        email: email,
-        first_name: firstName,
-        last_name: lastName,
-        utm_source: 'sweepstakes',
-        utm_medium: referredBy ? 'referral' : 'organic',
-        utm_campaign: referredBy || undefined,
-        tags: tags,
-        reactivate: true,
-        referral_code: entry.referral_code
-      })
+      body: JSON.stringify(subscriberData)
     })
 
     if (!subscribeResponse.ok) {
@@ -70,10 +79,12 @@ serve(async (req) => {
     }
 
     const subscribeData = await subscribeResponse.json()
+    console.log('BeehiiV subscription response:', subscribeData)
 
-    // Step 2: Explicitly add tags to ensure they stick
-    if (subscribeData.id) {
-      const tagResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscribeData.id}/tags`, {
+    // Step 3: Explicitly add tags to ensure they stick
+    if (subscribeData.data?.id) {  // Notice the .data.id path
+      console.log('Adding tags explicitly:', tags)
+      const tagResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscribeData.data.id}/tags`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -85,6 +96,8 @@ serve(async (req) => {
       if (!tagResponse.ok) {
         console.error('BeehiiV tag error:', await tagResponse.text())
         // Don't throw here - the subscription was successful even if tag addition failed
+      } else {
+        console.log('Tags added successfully')
       }
     }
 
