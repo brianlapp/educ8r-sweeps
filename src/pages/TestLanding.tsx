@@ -1,5 +1,5 @@
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,12 +7,20 @@ import { supabase } from "@/integrations/supabase/client";
 const TestLanding = () => {
   const [searchParams] = useSearchParams();
   const referralCode = searchParams.get("ref");
-  const AFFILIATE_ID = 2628; // Hardcoded as per the tracking pixel
+  const AFFILIATE_ID = 2628;
+  const impressionFired = useRef(false);
+  const transactionId = useRef(window.EF?.urlParameter('_ef_transaction_id') || Math.random().toString(36).substring(2));
 
   useEffect(() => {
     // Load Everflow tracking script with error handling
     const loadScript = async () => {
       try {
+        // Only fire impression if it hasn't been fired yet
+        if (impressionFired.current) {
+          console.log('Impression already fired, skipping...');
+          return;
+        }
+
         console.log('Starting to load Everflow script...');
         
         const script = document.createElement('script');
@@ -52,11 +60,12 @@ const TestLanding = () => {
             sub4: window.EF.urlParameter('sub4'),
             sub5: window.EF.urlParameter('sub5'),
             source_id: window.EF.urlParameter('source_id'),
-            transaction_id: window.EF.urlParameter('_ef_transaction_id') || Math.random().toString(36).substring(2)
+            transaction_id: transactionId.current
           };
           console.log('Impression data:', impressionData);
           
           window.EF.impression(impressionData);
+          impressionFired.current = true;
           console.log('Impression fired');
         } else {
           console.warn('Cannot fire impression - EF object not available');
@@ -75,7 +84,7 @@ const TestLanding = () => {
         document.body.removeChild(script);
       }
     };
-  }, []); // Removed dependencies since we're using EF.urlParameter()
+  }, []); // Empty dependency array since we're using useRef for state
 
   const trackClick = () => {
     console.log('Track click called');
@@ -90,7 +99,7 @@ const TestLanding = () => {
         sub5: window.EF.urlParameter('sub5'),
         uid: window.EF.urlParameter('uid'),
         source_id: window.EF.urlParameter('source_id'),
-        transaction_id: window.EF.urlParameter('_ef_transaction_id') || Math.random().toString(36).substring(2)
+        transaction_id: transactionId.current
       };
       console.log('Click data:', clickData);
       window.EF.click(clickData);
@@ -103,11 +112,10 @@ const TestLanding = () => {
   const trackConversion = () => {
     console.log('Track conversion called');
     if (window.EF) {
-      const transactionId = window.EF.urlParameter('_ef_transaction_id') || Math.random().toString(36).substring(2);
       const conversionData = {
         offer_id: window.EF.urlParameter('oid'),
         affiliate_id: AFFILIATE_ID,
-        transaction_id: transactionId,
+        transaction_id: transactionId.current,
         sub1: window.EF.urlParameter('sub1')
       };
       console.log('Conversion data:', conversionData);
@@ -118,7 +126,7 @@ const TestLanding = () => {
       supabase.functions.invoke('everflow-webhook', {
         body: {
           referral_code: window.EF.urlParameter('sub1'),
-          transaction_id: transactionId
+          transaction_id: transactionId.current
         }
       }).catch(error => {
         console.error('Error notifying backend of conversion:', error);
