@@ -24,10 +24,28 @@ serve(async (req) => {
     const payload = await req.json()
     console.log('Received Everflow webhook payload:', payload)
 
+    // Validate required fields
+    if (!payload.referral_code || !payload.transaction_id) {
+      console.error('Missing required fields in payload:', payload)
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Missing required fields: referral_code and transaction_id are required'
+        }),
+        { 
+          status: 400,
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+    }
+
     // Call the database function to handle the postback
     const { data, error } = await supabaseClient.rpc('handle_everflow_webhook', {
       payload: {
-        referral_code: payload.affiliate_info, // Assuming this is where Everflow sends the referral code
+        referral_code: payload.referral_code,
         transaction_id: payload.transaction_id
       }
     })
@@ -42,7 +60,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Webhook processed successfully'
+        message: 'Webhook processed successfully',
+        data
       }),
       { 
         headers: { 
