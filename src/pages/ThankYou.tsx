@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -17,41 +16,14 @@ const ThankYou = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Load Everflow tracking script
-    const script = document.createElement('script');
-    script.src = 'https://js.everflow.io/ef.min.js';
-    script.async = true;
-    document.body.appendChild(script);
-
-    // Initialize and fetch referral code
     const code = localStorage.getItem("referralCode");
     if (code) {
       setReferralCode(code);
-      
-      // Once the script is loaded, fire conversion
-      script.onload = () => {
-        if (window.EF) {
-          console.log('Firing Everflow conversion with code:', code);
-          window.EF.conversion({
-            aid: '471', // Everflow Network ID
-            oid: '1986', // Offer ID
-            amount: 1,
-            transaction_id: Math.random().toString(36).substring(2),
-            affiliate_info: code,
-            coupon_code: code // Adding coupon_code as an additional identifier
-          });
-        }
-      };
     }
-
-    // Cleanup
-    return () => {
-      document.body.removeChild(script);
-    };
   }, []);
 
-  // Generate tracking link with Everflow parameters
-  const referralLink = `${window.location.origin}?ref=${referralCode}&oid=1986`; // Everflow offer ID
+  // Generate tracking link with Everflow parameters - pointing to test landing page
+  const referralLink = `${window.location.origin}/test-landing?ref=${referralCode}&oid=1986`;
 
   const copyReferralLink = async () => {
     try {
