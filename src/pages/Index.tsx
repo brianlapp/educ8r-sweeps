@@ -9,12 +9,14 @@ const Index = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
       <header className="w-full bg-[#f3f3f3] py-4 border-b border-gray-200">
-        <div className="container mx-auto px-4 flex items-center">
-          <img 
-            src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" 
-            alt="FPS Logo" 
-            className="h-12 w-auto"
-          />
+        <div className="container mx-auto px-4">
+          <div className="flex justify-center items-center">
+            <img 
+              src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" 
+              alt="FPS Logo" 
+              className="h-12 w-auto"
+            />
+          </div>
         </div>
       </header>
 
@@ -85,7 +87,7 @@ const Index = () => {
 
       <footer className="w-full bg-[#f3f3f3] py-6 border-t border-gray-200">
         <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col items-center gap-4">
             <img 
               src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" 
               alt="FPS Logo" 
