@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -23,7 +22,7 @@ const TestLanding = () => {
     const loadScript = async () => {
       try {
         const script = document.createElement('script');
-        script.src = 'https://tracking.everflow.click/everflow.js';
+        script.src = 'https://get.free.ca/scripts/sdk/everflow.js';
         script.async = true;
         
         // Create a promise to handle script loading
@@ -37,15 +36,7 @@ const TestLanding = () => {
         // Wait for script to load
         await scriptLoadPromise;
 
-        // Initialize Everflow with network ID
-        if (window.EF) {
-          window.EF.init({
-            networkId: "free", // Add your network ID here
-            domain: "everflow.click" // Use the standard Everflow domain
-          });
-        }
-
-        // Track impression after successful script load and initialization
+        // Track impression after successful script load
         if (window.EF && offerId) {
           console.log('Tracking impression for offer:', offerId);
           window.EF.impression({
@@ -69,7 +60,7 @@ const TestLanding = () => {
 
     // Cleanup
     return () => {
-      const script = document.querySelector('script[src="https://tracking.everflow.click/everflow.js"]');
+      const script = document.querySelector('script[src="https://get.free.ca/scripts/sdk/everflow.js"]');
       if (script) {
         document.body.removeChild(script);
       }
@@ -102,9 +93,7 @@ const TestLanding = () => {
       window.EF.conversion({
         offer_id: offerId,
         transaction_id: transactionId, // Use consistent transaction ID
-        affiliate_id: affiliateId, // Add affiliate ID for conversion tracking
-        sub1, // Pass referral code
-        amount: 1 // Add a default amount for the conversion
+        sub1 // Pass referral code
       });
 
       // After successful conversion, notify our backend
