@@ -9,47 +9,49 @@ const TestLanding = () => {
   const referralCode = searchParams.get("ref");
   const AFFILIATE_ID = 2628;
   const impressionFired = useRef(false);
-  const transactionId = useRef(window.EF?.urlParameter('_ef_transaction_id') || Math.random().toString(36).substring(2));
+  const scriptLoaded = useRef(false);
+  const transactionId = useRef('');
+
+  const loadEverflowScript = () => {
+    return new Promise<void>((resolve, reject) => {
+      if (scriptLoaded.current) {
+        resolve();
+        return;
+      }
+
+      console.log('Starting to load Everflow script...');
+      const script = document.createElement('script');
+      script.src = 'https://get.free.ca/scripts/sdk/everflow.js';
+      script.async = true;
+      
+      script.onload = () => {
+        console.log('Everflow script loaded successfully');
+        scriptLoaded.current = true;
+        resolve();
+      };
+      script.onerror = (error) => {
+        console.error('Failed to load Everflow script:', error);
+        reject(new Error('Failed to load Everflow script'));
+      };
+
+      document.body.appendChild(script);
+      console.log('Script added to document');
+    });
+  };
 
   useEffect(() => {
-    // Load Everflow tracking script with error handling
-    const loadScript = async () => {
+    const initializeTracking = async () => {
       try {
-        // Only fire impression if it hasn't been fired yet
-        if (impressionFired.current) {
-          console.log('Impression already fired, skipping...');
-          return;
+        // Load script first
+        await loadEverflowScript();
+
+        // Set transaction ID after script is loaded
+        if (!transactionId.current) {
+          transactionId.current = window.EF?.urlParameter('_ef_transaction_id') || Math.random().toString(36).substring(2);
         }
 
-        console.log('Starting to load Everflow script...');
-        
-        const script = document.createElement('script');
-        script.src = 'https://get.free.ca/scripts/sdk/everflow.js';
-        script.async = true;
-        
-        // Create a promise to handle script loading
-        const scriptLoadPromise = new Promise<void>((resolve, reject) => {
-          script.onload = () => {
-            console.log('Everflow script loaded successfully');
-            resolve();
-          };
-          script.onerror = (error) => {
-            console.error('Failed to load Everflow script:', error);
-            reject(new Error('Failed to load Everflow script'));
-          };
-        });
-
-        document.body.appendChild(script);
-        console.log('Script added to document');
-        
-        // Wait for script to load
-        await scriptLoadPromise;
-
-        // Verify EF object exists
-        console.log('EF object available:', !!window.EF);
-        
-        // Track impression after successful script load
-        if (window.EF) {
+        // Only fire impression once
+        if (!impressionFired.current && window.EF) {
           console.log('Preparing to fire impression...');
           const impressionData = {
             offer_id: window.EF.urlParameter('oid'),
@@ -67,27 +69,31 @@ const TestLanding = () => {
           window.EF.impression(impressionData);
           impressionFired.current = true;
           console.log('Impression fired');
-        } else {
-          console.warn('Cannot fire impression - EF object not available');
         }
       } catch (error) {
         console.error('Error in tracking setup:', error);
       }
     };
 
-    loadScript();
+    initializeTracking();
 
     // Cleanup
     return () => {
-      const script = document.querySelector('script[src="https://get.free.ca/scripts/sdk/everflow.js"]');
-      if (script) {
-        document.body.removeChild(script);
+      if (scriptLoaded.current) {
+        const script = document.querySelector('script[src="https://get.free.ca/scripts/sdk/everflow.js"]');
+        if (script) {
+          document.body.removeChild(script);
+          scriptLoaded.current = false;
+        }
       }
     };
-  }, []); // Empty dependency array since we're using useRef for state
+  }, []);
 
-  const trackClick = () => {
+  const trackClick = async () => {
     console.log('Track click called');
+    // Ensure script is loaded before tracking
+    await loadEverflowScript();
+    
     if (window.EF) {
       const clickData = {
         offer_id: window.EF.urlParameter('oid'),
@@ -109,8 +115,11 @@ const TestLanding = () => {
     }
   };
 
-  const trackConversion = () => {
+  const trackConversion = async () => {
     console.log('Track conversion called');
+    // Ensure script is loaded before tracking
+    await loadEverflowScript();
+    
     if (window.EF) {
       const conversionData = {
         offer_id: window.EF.urlParameter('oid'),
