@@ -4,15 +4,15 @@ import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
-// Define the Everflow SDK types
+// Define the Everflow SDK types without conflicting with existing declarations
 declare global {
   interface Window {
     EF: {
       impression: (params: any) => void;
       click: (params: any) => void;
       conversion: (params: any) => void;
-      urlParameter?: (param: string) => string | null;
-    }
+      urlParameter: (param: string) => string | null;
+    } | undefined;
   }
 }
 
