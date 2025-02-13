@@ -58,7 +58,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      handle_everflow_postback: {
+        Args: {
+          referral_code: string
+          transaction_id: string
+        }
+        Returns: undefined
+      }
+      handle_everflow_webhook: {
+        Args: {
+          payload: Json
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
