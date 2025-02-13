@@ -23,8 +23,22 @@ const Index = () => {
             <img
               src="/lovable-uploads/399cdf8e-d7b2-47fa-b4d6-8106630d1e5e.png"
               alt="School Supplies Collection"
-              className="rounded-2xl shadow-2xl w-full animate-fadeIn transform hover:scale-[1.02] transition-transform duration-300"
+              className="rounded-2xl w-full animate-fadeIn transform hover:scale-[1.02] transition-transform duration-300"
             />
+          </div>
+          <div className="order-1 md:order-2">
+            <div className="bg-white p-8 rounded-xl shadow-md border border-gray-100 animate-slideUp">
+              <h2 className="text-2xl font-semibold mb-6 text-center text-[#2C3E50]">Enter to Win!</h2>
+              <EntryForm />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-12 bg-white p-8 rounded-xl shadow-md border border-gray-100">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-2xl font-semibold mb-6 text-center">⏰ Limited Time Offer!</h2>
+            <CountdownTimer targetDate={targetDate} />
+            
             <div className="mt-8 bg-blue-50 p-6 rounded-xl">
               <h3 className="text-lg font-semibold mb-3 text-blue-800">What You Could Win:</h3>
               <ul className="space-y-2 text-blue-700">
@@ -34,16 +48,6 @@ const Index = () => {
                 <li>✓ Essential School Supplies</li>
                 <li>✓ Cleaning & Sanitizing Items</li>
               </ul>
-            </div>
-          </div>
-          <div className="order-1 md:order-2 space-y-8">
-            <div className="bg-white p-8 rounded-xl shadow-md border border-gray-100">
-              <h2 className="text-2xl font-semibold mb-6 text-center">⏰ Limited Time Offer!</h2>
-              <CountdownTimer targetDate={targetDate} />
-            </div>
-            <div className="bg-white p-8 rounded-xl shadow-md border border-gray-100 animate-slideUp">
-              <h2 className="text-2xl font-semibold mb-6 text-center text-[#2C3E50]">Enter to Win!</h2>
-              <EntryForm />
             </div>
           </div>
         </div>
