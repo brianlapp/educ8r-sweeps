@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 const TestLanding = () => {
   const [searchParams] = useSearchParams();
@@ -9,28 +10,46 @@ const TestLanding = () => {
   const offerId = searchParams.get("oid");
 
   useEffect(() => {
-    // Load Everflow tracking script
-    const script = document.createElement('script');
-    script.src = 'https://js.everflow.io/ef.min.js';
-    script.async = true;
-    document.body.appendChild(script);
-
-    // Track impression when script loads
-    script.onload = () => {
-      if (window.EF && referralCode) {
-        console.log('Tracking impression for:', referralCode);
-        // Type assertion to allow impression tracking
-        (window.EF as any).impression({
-          aid: '471',
-          oid: offerId,
-          affiliate_info: referralCode
+    // Load Everflow tracking script with error handling
+    const loadScript = async () => {
+      try {
+        const script = document.createElement('script');
+        script.src = 'https://js.everflow.io/ef.min.js';
+        script.async = true;
+        
+        // Create a promise to handle script loading
+        const scriptLoadPromise = new Promise((resolve, reject) => {
+          script.onload = resolve;
+          script.onerror = () => reject(new Error('Failed to load Everflow script'));
         });
+
+        document.body.appendChild(script);
+        
+        // Wait for script to load
+        await scriptLoadPromise;
+
+        // Track impression after successful script load
+        if (window.EF && referralCode) {
+          console.log('Tracking impression for:', referralCode);
+          (window.EF as any).impression({
+            aid: '471',
+            oid: offerId,
+            affiliate_info: referralCode
+          });
+        }
+      } catch (error) {
+        console.error('Error loading Everflow script:', error);
       }
     };
 
+    loadScript();
+
     // Cleanup
     return () => {
-      document.body.removeChild(script);
+      const script = document.querySelector('script[src="https://js.everflow.io/ef.min.js"]');
+      if (script) {
+        document.body.removeChild(script);
+      }
     };
   }, [referralCode, offerId]);
 
@@ -43,6 +62,8 @@ const TestLanding = () => {
         affiliate_info: referralCode,
         type: 'click'
       });
+    } else {
+      console.warn('EF not loaded or referral code missing');
     }
   };
 
@@ -57,6 +78,18 @@ const TestLanding = () => {
         affiliate_info: referralCode,
         coupon_code: referralCode
       });
+
+      // After successful conversion, notify our backend
+      supabase.functions.invoke('everflow-webhook', {
+        body: {
+          referral_code: referralCode,
+          transaction_id: Math.random().toString(36).substring(2)
+        }
+      }).catch(error => {
+        console.error('Error notifying backend of conversion:', error);
+      });
+    } else {
+      console.warn('EF not loaded or referral code missing');
     }
   };
 
