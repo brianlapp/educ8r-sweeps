@@ -123,31 +123,8 @@ export type Database = {
           referral_code: string | null
           referral_count: number | null
           referred_by: string | null
+          total_entries: number | null
           updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          email?: string | null
-          entry_count?: number | null
-          first_name?: string | null
-          id?: string | null
-          last_name?: string | null
-          referral_code?: string | null
-          referral_count?: never
-          referred_by?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          email?: string | null
-          entry_count?: number | null
-          first_name?: string | null
-          id?: string | null
-          last_name?: string | null
-          referral_code?: string | null
-          referral_count?: never
-          referred_by?: string | null
-          updated_at?: string | null
         }
         Relationships: [
           {

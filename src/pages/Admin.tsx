@@ -13,7 +13,7 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown } from "lucide-react";
 
-type SortField = "created_at" | "referral_count";
+type SortField = "created_at" | "referral_count" | "total_entries";
 type SortOrder = "asc" | "desc";
 
 interface Entry {
@@ -22,6 +22,7 @@ interface Entry {
   last_name: string;
   entry_count: number;
   referral_count: number;
+  total_entries: number;
   referral_code: string | null;
   created_at: string;
 }
@@ -45,7 +46,7 @@ export default function Admin() {
         throw error;
       }
       
-      console.log('Fetched entries:', data); // Debug log
+      console.log('Fetched entries:', data);
       setEntries(data || []);
     } catch (error) {
       console.error('Error in fetchEntries:', error);
@@ -76,7 +77,7 @@ export default function Admin() {
             <TableRow>
               <TableHead>Email</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Entries</TableHead>
+              <TableHead>Base Entry</TableHead>
               <TableHead>
                 <Button
                   variant="ghost"
@@ -84,6 +85,16 @@ export default function Admin() {
                   className="hover:bg-transparent"
                 >
                   Referrals
+                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead>
+                <Button
+                  variant="ghost"
+                  onClick={() => toggleSort('total_entries')}
+                  className="hover:bg-transparent"
+                >
+                  Total Entries
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
@@ -103,13 +114,13 @@ export default function Admin() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-4">
+                <TableCell colSpan={7} className="text-center py-4">
                   Loading...
                 </TableCell>
               </TableRow>
             ) : entries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-4">
+                <TableCell colSpan={7} className="text-center py-4">
                   No entries found
                 </TableCell>
               </TableRow>
@@ -118,8 +129,9 @@ export default function Admin() {
                 <TableRow key={entry.email}>
                   <TableCell>{entry.email}</TableCell>
                   <TableCell>{`${entry.first_name} ${entry.last_name}`}</TableCell>
-                  <TableCell>{entry.entry_count || 1}</TableCell>
-                  <TableCell>{entry.referral_count || 0}</TableCell>
+                  <TableCell>{entry.entry_count}</TableCell>
+                  <TableCell>{entry.referral_count}</TableCell>
+                  <TableCell>{entry.total_entries}</TableCell>
                   <TableCell>{entry.referral_code || 'N/A'}</TableCell>
                   <TableCell>
                     {format(new Date(entry.created_at), 'yyyy-MM-dd')}
