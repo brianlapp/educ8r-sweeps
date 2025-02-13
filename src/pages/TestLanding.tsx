@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
+// Extend the existing Window interface
 declare global {
   interface Window {
     EF: {
@@ -29,6 +30,7 @@ const TestLanding = () => {
     script.onload = () => {
       if (window.EF && referralCode) {
         console.log('Tracking impression for:', referralCode);
+        // @ts-ignore
         window.EF.impression({
           aid: '471',
           oid: offerId,
