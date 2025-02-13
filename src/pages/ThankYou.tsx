@@ -31,12 +31,14 @@ const ThankYou = () => {
       // Once the script is loaded, fire conversion
       script.onload = () => {
         if (window.EF) {
+          console.log('Firing Everflow conversion with code:', code);
           window.EF.conversion({
             aid: '471', // Everflow Network ID
+            oid: '1986', // Offer ID
             amount: 1,
-            event_id: 1, // Replace with your actual event ID
             transaction_id: Math.random().toString(36).substring(2),
-            affiliate_info: code
+            affiliate_info: code,
+            coupon_code: code // Adding coupon_code as an additional identifier
           });
         }
       };
