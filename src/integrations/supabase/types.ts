@@ -60,6 +60,42 @@ export type Database = {
           },
         ]
       }
+      referral_conversions: {
+        Row: {
+          created_at: string | null
+          id: string
+          referral_code: string | null
+          transaction_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          referral_code?: string | null
+          transaction_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          referral_code?: string | null
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_conversions_referral_code_fkey"
+            columns: ["referral_code"]
+            isOneToOne: false
+            referencedRelation: "entries"
+            referencedColumns: ["referral_code"]
+          },
+          {
+            foreignKeyName: "referral_conversions_referral_code_fkey"
+            columns: ["referral_code"]
+            isOneToOne: false
+            referencedRelation: "entry_stats"
+            referencedColumns: ["referral_code"]
+          },
+        ]
+      }
     }
     Views: {
       entry_stats: {
@@ -73,6 +109,7 @@ export type Database = {
           referral_code: string | null
           referral_count: number | null
           referred_by: string | null
+          updated_at: string | null
         }
         Insert: {
           created_at?: string | null
@@ -84,6 +121,7 @@ export type Database = {
           referral_code?: string | null
           referral_count?: never
           referred_by?: string | null
+          updated_at?: string | null
         }
         Update: {
           created_at?: string | null
@@ -95,6 +133,7 @@ export type Database = {
           referral_code?: string | null
           referral_count?: never
           referred_by?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
