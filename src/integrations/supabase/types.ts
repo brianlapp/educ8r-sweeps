@@ -51,11 +51,68 @@ export type Database = {
             referencedRelation: "entries"
             referencedColumns: ["referral_code"]
           },
+          {
+            foreignKeyName: "entries_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "entry_stats"
+            referencedColumns: ["referral_code"]
+          },
         ]
       }
     }
     Views: {
-      [_ in never]: never
+      entry_stats: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          entry_count: number | null
+          first_name: string | null
+          id: string | null
+          last_name: string | null
+          referral_code: string | null
+          referral_count: number | null
+          referred_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          entry_count?: number | null
+          first_name?: string | null
+          id?: string | null
+          last_name?: string | null
+          referral_code?: string | null
+          referral_count?: never
+          referred_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          entry_count?: number | null
+          first_name?: string | null
+          id?: string | null
+          last_name?: string | null
+          referral_code?: string | null
+          referral_count?: never
+          referred_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entries_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "entries"
+            referencedColumns: ["referral_code"]
+          },
+          {
+            foreignKeyName: "entries_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "entry_stats"
+            referencedColumns: ["referral_code"]
+          },
+        ]
+      }
     }
     Functions: {
       handle_everflow_postback: {
