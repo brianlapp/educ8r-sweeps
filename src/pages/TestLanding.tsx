@@ -3,17 +3,6 @@ import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
-// Extend the existing Window interface
-declare global {
-  interface Window {
-    EF: {
-      conversion: (params: any) => void;
-      click: (params: any) => void;
-      impression: (params: any) => void;
-    };
-  }
-}
-
 const TestLanding = () => {
   const [searchParams] = useSearchParams();
   const referralCode = searchParams.get("ref");
@@ -30,8 +19,8 @@ const TestLanding = () => {
     script.onload = () => {
       if (window.EF && referralCode) {
         console.log('Tracking impression for:', referralCode);
-        // @ts-ignore
-        window.EF.impression({
+        // Type assertion to allow impression tracking
+        (window.EF as any).impression({
           aid: '471',
           oid: offerId,
           affiliate_info: referralCode
