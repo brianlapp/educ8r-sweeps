@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -21,25 +22,48 @@ const TestLanding = () => {
     // Load Everflow tracking script with error handling
     const loadScript = async () => {
       try {
+        console.log('Starting to load Everflow script...');
+        console.log('URL Parameters:', {
+          offerId,
+          affiliateId,
+          sub1,
+          sub2,
+          sub3,
+          sub4,
+          sub5,
+          sourceId,
+          transactionId
+        });
+
         const script = document.createElement('script');
         script.src = 'https://get.free.ca/scripts/sdk/everflow.js';
         script.async = true;
         
         // Create a promise to handle script loading
         const scriptLoadPromise = new Promise((resolve, reject) => {
-          script.onload = resolve;
-          script.onerror = () => reject(new Error('Failed to load Everflow script'));
+          script.onload = () => {
+            console.log('Everflow script loaded successfully');
+            resolve();
+          };
+          script.onerror = (error) => {
+            console.error('Failed to load Everflow script:', error);
+            reject(new Error('Failed to load Everflow script'));
+          };
         });
 
         document.body.appendChild(script);
+        console.log('Script added to document');
         
         // Wait for script to load
         await scriptLoadPromise;
 
+        // Verify EF object exists
+        console.log('EF object available:', !!window.EF);
+        
         // Track impression after successful script load
         if (window.EF && offerId) {
-          console.log('Tracking impression for offer:', offerId);
-          window.EF.impression({
+          console.log('Preparing to fire impression...');
+          const impressionData = {
             offer_id: offerId,
             affiliate_id: affiliateId,
             sub1, // Pass referral code
@@ -48,11 +72,17 @@ const TestLanding = () => {
             sub4,
             sub5,
             source_id: sourceId,
-            transaction_id: transactionId // Use consistent transaction ID
-          });
+            transaction_id: transactionId
+          };
+          console.log('Impression data:', impressionData);
+          
+          window.EF.impression(impressionData);
+          console.log('Impression fired');
+        } else {
+          console.warn('Cannot fire impression - EF:', !!window.EF, 'offerId:', offerId);
         }
       } catch (error) {
-        console.error('Error loading Everflow script:', error);
+        console.error('Error in tracking setup:', error);
       }
     };
 
@@ -68,9 +98,9 @@ const TestLanding = () => {
   }, [offerId, affiliateId, sub1, sub2, sub3, sub4, sub5, sourceId, transactionId]);
 
   const trackClick = () => {
+    console.log('Track click called');
     if (window.EF && offerId) {
-      console.log('Tracking click for offer:', offerId);
-      window.EF.click({
+      const clickData = {
         offer_id: offerId,
         affiliate_id: affiliateId,
         sub1, // Pass referral code
@@ -80,33 +110,39 @@ const TestLanding = () => {
         sub5,
         uid,
         source_id: sourceId,
-        transaction_id: transactionId // Use consistent transaction ID
-      });
+        transaction_id: transactionId
+      };
+      console.log('Click data:', clickData);
+      window.EF.click(clickData);
+      console.log('Click tracked');
     } else {
-      console.warn('EF not loaded or offer ID missing');
+      console.warn('Cannot track click - EF:', !!window.EF, 'offerId:', offerId);
     }
   };
 
   const trackConversion = () => {
+    console.log('Track conversion called');
     if (window.EF && offerId) {
-      console.log('Firing Everflow conversion for offer:', offerId);
-      window.EF.conversion({
+      const conversionData = {
         offer_id: offerId,
-        transaction_id: transactionId, // Use consistent transaction ID
-        sub1 // Pass referral code
-      });
+        transaction_id: transactionId,
+        sub1
+      };
+      console.log('Conversion data:', conversionData);
+      window.EF.conversion(conversionData);
+      console.log('Conversion tracked');
 
       // After successful conversion, notify our backend
       supabase.functions.invoke('everflow-webhook', {
         body: {
-          referral_code: sub1, // Use sub1 as referral code
+          referral_code: sub1,
           transaction_id: transactionId
         }
       }).catch(error => {
         console.error('Error notifying backend of conversion:', error);
       });
     } else {
-      console.warn('EF not loaded or offer ID missing');
+      console.warn('Cannot track conversion - EF:', !!window.EF, 'offerId:', offerId);
     }
   };
 
