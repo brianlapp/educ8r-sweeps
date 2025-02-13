@@ -39,14 +39,24 @@ const Index = () => {
             <h2 className="text-2xl font-semibold mb-6 text-center">⏰ Limited Time Offer!</h2>
             <CountdownTimer targetDate={targetDate} />
             
-            <div className="mt-8 bg-blue-50 p-6 rounded-xl">
-              <h3 className="text-lg font-semibold mb-3 text-blue-800">What You Could Win:</h3>
-              <ul className="space-y-2 text-blue-700">
-                <li>✓ Premium School Backpack</li>
-                <li>✓ Complete Crayola Art Set</li>
-                <li>✓ Notebooks & Folders</li>
-                <li>✓ Essential School Supplies</li>
-                <li>✓ Cleaning & Sanitizing Items</li>
+            <div className="mt-8 bg-gradient-to-br from-blue-50 to-indigo-50 p-8 rounded-2xl border border-blue-100">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-blue-600 text-2xl">🎁</span>
+                <h3 className="text-xl font-semibold text-blue-800">What You Could Win:</h3>
+              </div>
+              <ul className="space-y-3 text-blue-700">
+                {[
+                  "Premium School Backpack",
+                  "Complete Crayola Art Set",
+                  "Notebooks & Folders",
+                  "Essential School Supplies",
+                  "Cleaning & Sanitizing Items"
+                ].map((item, index) => (
+                  <li key={index} className="flex items-center gap-3 p-2 hover:bg-blue-100/50 rounded-lg transition-colors">
+                    <span className="text-blue-500 font-bold">✓</span>
+                    <span className="font-medium">{item}</span>
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
