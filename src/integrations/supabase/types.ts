@@ -58,6 +58,13 @@ export type Database = {
             referencedRelation: "entry_stats"
             referencedColumns: ["referral_code"]
           },
+          {
+            foreignKeyName: "entries_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "referral_debug"
+            referencedColumns: ["referral_code"]
+          },
         ]
       }
       referral_conversions: {
@@ -92,6 +99,13 @@ export type Database = {
             columns: ["referral_code"]
             isOneToOne: false
             referencedRelation: "entry_stats"
+            referencedColumns: ["referral_code"]
+          },
+          {
+            foreignKeyName: "referral_conversions_referral_code_fkey"
+            columns: ["referral_code"]
+            isOneToOne: false
+            referencedRelation: "referral_debug"
             referencedColumns: ["referral_code"]
           },
         ]
@@ -148,6 +162,45 @@ export type Database = {
             columns: ["referred_by"]
             isOneToOne: false
             referencedRelation: "entry_stats"
+            referencedColumns: ["referral_code"]
+          },
+          {
+            foreignKeyName: "entries_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "referral_debug"
+            referencedColumns: ["referral_code"]
+          },
+        ]
+      }
+      referral_debug: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          referral_code: string | null
+          referred_by: string | null
+          referrer_email: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entries_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "entries"
+            referencedColumns: ["referral_code"]
+          },
+          {
+            foreignKeyName: "entries_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "entry_stats"
+            referencedColumns: ["referral_code"]
+          },
+          {
+            foreignKeyName: "entries_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "referral_debug"
             referencedColumns: ["referral_code"]
           },
         ]
