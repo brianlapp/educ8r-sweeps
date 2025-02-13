@@ -43,7 +43,7 @@ serve(async (req) => {
     }
 
     // Step 1: Create/Update BeehiiV subscription with initial tags
-    const tags = ['sweeps', 'fps']; // Base tags for all sweepstakes entries
+    const tags = ['sweeps', 'comprendi']; // Base tags for all sweepstakes entries
 
     const subscribeResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`, {
       method: 'POST',
