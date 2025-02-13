@@ -38,21 +38,10 @@ const ThankYou = () => {
     localStorage.removeItem("referralCode");
   }, [toast]);
 
-  // Only generate the referral link if we have a valid referral code
-  const referralLink = referralCode 
-    ? `${window.location.origin}/test-landing?ref=${referralCode}&oid=1986&sub1=${referralCode}`
-    : null;
+  // Generate tracking link with Everflow parameters
+  const referralLink = `${window.location.origin}/test-landing?ref=${referralCode}&oid=1986&sub1=${referralCode}`;
 
   const copyReferralLink = async () => {
-    if (!referralLink) {
-      toast({
-        title: "Error",
-        description: "No referral link available yet. Please wait a moment.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       await navigator.clipboard.writeText(referralLink);
       toast({
@@ -100,17 +89,14 @@ const ThankYou = () => {
             <div className="flex flex-col gap-4">
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-500 mb-2">Your Referral Link:</p>
-                <p className="text-primary font-medium break-all">
-                  {referralLink || 'Generating your referral link...'}
-                </p>
+                <p className="text-primary font-medium break-all">{referralLink}</p>
               </div>
 
               <Button 
                 onClick={copyReferralLink}
                 className="w-full"
-                disabled={!referralLink}
               >
-                {referralLink ? 'Copy Referral Link' : 'Waiting for link...'}
+                Copy Referral Link
               </Button>
             </div>
           </div>
