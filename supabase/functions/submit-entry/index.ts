@@ -8,7 +8,7 @@ const corsHeaders = {
 }
 
 const BEEHIIV_API_KEY = Deno.env.get('BEEHIIV_API_KEY')
-const BEEHIIV_PUBLICATION_ID = 'pub_' // TODO: Add your Beehiiv publication ID
+const BEEHIIV_PUBLICATION_ID = 'pub_4b47c3db-7b59-4c82-a18b-16cf10fc2d23'
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -42,8 +42,10 @@ serve(async (req) => {
       throw new Error(supabaseError.message)
     }
 
-    // Subscribe to Beehiiv newsletter
-    const beehiivResponse = await fetch('https://api.beehiiv.com/v2/subscribers', {
+    // Step 1: Create/Update BeehiiV subscription with initial tags
+    const tags = ['sweeps', 'fps']; // Base tags for all sweepstakes entries
+
+    const subscribeResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -51,21 +53,39 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         email: email,
-        publication_id: BEEHIIV_PUBLICATION_ID,
-        reactivate_existing: false,
-        send_welcome_email: true,
-        utm_source: referredBy || 'website',
-        custom_fields: {
-          first_name: firstName,
-          last_name: lastName,
-          referral_code: entry.referral_code
-        }
+        first_name: firstName,
+        last_name: lastName,
+        utm_source: 'sweepstakes',
+        utm_medium: referredBy ? 'referral' : 'organic',
+        utm_campaign: referredBy || undefined,
+        tags: tags,
+        reactivate: true,
+        referral_code: entry.referral_code
       })
     })
 
-    if (!beehiivResponse.ok) {
-      console.error('Beehiiv error:', await beehiivResponse.text())
+    if (!subscribeResponse.ok) {
+      console.error('BeehiiV subscription error:', await subscribeResponse.text())
       throw new Error('Failed to subscribe to newsletter')
+    }
+
+    const subscribeData = await subscribeResponse.json()
+
+    // Step 2: Explicitly add tags to ensure they stick
+    if (subscribeData.id) {
+      const tagResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscribeData.id}/tags`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+        },
+        body: JSON.stringify({ tags })
+      })
+
+      if (!tagResponse.ok) {
+        console.error('BeehiiV tag error:', await tagResponse.text())
+        // Don't throw here - the subscription was successful even if tag addition failed
+      }
     }
 
     // Return success response with the entry data
