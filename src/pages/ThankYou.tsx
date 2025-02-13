@@ -3,16 +3,53 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
+declare global {
+  interface Window {
+    EF: {
+      conversion: (params: any) => void;
+      click: (params: any) => void;
+    };
+  }
+}
+
 const ThankYou = () => {
   const [referralCode, setReferralCode] = useState<string>("");
   const { toast } = useToast();
 
   useEffect(() => {
+    // Load Everflow tracking script
+    const script = document.createElement('script');
+    script.src = 'https://js.everflow.io/ef.min.js';
+    script.async = true;
+    document.body.appendChild(script);
+
+    // Initialize and fetch referral code
     const code = localStorage.getItem("referralCode");
-    if (code) setReferralCode(code);
+    if (code) {
+      setReferralCode(code);
+      
+      // Once the script is loaded, fire conversion
+      script.onload = () => {
+        if (window.EF) {
+          window.EF.conversion({
+            aid: 'YOUR_NETWORK_ID', // Replace with your Everflow Network ID
+            amount: 1,
+            event_id: 1, // Replace with your actual event ID
+            transaction_id: Math.random().toString(36).substring(2),
+            affiliate_info: code
+          });
+        }
+      };
+    }
+
+    // Cleanup
+    return () => {
+      document.body.removeChild(script);
+    };
   }, []);
 
-  const referralLink = `${window.location.origin}?ref=${referralCode}`;
+  // Generate tracking link with Everflow parameters
+  const referralLink = `${window.location.origin}?ref=${referralCode}&oid=1`; // Add Everflow offer ID
 
   const copyReferralLink = async () => {
     try {
