@@ -10,7 +10,8 @@ const TestLanding = () => {
   const AFFILIATE_ID = 2628;
   const impressionFired = useRef(false);
   const scriptLoaded = useRef(false);
-  // Initialize transaction ID immediately on component mount
+  const clickFired = useRef(false);
+  const conversionFired = useRef(false);
   const transactionId = useRef(Math.random().toString(36).substring(2));
 
   const loadEverflowScript = () => {
@@ -47,7 +48,7 @@ const TestLanding = () => {
         await loadEverflowScript();
         console.log('Using transaction ID:', transactionId.current);
 
-        // Only fire impression once
+        // Only fire impression once and never again
         if (!impressionFired.current && window.EF) {
           console.log('Preparing to fire impression...');
           const impressionData = {
@@ -87,58 +88,74 @@ const TestLanding = () => {
   }, []);
 
   const trackClick = async () => {
+    if (clickFired.current) {
+      console.log('Click already fired, ignoring duplicate');
+      return;
+    }
+
     console.log('Track click called');
-    // Ensure script is loaded before tracking
-    await loadEverflowScript();
-    
-    if (window.EF) {
-      const clickData = {
-        offer_id: window.EF.urlParameter('oid'),
-        affiliate_id: AFFILIATE_ID,
-        sub1: window.EF.urlParameter('sub1'),
-        sub2: window.EF.urlParameter('sub2'),
-        sub3: window.EF.urlParameter('sub3'),
-        sub4: window.EF.urlParameter('sub4'),
-        sub5: window.EF.urlParameter('sub5'),
-        uid: window.EF.urlParameter('uid'),
-        source_id: window.EF.urlParameter('source_id'),
-        transaction_id: transactionId.current
-      };
-      console.log('Click data:', clickData);
-      window.EF.click(clickData);
-      console.log('Click tracked');
-    } else {
-      console.warn('Cannot track click - EF object not available');
+    try {
+      // Ensure script is loaded
+      await loadEverflowScript();
+      
+      if (window.EF) {
+        const clickData = {
+          offer_id: window.EF.urlParameter('oid'),
+          affiliate_id: AFFILIATE_ID,
+          sub1: window.EF.urlParameter('sub1'),
+          sub2: window.EF.urlParameter('sub2'),
+          sub3: window.EF.urlParameter('sub3'),
+          sub4: window.EF.urlParameter('sub4'),
+          sub5: window.EF.urlParameter('sub5'),
+          uid: window.EF.urlParameter('uid'),
+          source_id: window.EF.urlParameter('source_id'),
+          transaction_id: transactionId.current
+        };
+        console.log('Click data:', clickData);
+        window.EF.click(clickData);
+        clickFired.current = true;
+        console.log('Click tracked');
+      }
+    } catch (error) {
+      console.error('Error tracking click:', error);
     }
   };
 
   const trackConversion = async () => {
-    console.log('Track conversion called');
-    // Ensure script is loaded before tracking
-    await loadEverflowScript();
-    
-    if (window.EF) {
-      const conversionData = {
-        offer_id: window.EF.urlParameter('oid'),
-        affiliate_id: AFFILIATE_ID,
-        transaction_id: transactionId.current,
-        sub1: window.EF.urlParameter('sub1')
-      };
-      console.log('Conversion data:', conversionData);
-      window.EF.conversion(conversionData);
-      console.log('Conversion tracked');
+    if (conversionFired.current) {
+      console.log('Conversion already fired, ignoring duplicate');
+      return;
+    }
 
-      // After successful conversion, notify our backend
-      supabase.functions.invoke('everflow-webhook', {
-        body: {
-          referral_code: window.EF.urlParameter('sub1'),
-          transaction_id: transactionId.current
-        }
-      }).catch(error => {
-        console.error('Error notifying backend of conversion:', error);
-      });
-    } else {
-      console.warn('Cannot track conversion - EF object not available');
+    console.log('Track conversion called');
+    try {
+      // Ensure script is loaded
+      await loadEverflowScript();
+      
+      if (window.EF) {
+        const conversionData = {
+          offer_id: window.EF.urlParameter('oid'),
+          affiliate_id: AFFILIATE_ID,
+          transaction_id: transactionId.current,
+          sub1: window.EF.urlParameter('sub1')
+        };
+        console.log('Conversion data:', conversionData);
+        window.EF.conversion(conversionData);
+        conversionFired.current = true;
+        console.log('Conversion tracked');
+
+        // After successful conversion, notify our backend
+        supabase.functions.invoke('everflow-webhook', {
+          body: {
+            referral_code: window.EF.urlParameter('sub1'),
+            transaction_id: transactionId.current
+          }
+        }).catch(error => {
+          console.error('Error notifying backend of conversion:', error);
+        });
+      }
+    } catch (error) {
+      console.error('Error tracking conversion:', error);
     }
   };
 
@@ -170,11 +187,18 @@ const TestLanding = () => {
                     ✓ Impression tracking fired automatically on page load
                   </p>
                   <div className="flex gap-4">
-                    <Button onClick={trackClick} variant="outline">
-                      Track Click
+                    <Button 
+                      onClick={trackClick} 
+                      variant="outline"
+                      disabled={clickFired.current}
+                    >
+                      {clickFired.current ? "Click Tracked" : "Track Click"}
                     </Button>
-                    <Button onClick={trackConversion}>
-                      Track Conversion
+                    <Button 
+                      onClick={trackConversion}
+                      disabled={conversionFired.current}
+                    >
+                      {conversionFired.current ? "Conversion Tracked" : "Track Conversion"}
                     </Button>
                   </div>
                 </div>
