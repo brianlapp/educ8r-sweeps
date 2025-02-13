@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
-// Single source of truth for Everflow SDK types
 declare global {
   interface Window {
     EF: {
@@ -20,9 +19,12 @@ const ThankYou = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Generate a random referral code if none exists
-    const code = localStorage.getItem("referralCode") || Math.random().toString(36).substring(2, 10);
-    localStorage.setItem("referralCode", code); // Save it
+    // Get the unique referral code that was saved during signup
+    const code = localStorage.getItem("referralCode");
+    if (!code) {
+      console.error("No referral code found in localStorage");
+      return;
+    }
     setReferralCode(code);
   }, []);
 
