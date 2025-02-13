@@ -40,7 +40,7 @@ const TestLanding = () => {
         script.async = true;
         
         // Create a promise to handle script loading
-        const scriptLoadPromise = new Promise((resolve, reject) => {
+        const scriptLoadPromise = new Promise<void>((resolve, reject) => {
           script.onload = () => {
             console.log('Everflow script loaded successfully');
             resolve();
