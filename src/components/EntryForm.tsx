@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useSearchParams, useNavigate } from "react-router-dom";
 
 export const EntryForm = () => {
   const [formData, setFormData] = useState({
@@ -12,7 +14,11 @@ export const EntryForm = () => {
     email: "",
   });
   const [agreed, setAgreed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const referredBy = searchParams.get("ref");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,11 +32,36 @@ export const EntryForm = () => {
       return;
     }
 
-    // TODO: Implement form submission
-    console.log("Form submitted:", formData);
+    setIsSubmitting(true);
 
-    // Redirect to thank you page
-    window.location.href = "/thank-you";
+    try {
+      const { data, error } = await supabase.functions.invoke('submit-entry', {
+        body: {
+          ...formData,
+          referredBy
+        }
+      });
+
+      if (error) throw error;
+
+      // Save referral code to localStorage for the thank you page
+      if (data?.referral_code) {
+        localStorage.setItem('referralCode', data.referral_code);
+      }
+
+      // Redirect to thank you page
+      navigate('/thank-you');
+
+    } catch (error) {
+      console.error('Error submitting entry:', error);
+      toast({
+        title: "Error",
+        description: "There was an error submitting your entry. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -44,6 +75,7 @@ export const EntryForm = () => {
           setFormData({ ...formData, firstName: e.target.value })
         }
         className="w-full"
+        disabled={isSubmitting}
       />
       <Input
         type="text"
@@ -52,6 +84,7 @@ export const EntryForm = () => {
         value={formData.lastName}
         onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
         className="w-full"
+        disabled={isSubmitting}
       />
       <Input
         type="email"
@@ -60,12 +93,14 @@ export const EntryForm = () => {
         value={formData.email}
         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
         className="w-full"
+        disabled={isSubmitting}
       />
       <div className="flex items-start space-x-2">
         <Checkbox
           id="terms"
           checked={agreed}
           onCheckedChange={(checked) => setAgreed(checked as boolean)}
+          disabled={isSubmitting}
         />
         <label
           htmlFor="terms"
@@ -86,8 +121,9 @@ export const EntryForm = () => {
       <Button
         type="submit"
         className="w-full bg-primary hover:bg-primary-hover text-white font-medium py-3 rounded-lg transition-colors duration-200"
+        disabled={isSubmitting}
       >
-        Enter to Win! →
+        {isSubmitting ? "Submitting..." : "Enter to Win! →"}
       </Button>
     </form>
   );
