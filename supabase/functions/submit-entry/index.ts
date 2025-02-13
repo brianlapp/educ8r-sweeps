@@ -29,7 +29,7 @@ serve(async (req) => {
     // First check if the email already exists
     const { data: existingEntry, error: lookupError } = await supabaseClient
       .from('entries')
-      .select('referral_code')
+      .select('referral_code, entry_count')
       .eq('email', email)
       .single()
 
@@ -39,7 +39,18 @@ serve(async (req) => {
     }
 
     if (existingEntry) {
-      // If entry exists, return it with a specific flag
+      // Update entry count for existing entry
+      const { error: updateError } = await supabaseClient
+        .from('entries')
+        .update({ entry_count: (existingEntry.entry_count || 1) + 1 })
+        .eq('email', email)
+
+      if (updateError) {
+        console.error('Error updating entry count:', updateError)
+        throw new Error(updateError.message)
+      }
+
+      // Return existing entry
       return new Response(
         JSON.stringify({
           success: true,
@@ -56,6 +67,7 @@ serve(async (req) => {
     }
 
     // Verify the referral code exists if one was provided
+    let validReferral = false
     if (referredBy) {
       const { data: referrerEntry, error: referrerError } = await supabaseClient
         .from('entries')
@@ -65,10 +77,10 @@ serve(async (req) => {
 
       if (referrerError) {
         console.error('Error verifying referral code:', referrerError)
-        // Invalid referral code - we'll continue without it
         console.log('Invalid referral code provided:', referredBy)
       } else {
         console.log('Valid referral code found:', referredBy)
+        validReferral = true
       }
     }
 
@@ -79,7 +91,8 @@ serve(async (req) => {
         first_name: firstName,
         last_name: lastName,
         email: email,
-        referred_by: referredBy || null
+        referred_by: validReferral ? referredBy : null,
+        entry_count: 1
       })
       .select()
       .single()
