@@ -1,8 +1,18 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 // This is a test function to simulate an Everflow webhook call
-serve(async (_req) => {
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   try {
     // Simulate a webhook call to our everflow-webhook endpoint
     const response = await fetch(
@@ -31,7 +41,10 @@ serve(async (_req) => {
         result 
       }),
       { 
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
       }
     );
 
@@ -44,7 +57,10 @@ serve(async (_req) => {
       }),
       { 
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
       }
     );
   }
