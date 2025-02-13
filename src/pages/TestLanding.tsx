@@ -3,6 +3,16 @@ import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
+declare global {
+  interface Window {
+    EF: {
+      conversion: (params: any) => void;
+      click: (params: any) => void;
+      impression: (params: any) => void;
+    };
+  }
+}
+
 const TestLanding = () => {
   const [searchParams] = useSearchParams();
   const referralCode = searchParams.get("ref");
