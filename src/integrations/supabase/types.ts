@@ -60,8 +60,8 @@ export type Database = {
     Functions: {
       handle_everflow_postback: {
         Args: {
-          referral_code: string
-          transaction_id: string
+          ref_code: string
+          trans_id: string
         }
         Returns: undefined
       }
