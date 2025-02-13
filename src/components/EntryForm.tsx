@@ -34,16 +34,14 @@ export const EntryForm = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-md mx-auto">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <Input
         type="text"
         placeholder="First Name"
         required
         value={formData.firstName}
-        onChange={(e) =>
-          setFormData({ ...formData, firstName: e.target.value })
-        }
-        className="w-full"
+        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+        className="w-full bg-[#F5F5F5] border-0"
       />
       <Input
         type="text"
@@ -51,7 +49,7 @@ export const EntryForm = () => {
         required
         value={formData.lastName}
         onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-        className="w-full"
+        className="w-full bg-[#F5F5F5] border-0"
       />
       <Input
         type="email"
@@ -59,7 +57,7 @@ export const EntryForm = () => {
         required
         value={formData.email}
         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-        className="w-full"
+        className="w-full bg-[#F5F5F5] border-0"
       />
       <div className="flex items-start space-x-2">
         <Checkbox
@@ -71,21 +69,20 @@ export const EntryForm = () => {
           htmlFor="terms"
           className="text-sm text-gray-600 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
         >
-          By entering your information and clicking Enter to Win, you agree to our{" "}
-          <a href="#" className="text-primary hover:underline">
+          By entering your information and clicking Join Now, you agree to our{" "}
+          <a href="#" className="text-blue-600 hover:underline">
             Privacy Policy
           </a>
           ,{" "}
-          <a href="#" className="text-primary hover:underline">
+          <a href="#" className="text-blue-600 hover:underline">
             Terms and Conditions
           </a>{" "}
-          and understand that we will be sending you our newsletters by email.
-          Unsubscribe at any time.
+          and understand that we will be sending you our newsletters by email. Unsubscribe at any time.
         </label>
       </div>
       <Button
         type="submit"
-        className="w-full bg-primary hover:bg-primary-hover text-white font-medium py-3 rounded-lg transition-colors duration-200"
+        className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white font-medium py-3 rounded-lg"
       >
         Enter to Win! →
       </Button>
