@@ -35,7 +35,7 @@ export const EntryForm = () => {
     setIsSubmitting(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('submit-entry', {
+      const { data: response, error } = await supabase.functions.invoke('submit-entry', {
         body: {
           ...formData,
           referredBy
@@ -44,19 +44,21 @@ export const EntryForm = () => {
 
       if (error) throw error;
 
-      if (data.isExisting) {
-        // If the email already exists, we still have their referral code
-        console.log('Using existing referral code:', data.referral_code);
-        localStorage.setItem('referralCode', data.referral_code);
+      // Access the referral_code from the nested data object
+      const referralCode = response.data.referral_code;
+      console.log('Got referral code from response:', referralCode);
+
+      if (response.isExisting) {
+        console.log('Using existing referral code:', referralCode);
+        localStorage.setItem('referralCode', referralCode);
         
         toast({
           title: "Welcome Back!",
           description: "You've already entered the sweepstakes. We'll take you to your referral page.",
         });
       } else {
-        // New entry
-        console.log('Saving new referral code:', data.referral_code);
-        localStorage.setItem('referralCode', data.referral_code);
+        console.log('Saving new referral code:', referralCode);
+        localStorage.setItem('referralCode', referralCode);
         
         toast({
           title: "Success!",
