@@ -1,6 +1,7 @@
 
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 const TestLanding = () => {
   const [searchParams] = useSearchParams();
@@ -14,28 +15,49 @@ const TestLanding = () => {
     script.async = true;
     document.body.appendChild(script);
 
-    // If we have a referral code, fire the conversion
-    if (referralCode) {
-      script.onload = () => {
-        if (window.EF) {
-          console.log('Firing Everflow conversion with code:', referralCode);
-          window.EF.conversion({
-            aid: '471', // Everflow Network ID
-            oid: offerId, // Offer ID from URL
-            amount: 1,
-            transaction_id: Math.random().toString(36).substring(2),
-            affiliate_info: referralCode,
-            coupon_code: referralCode
-          });
-        }
-      };
-    }
+    // Track impression when script loads
+    script.onload = () => {
+      if (window.EF && referralCode) {
+        console.log('Tracking impression for:', referralCode);
+        window.EF.impression({
+          aid: '471',
+          oid: offerId,
+          affiliate_info: referralCode
+        });
+      }
+    };
 
     // Cleanup
     return () => {
       document.body.removeChild(script);
     };
   }, [referralCode, offerId]);
+
+  const trackClick = () => {
+    if (window.EF && referralCode) {
+      console.log('Tracking click for:', referralCode);
+      window.EF.click({
+        aid: '471',
+        oid: offerId,
+        affiliate_info: referralCode,
+        type: 'click'
+      });
+    }
+  };
+
+  const trackConversion = () => {
+    if (window.EF && referralCode) {
+      console.log('Firing Everflow conversion with code:', referralCode);
+      window.EF.conversion({
+        aid: '471',
+        oid: offerId,
+        amount: 1,
+        transaction_id: Math.random().toString(36).substring(2),
+        affiliate_info: referralCode,
+        coupon_code: referralCode
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -53,9 +75,24 @@ const TestLanding = () => {
               <p className="text-gray-600">
                 <strong>Offer ID:</strong> {offerId || 'None'}
               </p>
-              <p className="text-gray-600">
-                This is a test page to simulate the partner's landing page and verify tracking functionality.
-              </p>
+              <div className="pt-6 space-y-4">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-2">
+                    ✓ Impression tracking fired automatically on page load
+                  </p>
+                  <div className="flex gap-4">
+                    <Button onClick={trackClick} variant="outline">
+                      Track Click
+                    </Button>
+                    <Button onClick={trackConversion}>
+                      Track Conversion
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-500">
+                  Check the browser console (F12) to see tracking events being fired.
+                </p>
+              </div>
             </div>
           </div>
         </div>
