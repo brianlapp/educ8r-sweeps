@@ -4,6 +4,18 @@ import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
+// Define the Everflow SDK types
+declare global {
+  interface Window {
+    EF: {
+      impression: (params: any) => void;
+      click: (params: any) => void;
+      conversion: (params: any) => void;
+      urlParameter?: (param: string) => string | null;
+    }
+  }
+}
+
 const TestLanding = () => {
   const [searchParams] = useSearchParams();
   const referralCode = searchParams.get("ref");
