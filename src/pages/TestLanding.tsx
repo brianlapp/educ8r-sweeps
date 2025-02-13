@@ -7,34 +7,14 @@ import { supabase } from "@/integrations/supabase/client";
 const TestLanding = () => {
   const [searchParams] = useSearchParams();
   const referralCode = searchParams.get("ref");
-  const offerId = searchParams.get("oid");
-  const affiliateId = searchParams.get("affid");
-  const sub1 = searchParams.get("sub1"); // This will be our referral code
-  const sub2 = searchParams.get("sub2");
-  const sub3 = searchParams.get("sub3");
-  const sub4 = searchParams.get("sub4");
-  const sub5 = searchParams.get("sub5");
-  const sourceId = searchParams.get("source_id");
-  const uid = searchParams.get("uid");
-  const transactionId = searchParams.get("_ef_transaction_id") || Math.random().toString(36).substring(2);
+  const AFFILIATE_ID = 2628; // Hardcoded as per the tracking pixel
 
   useEffect(() => {
     // Load Everflow tracking script with error handling
     const loadScript = async () => {
       try {
         console.log('Starting to load Everflow script...');
-        console.log('URL Parameters:', {
-          offerId,
-          affiliateId,
-          sub1,
-          sub2,
-          sub3,
-          sub4,
-          sub5,
-          sourceId,
-          transactionId
-        });
-
+        
         const script = document.createElement('script');
         script.src = 'https://get.free.ca/scripts/sdk/everflow.js';
         script.async = true;
@@ -61,25 +41,25 @@ const TestLanding = () => {
         console.log('EF object available:', !!window.EF);
         
         // Track impression after successful script load
-        if (window.EF && offerId) {
+        if (window.EF) {
           console.log('Preparing to fire impression...');
           const impressionData = {
-            offer_id: offerId,
-            affiliate_id: affiliateId,
-            sub1, // Pass referral code
-            sub2,
-            sub3,
-            sub4,
-            sub5,
-            source_id: sourceId,
-            transaction_id: transactionId
+            offer_id: window.EF.urlParameter('oid'),
+            affiliate_id: AFFILIATE_ID,
+            sub1: window.EF.urlParameter('sub1'),
+            sub2: window.EF.urlParameter('sub2'),
+            sub3: window.EF.urlParameter('sub3'),
+            sub4: window.EF.urlParameter('sub4'),
+            sub5: window.EF.urlParameter('sub5'),
+            source_id: window.EF.urlParameter('source_id'),
+            transaction_id: window.EF.urlParameter('_ef_transaction_id') || Math.random().toString(36).substring(2)
           };
           console.log('Impression data:', impressionData);
           
           window.EF.impression(impressionData);
           console.log('Impression fired');
         } else {
-          console.warn('Cannot fire impression - EF:', !!window.EF, 'offerId:', offerId);
+          console.warn('Cannot fire impression - EF object not available');
         }
       } catch (error) {
         console.error('Error in tracking setup:', error);
@@ -95,38 +75,40 @@ const TestLanding = () => {
         document.body.removeChild(script);
       }
     };
-  }, [offerId, affiliateId, sub1, sub2, sub3, sub4, sub5, sourceId, transactionId]);
+  }, []); // Removed dependencies since we're using EF.urlParameter()
 
   const trackClick = () => {
     console.log('Track click called');
-    if (window.EF && offerId) {
+    if (window.EF) {
       const clickData = {
-        offer_id: offerId,
-        affiliate_id: affiliateId,
-        sub1, // Pass referral code
-        sub2,
-        sub3,
-        sub4,
-        sub5,
-        uid,
-        source_id: sourceId,
-        transaction_id: transactionId
+        offer_id: window.EF.urlParameter('oid'),
+        affiliate_id: AFFILIATE_ID,
+        sub1: window.EF.urlParameter('sub1'),
+        sub2: window.EF.urlParameter('sub2'),
+        sub3: window.EF.urlParameter('sub3'),
+        sub4: window.EF.urlParameter('sub4'),
+        sub5: window.EF.urlParameter('sub5'),
+        uid: window.EF.urlParameter('uid'),
+        source_id: window.EF.urlParameter('source_id'),
+        transaction_id: window.EF.urlParameter('_ef_transaction_id') || Math.random().toString(36).substring(2)
       };
       console.log('Click data:', clickData);
       window.EF.click(clickData);
       console.log('Click tracked');
     } else {
-      console.warn('Cannot track click - EF:', !!window.EF, 'offerId:', offerId);
+      console.warn('Cannot track click - EF object not available');
     }
   };
 
   const trackConversion = () => {
     console.log('Track conversion called');
-    if (window.EF && offerId) {
+    if (window.EF) {
+      const transactionId = window.EF.urlParameter('_ef_transaction_id') || Math.random().toString(36).substring(2);
       const conversionData = {
-        offer_id: offerId,
+        offer_id: window.EF.urlParameter('oid'),
+        affiliate_id: AFFILIATE_ID,
         transaction_id: transactionId,
-        sub1
+        sub1: window.EF.urlParameter('sub1')
       };
       console.log('Conversion data:', conversionData);
       window.EF.conversion(conversionData);
@@ -135,14 +117,14 @@ const TestLanding = () => {
       // After successful conversion, notify our backend
       supabase.functions.invoke('everflow-webhook', {
         body: {
-          referral_code: sub1,
+          referral_code: window.EF.urlParameter('sub1'),
           transaction_id: transactionId
         }
       }).catch(error => {
         console.error('Error notifying backend of conversion:', error);
       });
     } else {
-      console.warn('Cannot track conversion - EF:', !!window.EF, 'offerId:', offerId);
+      console.warn('Cannot track conversion - EF object not available');
     }
   };
 
@@ -157,10 +139,10 @@ const TestLanding = () => {
             <h2 className="text-2xl font-semibold mb-4">Tracking Information</h2>
             <div className="space-y-4">
               <p className="text-gray-600">
-                <strong>Offer ID:</strong> {offerId || 'None'}
+                <strong>Offer ID:</strong> {window.EF?.urlParameter('oid') || 'None'}
               </p>
               <p className="text-gray-600">
-                <strong>Affiliate ID:</strong> {affiliateId || 'None'}
+                <strong>Affiliate ID:</strong> {AFFILIATE_ID}
               </p>
               <p className="text-gray-600">
                 <strong>Referral Code:</strong> {referralCode || 'None'}
