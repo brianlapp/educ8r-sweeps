@@ -8,13 +8,22 @@ const TestLanding = () => {
   const [searchParams] = useSearchParams();
   const referralCode = searchParams.get("ref");
   const offerId = searchParams.get("oid");
+  const affiliateId = searchParams.get("affid");
+  const sub1 = searchParams.get("sub1");
+  const sub2 = searchParams.get("sub2");
+  const sub3 = searchParams.get("sub3");
+  const sub4 = searchParams.get("sub4");
+  const sub5 = searchParams.get("sub5");
+  const sourceId = searchParams.get("source_id");
+  const uid = searchParams.get("uid");
+  const transactionId = searchParams.get("_ef_transaction_id");
 
   useEffect(() => {
     // Load Everflow tracking script with error handling
     const loadScript = async () => {
       try {
         const script = document.createElement('script');
-        script.src = 'https://nid.everflow.io/script/471';
+        script.src = 'https://get.free.ca/scripts/sdk/everflow.js';
         script.async = true;
         
         // Create a promise to handle script loading
@@ -29,12 +38,17 @@ const TestLanding = () => {
         await scriptLoadPromise;
 
         // Track impression after successful script load
-        if (window.EF && referralCode) {
-          console.log('Tracking impression for:', referralCode);
-          (window.EF as any).impression({
-            aid: '471',
-            oid: offerId,
-            affiliate_info: referralCode
+        if (window.EF && offerId) {
+          console.log('Tracking impression for offer:', offerId);
+          window.EF.impression({
+            offer_id: offerId,
+            affiliate_id: affiliateId,
+            sub1,
+            sub2,
+            sub3,
+            sub4,
+            sub5,
+            source_id: sourceId
           });
         }
       } catch (error) {
@@ -46,37 +60,38 @@ const TestLanding = () => {
 
     // Cleanup
     return () => {
-      const script = document.querySelector('script[src="https://nid.everflow.io/script/471"]');
+      const script = document.querySelector('script[src="https://get.free.ca/scripts/sdk/everflow.js"]');
       if (script) {
         document.body.removeChild(script);
       }
     };
-  }, [referralCode, offerId]);
+  }, [offerId, affiliateId, sub1, sub2, sub3, sub4, sub5, sourceId]);
 
   const trackClick = () => {
-    if (window.EF && referralCode) {
-      console.log('Tracking click for:', referralCode);
+    if (window.EF && offerId) {
+      console.log('Tracking click for offer:', offerId);
       window.EF.click({
-        aid: '471',
-        oid: offerId,
-        affiliate_info: referralCode,
-        type: 'click'
+        offer_id: offerId,
+        affiliate_id: affiliateId,
+        sub1,
+        sub2,
+        sub3,
+        sub4,
+        sub5,
+        uid,
+        source_id: sourceId,
+        transaction_id: transactionId
       });
     } else {
-      console.warn('EF not loaded or referral code missing');
+      console.warn('EF not loaded or offer ID missing');
     }
   };
 
   const trackConversion = () => {
-    if (window.EF && referralCode) {
-      console.log('Firing Everflow conversion with code:', referralCode);
+    if (window.EF && offerId) {
+      console.log('Firing Everflow conversion for offer:', offerId);
       window.EF.conversion({
-        aid: '471',
-        oid: offerId,
-        amount: 1,
-        transaction_id: Math.random().toString(36).substring(2),
-        affiliate_info: referralCode,
-        coupon_code: referralCode
+        offer_id: offerId
       });
 
       // After successful conversion, notify our backend
@@ -89,7 +104,7 @@ const TestLanding = () => {
         console.error('Error notifying backend of conversion:', error);
       });
     } else {
-      console.warn('EF not loaded or referral code missing');
+      console.warn('EF not loaded or offer ID missing');
     }
   };
 
@@ -104,10 +119,13 @@ const TestLanding = () => {
             <h2 className="text-2xl font-semibold mb-4">Tracking Information</h2>
             <div className="space-y-4">
               <p className="text-gray-600">
-                <strong>Referral Code:</strong> {referralCode || 'None'}
+                <strong>Offer ID:</strong> {offerId || 'None'}
               </p>
               <p className="text-gray-600">
-                <strong>Offer ID:</strong> {offerId || 'None'}
+                <strong>Affiliate ID:</strong> {affiliateId || 'None'}
+              </p>
+              <p className="text-gray-600">
+                <strong>Referral Code:</strong> {referralCode || 'None'}
               </p>
               <div className="pt-6 space-y-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
