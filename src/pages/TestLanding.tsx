@@ -14,7 +14,7 @@ const TestLanding = () => {
     const loadScript = async () => {
       try {
         const script = document.createElement('script');
-        script.src = 'https://evo-scripts.everflow.io/ef.min.js';
+        script.src = 'https://nid.everflow.io/script/471';
         script.async = true;
         
         // Create a promise to handle script loading
@@ -46,7 +46,7 @@ const TestLanding = () => {
 
     // Cleanup
     return () => {
-      const script = document.querySelector('script[src="https://evo-scripts.everflow.io/ef.min.js"]');
+      const script = document.querySelector('script[src="https://nid.everflow.io/script/471"]');
       if (script) {
         document.body.removeChild(script);
       }
