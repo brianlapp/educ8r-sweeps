@@ -9,7 +9,50 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      entries: {
+        Row: {
+          created_at: string | null
+          email: string
+          entry_count: number | null
+          first_name: string
+          id: string
+          last_name: string
+          referral_code: string | null
+          referred_by: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          entry_count?: number | null
+          first_name: string
+          id?: string
+          last_name: string
+          referral_code?: string | null
+          referred_by?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          entry_count?: number | null
+          first_name?: string
+          id?: string
+          last_name?: string
+          referral_code?: string | null
+          referred_by?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entries_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "entries"
+            referencedColumns: ["referral_code"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
