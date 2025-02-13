@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -38,8 +37,8 @@ const ThankYou = () => {
     localStorage.removeItem("referralCode");
   }, [toast]);
 
-  // Generate tracking link with Everflow parameters
-  const referralLink = `${window.location.origin}/test-landing?ref=${referralCode}&oid=1986&sub1=${referralCode}`;
+  // Simplified referral link - only using sub1 parameter
+  const referralLink = `${window.location.origin}/test-landing?oid=1986&sub1=${referralCode}`;
 
   const copyReferralLink = async () => {
     try {
