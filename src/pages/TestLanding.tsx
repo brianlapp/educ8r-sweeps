@@ -10,7 +10,8 @@ const TestLanding = () => {
   const AFFILIATE_ID = 2628;
   const impressionFired = useRef(false);
   const scriptLoaded = useRef(false);
-  const transactionId = useRef('');
+  // Initialize transaction ID immediately on component mount
+  const transactionId = useRef(Math.random().toString(36).substring(2));
 
   const loadEverflowScript = () => {
     return new Promise<void>((resolve, reject) => {
@@ -44,11 +45,7 @@ const TestLanding = () => {
       try {
         // Load script first
         await loadEverflowScript();
-
-        // Set transaction ID after script is loaded
-        if (!transactionId.current) {
-          transactionId.current = window.EF?.urlParameter('_ef_transaction_id') || Math.random().toString(36).substring(2);
-        }
+        console.log('Using transaction ID:', transactionId.current);
 
         // Only fire impression once
         if (!impressionFired.current && window.EF) {
@@ -163,6 +160,9 @@ const TestLanding = () => {
               </p>
               <p className="text-gray-600">
                 <strong>Referral Code:</strong> {referralCode || 'None'}
+              </p>
+              <p className="text-gray-600">
+                <strong>Transaction ID:</strong> {transactionId.current}
               </p>
               <div className="pt-6 space-y-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
