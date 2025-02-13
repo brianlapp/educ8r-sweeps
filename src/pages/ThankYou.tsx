@@ -20,10 +20,10 @@ const ThankYou = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const code = localStorage.getItem("referralCode");
-    if (code) {
-      setReferralCode(code);
-    }
+    // Generate a random referral code if none exists
+    const code = localStorage.getItem("referralCode") || Math.random().toString(36).substring(2, 10);
+    localStorage.setItem("referralCode", code); // Save it
+    setReferralCode(code);
   }, []);
 
   // Generate tracking link with Everflow parameters - including sub1 for referral tracking
