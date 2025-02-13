@@ -40,7 +40,7 @@ export default function Admin() {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from('entry_stats')
+        .from('entries')
         .select('*')
         .order(sortField, { ascending: sortOrder === 'asc' });
 
@@ -53,6 +53,11 @@ export default function Admin() {
       setEntries(data || []);
     } catch (error) {
       console.error('Error in fetchEntries:', error);
+      toast({
+        variant: "destructive",
+        title: "Error fetching entries",
+        description: error.message,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -88,10 +93,10 @@ export default function Admin() {
       if (data.success) {
         toast({
           title: "Webhook Test Successful",
-          description: "The test webhook was triggered successfully. Check the logs for details.",
+          description: "The test webhook was triggered successfully. Refreshing data...",
         });
-        // Refresh the entries to see the update
-        fetchEntries();
+        // Immediately refresh the entries to see the update
+        await fetchEntries();
       } else {
         throw new Error(data.error || 'Unknown error occurred');
       }
