@@ -1,12 +1,16 @@
+
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
+// Single source of truth for Everflow SDK types
 declare global {
   interface Window {
     EF: {
       conversion: (params: any) => void;
       click: (params: any) => void;
+      impression: (params: any) => void;
+      urlParameter: (param: string) => string | null;
     };
   }
 }
