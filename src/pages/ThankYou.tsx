@@ -49,7 +49,7 @@ const ThankYou = () => {
   }, []);
 
   // Generate tracking link with Everflow parameters
-  const referralLink = `${window.location.origin}?ref=${referralCode}&oid=1`; // Add Everflow offer ID
+  const referralLink = `${window.location.origin}?ref=${referralCode}&oid=1986`; // Everflow offer ID
 
   const copyReferralLink = async () => {
     try {
