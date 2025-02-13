@@ -32,7 +32,7 @@ const ThankYou = () => {
       script.onload = () => {
         if (window.EF) {
           window.EF.conversion({
-            aid: 'YOUR_NETWORK_ID', // Replace with your Everflow Network ID
+            aid: '471', // Everflow Network ID
             amount: 1,
             event_id: 1, // Replace with your actual event ID
             transaction_id: Math.random().toString(36).substring(2),
