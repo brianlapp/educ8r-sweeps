@@ -40,7 +40,7 @@ export default function Admin() {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from('entries')
+        .from('entry_stats')
         .select('*')
         .order(sortField, { ascending: sortOrder === 'asc' });
 
