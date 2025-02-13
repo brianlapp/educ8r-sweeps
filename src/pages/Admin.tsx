@@ -40,10 +40,15 @@ export default function Admin() {
         .select('*')
         .order(sortField, { ascending: sortOrder === 'asc' });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching entries:', error);
+        throw error;
+      }
+      
+      console.log('Fetched entries:', data); // Debug log
       setEntries(data || []);
     } catch (error) {
-      console.error('Error fetching entries:', error);
+      console.error('Error in fetchEntries:', error);
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +119,7 @@ export default function Admin() {
                   <TableCell>{entry.email}</TableCell>
                   <TableCell>{`${entry.first_name} ${entry.last_name}`}</TableCell>
                   <TableCell>{entry.entry_count || 1}</TableCell>
-                  <TableCell>{entry.referral_count}</TableCell>
+                  <TableCell>{entry.referral_count || 0}</TableCell>
                   <TableCell>{entry.referral_code || 'N/A'}</TableCell>
                   <TableCell>
                     {format(new Date(entry.created_at), 'yyyy-MM-dd')}
