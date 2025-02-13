@@ -4,20 +4,19 @@ import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
-// Remove the declaration as we'll move it to ThankYou.tsx
 const TestLanding = () => {
   const [searchParams] = useSearchParams();
   const referralCode = searchParams.get("ref");
   const offerId = searchParams.get("oid");
   const affiliateId = searchParams.get("affid");
-  const sub1 = searchParams.get("sub1");
+  const sub1 = searchParams.get("sub1"); // This will be our referral code
   const sub2 = searchParams.get("sub2");
   const sub3 = searchParams.get("sub3");
   const sub4 = searchParams.get("sub4");
   const sub5 = searchParams.get("sub5");
   const sourceId = searchParams.get("source_id");
   const uid = searchParams.get("uid");
-  const transactionId = searchParams.get("_ef_transaction_id");
+  const transactionId = searchParams.get("_ef_transaction_id") || Math.random().toString(36).substring(2);
 
   useEffect(() => {
     // Load Everflow tracking script with error handling
@@ -44,12 +43,13 @@ const TestLanding = () => {
           window.EF.impression({
             offer_id: offerId,
             affiliate_id: affiliateId,
-            sub1,
+            sub1, // Pass referral code
             sub2,
             sub3,
             sub4,
             sub5,
-            source_id: sourceId
+            source_id: sourceId,
+            transaction_id: transactionId // Use consistent transaction ID
           });
         }
       } catch (error) {
@@ -66,7 +66,7 @@ const TestLanding = () => {
         document.body.removeChild(script);
       }
     };
-  }, [offerId, affiliateId, sub1, sub2, sub3, sub4, sub5, sourceId]);
+  }, [offerId, affiliateId, sub1, sub2, sub3, sub4, sub5, sourceId, transactionId]);
 
   const trackClick = () => {
     if (window.EF && offerId) {
@@ -74,14 +74,14 @@ const TestLanding = () => {
       window.EF.click({
         offer_id: offerId,
         affiliate_id: affiliateId,
-        sub1,
+        sub1, // Pass referral code
         sub2,
         sub3,
         sub4,
         sub5,
         uid,
         source_id: sourceId,
-        transaction_id: transactionId
+        transaction_id: transactionId // Use consistent transaction ID
       });
     } else {
       console.warn('EF not loaded or offer ID missing');
@@ -92,14 +92,16 @@ const TestLanding = () => {
     if (window.EF && offerId) {
       console.log('Firing Everflow conversion for offer:', offerId);
       window.EF.conversion({
-        offer_id: offerId
+        offer_id: offerId,
+        transaction_id: transactionId, // Use consistent transaction ID
+        sub1 // Pass referral code
       });
 
       // After successful conversion, notify our backend
       supabase.functions.invoke('everflow-webhook', {
         body: {
-          referral_code: referralCode,
-          transaction_id: Math.random().toString(36).substring(2)
+          referral_code: sub1, // Use sub1 as referral code
+          transaction_id: transactionId
         }
       }).catch(error => {
         console.error('Error notifying backend of conversion:', error);

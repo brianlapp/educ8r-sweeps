@@ -26,8 +26,8 @@ const ThankYou = () => {
     }
   }, []);
 
-  // Generate tracking link with Everflow parameters - pointing to test landing page
-  const referralLink = `${window.location.origin}/test-landing?ref=${referralCode}&oid=1986`;
+  // Generate tracking link with Everflow parameters - including sub1 for referral tracking
+  const referralLink = `${window.location.origin}/test-landing?ref=${referralCode}&oid=1986&sub1=${referralCode}`;
 
   const copyReferralLink = async () => {
     try {
