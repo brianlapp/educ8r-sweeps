@@ -32,7 +32,7 @@ export default function AdminLogin() {
         .from('admin_users')
         .select('id')
         .eq('email', email)
-        .single();
+        .maybeSingle();
 
       if (adminError || !adminUser) {
         await supabase.auth.signOut();
