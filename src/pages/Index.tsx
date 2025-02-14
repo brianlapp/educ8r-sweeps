@@ -1,4 +1,3 @@
-
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 const Index = () => {
@@ -22,7 +21,8 @@ const Index = () => {
             </div>
             <div className="order-2 md:order-2">
               <div className="bg-white p-8 rounded-xl shadow-md border border-gray-100 animate-slideUp">
-                <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-center text-[#2C3E50]">🎉 Win a $1,000 School Supply Giveaway! 🎒</h2>
+                <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-center text-[#2C3E50]">🏆 Win $1,000 for Your Classroom!
+📚 Help Your Students Read Better – Together</h2>
                 <EntryForm />
               </div>
             </div>
