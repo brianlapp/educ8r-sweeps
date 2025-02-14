@@ -17,7 +17,7 @@ const Index = () => {
         <div className="container mx-auto px-4 py-6 md:py-12">
           <div className="relative grid md:grid-cols-2 gap-0 items-center max-w-6xl mx-auto">
             <div className="order-1 md:order-1 md:pr-12 z-0 md:w-[calc(100%+3rem)]">
-              <img alt="Students collaborating on laptop" className="w-full animate-fadeIn transform hover:scale-[1.02] transition-transform duration-300 rounded-none" src="/lovable-uploads/900a722c-1bde-48e7-9f7f-e4c073649bcd.png" />
+              <img alt="Students collaborating on laptop" className="w-full animate-fadeIn transform hover:scale-[1.02] transition-transform duration-300 rounded-none" src="/lovable-uploads/308c0411-e546-4640-ab1a-b354a074f9c4.png" />
             </div>
             <div className="order-2 md:order-2 md:-ml-12 z-10 -mt-4 sm:-mt-8 md:mt-0">
               <div className="bg-white p-6 md:p-8 rounded-xl shadow-md border border-blue-200 border-4  animate-slideUp">
