@@ -1,3 +1,4 @@
+
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 const Index = () => {
@@ -17,9 +18,6 @@ const Index = () => {
         <div className="container mx-auto px-4 py-12">
           <header className="text-center mb-12 animate-fadeIn">
             <h1 className="md:text-5xl mb-4 text-[#2C3E50] text-4xl font-extrabold">🎉 Win a $1,000 School Supply Giveaway! 🎒 </h1>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-              Enter for a chance to win everything on your school supply list - from backpacks to notebooks, markers, and more! Get ready for a successful school year.
-            </p>
           </header>
 
           <div className="grid md:grid-cols-2 gap-12 items-start max-w-6xl mx-auto">
@@ -39,6 +37,10 @@ const Index = () => {
               <h2 className="text-2xl font-semibold mb-6 text-center">⏰ Limited Time Offer!</h2>
               <CountdownTimer targetDate={targetDate} />
               
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed mt-6 text-center">
+                Enter for a chance to win everything on your school supply list - from backpacks to notebooks, markers, and more! Get ready for a successful school year.
+              </p>
+
               <div className="mt-8 bg-gradient-to-br from-blue-50 to-indigo-50 p-8 rounded-2xl border border-blue-100">
                 <div className="flex items-center gap-3 mb-4">
                   <span className="text-blue-600 text-2xl">🎁</span>
