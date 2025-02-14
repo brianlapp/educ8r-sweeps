@@ -30,14 +30,14 @@ export const CountdownTimer = ({ targetDate }: CountdownTimerProps) => {
   }, [targetDate]);
 
   return (
-    <div className="grid grid-cols-4 gap-2 text-center">
+    <div className="grid grid-cols-4 gap-1 md:gap-0.5 text-center max-w-2xl mx-auto">
       {Object.entries(timeLeft).map(([unit, value]) => (
         <div
           key={unit}
-          className="bg-white p-3 rounded-lg shadow-sm animate-fadeIn"
+          className="bg-white p-2 md:p-3 rounded-lg shadow-sm animate-fadeIn"
         >
-          <div className="text-3xl font-bold text-primary mb-0.5">{value}</div>
-          <div className="text-sm text-gray-600 capitalize">{unit}</div>
+          <div className="text-3xl md:text-4xl lg:text-5xl font-bold text-primary mb-0.5">{value.toString().padStart(2, '0')}</div>
+          <div className="text-xs md:text-sm text-gray-600 capitalize">{unit}</div>
         </div>
       ))}
     </div>
