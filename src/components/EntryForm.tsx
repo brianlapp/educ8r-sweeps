@@ -78,15 +78,15 @@ export const EntryForm = () => {
       <Input type="text" placeholder="First Name" required value={formData.firstName} onChange={e => setFormData({
       ...formData,
       firstName: e.target.value
-    })} className="w-full" disabled={isSubmitting} />
+    })} disabled={isSubmitting} className="w-full bg-neutral-50" />
       <Input type="text" placeholder="Last Name" required value={formData.lastName} onChange={e => setFormData({
       ...formData,
       lastName: e.target.value
-    })} className="w-full" disabled={isSubmitting} />
+    })} disabled={isSubmitting} className="w-full bg-neutral-50" />
       <Input type="email" placeholder="Email Address" required value={formData.email} onChange={e => setFormData({
       ...formData,
       email: e.target.value
-    })} className="w-full" disabled={isSubmitting} />
+    })} disabled={isSubmitting} className="w-full bg-neutral-50" />
       <div className="flex items-start space-x-2">
         <Checkbox id="terms" checked={agreed} onCheckedChange={checked => setAgreed(checked as boolean)} disabled={isSubmitting} />
         <label htmlFor="terms" className="text-sm text-gray-600 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
