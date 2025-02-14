@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import {
   Table,
@@ -14,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowUpDown, LogOut } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
+import { SiteHeader } from "@/components/ui/site-header";
+import { SiteFooter } from "@/components/ui/site-footer";
 
 type SortField = "created_at" | "referral_count" | "total_entries";
 type SortOrder = "asc" | "desc";
@@ -127,96 +128,100 @@ export default function Admin() {
   };
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <div className="flex gap-4">
-          <Button 
-            onClick={testWebhook} 
-            disabled={isTestingWebhook}
-          >
-            {isTestingWebhook ? "Testing..." : "Test Referral Webhook"}
-          </Button>
-          <Button 
-            variant="outline"
-            onClick={handleLogout}
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
+    <div className="min-h-screen flex flex-col">
+      <SiteHeader showLogout={true} />
+      <div className="flex-1 container mx-auto py-8">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+          <div className="flex gap-4">
+            <Button 
+              onClick={testWebhook} 
+              disabled={isTestingWebhook}
+            >
+              {isTestingWebhook ? "Testing..." : "Test Referral Webhook"}
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
+          </div>
         </div>
-      </div>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Email</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Base Entry</TableHead>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  onClick={() => toggleSort('referral_count')}
-                  className="hover:bg-transparent"
-                >
-                  Referrals
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  onClick={() => toggleSort('total_entries')}
-                  className="hover:bg-transparent"
-                >
-                  Total Entries
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead>Referral ID</TableHead>
-              <TableHead>
-                <Button
-                  variant="ghost"
-                  onClick={() => toggleSort('created_at')}
-                  className="hover:bg-transparent"
-                >
-                  Joined
-                  <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-4">
-                  Loading...
-                </TableCell>
+                <TableHead>Email</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Base Entry</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => toggleSort('referral_count')}
+                    className="hover:bg-transparent"
+                  >
+                    Referrals
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => toggleSort('total_entries')}
+                    className="hover:bg-transparent"
+                  >
+                    Total Entries
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>Referral ID</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => toggleSort('created_at')}
+                    className="hover:bg-transparent"
+                  >
+                    Joined
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
               </TableRow>
-            ) : entries.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-4">
-                  No entries found
-                </TableCell>
-              </TableRow>
-            ) : (
-              entries.map((entry) => (
-                <TableRow key={entry.email}>
-                  <TableCell>{entry.email}</TableCell>
-                  <TableCell>{`${entry.first_name} ${entry.last_name}`}</TableCell>
-                  <TableCell>{entry.entry_count}</TableCell>
-                  <TableCell>{entry.referral_count}</TableCell>
-                  <TableCell>{entry.total_entries}</TableCell>
-                  <TableCell>{entry.referral_code || 'N/A'}</TableCell>
-                  <TableCell>
-                    {format(new Date(entry.created_at), 'yyyy-MM-dd')}
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-4">
+                    Loading...
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : entries.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-4">
+                    No entries found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                entries.map((entry) => (
+                  <TableRow key={entry.email}>
+                    <TableCell>{entry.email}</TableCell>
+                    <TableCell>{`${entry.first_name} ${entry.last_name}`}</TableCell>
+                    <TableCell>{entry.entry_count}</TableCell>
+                    <TableCell>{entry.referral_count}</TableCell>
+                    <TableCell>{entry.total_entries}</TableCell>
+                    <TableCell>{entry.referral_code || 'N/A'}</TableCell>
+                    <TableCell>
+                      {format(new Date(entry.created_at), 'yyyy-MM-dd')}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
+      <SiteFooter />
     </div>
   );
 }
