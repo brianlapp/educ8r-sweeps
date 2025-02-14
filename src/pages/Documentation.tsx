@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -7,14 +6,14 @@ const Documentation = () => {
   return (
     <div className="min-h-screen bg-white">
       <div className="container mx-auto px-4 py-8">
-        <header className="mb-8">
+        <header className="mb-8 px-6">
           <h1 className="text-3xl font-bold text-gray-900">Partner Integration Guide</h1>
           <p className="mt-2 text-gray-600">Complete documentation for implementing the referral tracking system</p>
         </header>
 
         {/* Main content */}
         <ScrollArea className="h-[calc(100vh-200px)]">
-          <div className="prose max-w-none">
+          <div className="prose max-w-none px-6">
             <section id="overview">
               <h2 className="text-2xl font-semibold mb-4">Overview</h2>
               <p className="text-gray-700 mb-4">
