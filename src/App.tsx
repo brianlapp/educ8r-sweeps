@@ -4,6 +4,7 @@ import Index from "./pages/Index";
 import ThankYou from "./pages/ThankYou";
 import TestLanding from "./pages/TestLanding";
 import Admin from "./pages/Admin";
+import Documentation from "./pages/Documentation";
 import NotFound from "./pages/NotFound";
 import "./App.css";
 
@@ -15,6 +16,7 @@ function App() {
         <Route path="/thank-you" element={<ThankYou />} />
         <Route path="/test-landing" element={<TestLanding />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/docs" element={<Documentation />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>
