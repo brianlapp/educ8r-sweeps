@@ -121,9 +121,14 @@ export const EntryForm = () => {
             Privacy Policy
           </a>
           ,{" "}
-          <Link to="/terms" className="text-primary hover:underline">
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
             Terms and Conditions
-          </Link>{" "}
+          </a>{" "}
           and understand that we will be sending you our newsletters by email.
           Unsubscribe at any time.
         </label>
