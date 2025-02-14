@@ -102,7 +102,7 @@ export const EntryForm = () => {
           Unsubscribe at any time.
         </label>
       </div>
-      <Button type="submit" disabled={isSubmitting} className="w-full text-white font-medium rounded-lg transition-colors duration-200 bg-green-500 hover:bg-green-400 py-6 text-2xl">
+      <Button type="submit" disabled={isSubmitting} className="w-full text-white font-medium rounded-lg transition-colors duration-200 bg-green-500 hover:bg-green-400 text-2xl py-[28px]">
         {isSubmitting ? "Submitting..." : "Enter to Win! →"}
       </Button>
     </form>;
