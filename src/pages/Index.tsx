@@ -16,17 +16,13 @@ const Index = () => {
 
       <main className="flex-grow">
         <div className="container mx-auto px-4 py-12">
-          <header className="text-center mb-12 animate-fadeIn">
-            <h1 className="md:text-5xl mb-4 text-[#2C3E50] text-4xl font-extrabold">🎉 Win a $1,000 School Supply Giveaway! 🎒 </h1>
-          </header>
-
           <div className="grid md:grid-cols-2 gap-12 items-start max-w-6xl mx-auto">
             <div className="order-2 md:order-1">
               <img src="/lovable-uploads/399cdf8e-d7b2-47fa-b4d6-8106630d1e5e.png" alt="School Supplies Collection" className="rounded-2xl w-full animate-fadeIn transform hover:scale-[1.02] transition-transform duration-300" />
             </div>
             <div className="order-1 md:order-2">
               <div className="bg-white p-8 rounded-xl shadow-md border border-gray-100 animate-slideUp">
-                <h2 className="text-2xl font-semibold mb-6 text-center text-[#2C3E50]">Enter to Win!</h2>
+                <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-center text-[#2C3E50]">🎉 Win a $1,000 School Supply Giveaway! 🎒</h2>
                 <EntryForm />
               </div>
             </div>
