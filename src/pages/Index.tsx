@@ -20,7 +20,7 @@ const Index = () => {
               <img src="/lovable-uploads/ee22247e-5122-41c5-ba85-664a60b0c1b4.png" alt="Students collaborating on laptop" className="w-full animate-fadeIn transform hover:scale-[1.02] transition-transform duration-300 rounded-none" />
             </div>
             <div className="order-2 md:order-2 md:-ml-12 z-10 -mt-4 sm:-mt-8 md:mt-0">
-              <div className="bg-white p-6 md:p-8 rounded-xl shadow-md border border-blue-300 border-4  animate-slideUp">
+              <div className="bg-white p-6 md:p-8 rounded-xl shadow-md border border-blue-300 border-2  animate-slideUp">
                 <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-center text-[#2C3E50]">🏆 Win $1,000 for Your Classroom!
 📚 Help Your Students Read Better – Together</h2>
                 <EntryForm />
