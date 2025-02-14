@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .from('admin_users')
         .select('id')
         .eq('email', currentUser.email)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       setIsAdmin(!!data);
