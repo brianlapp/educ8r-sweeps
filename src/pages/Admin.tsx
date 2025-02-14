@@ -11,8 +11,9 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, LogOut } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useNavigate } from "react-router-dom";
 
 type SortField = "created_at" | "referral_count" | "total_entries";
 type SortOrder = "asc" | "desc";
@@ -35,6 +36,7 @@ export default function Admin() {
   const [isLoading, setIsLoading] = useState(true);
   const [isTestingWebhook, setIsTestingWebhook] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const fetchEntries = async () => {
     setIsLoading(true);
@@ -76,10 +78,23 @@ export default function Admin() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate('/admin/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      toast({
+        variant: "destructive",
+        title: "Error signing out",
+        description: "Please try again",
+      });
+    }
+  };
+
   const testWebhook = async () => {
     setIsTestingWebhook(true);
     try {
-      // Instead of using fetch directly, use supabase.functions.invoke
       const { data, error } = await supabase.functions.invoke('test-webhook', {
         method: 'POST',
       });
@@ -95,7 +110,6 @@ export default function Admin() {
           title: "Webhook Test Successful",
           description: "The test webhook was triggered successfully. Refreshing data...",
         });
-        // Immediately refresh the entries to see the update
         await fetchEntries();
       } else {
         throw new Error(data.error || 'Unknown error occurred');
@@ -116,12 +130,21 @@ export default function Admin() {
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-        <Button 
-          onClick={testWebhook} 
-          disabled={isTestingWebhook}
-        >
-          {isTestingWebhook ? "Testing..." : "Test Referral Webhook"}
-        </Button>
+        <div className="flex gap-4">
+          <Button 
+            onClick={testWebhook} 
+            disabled={isTestingWebhook}
+          >
+            {isTestingWebhook ? "Testing..." : "Test Referral Webhook"}
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
+        </div>
       </div>
       <div className="rounded-md border">
         <Table>
