@@ -15,8 +15,8 @@ const Index = () => {
       </header>
 
       <main className="flex-grow">
-        <div className="container mx-auto px-4 py-12">
-          <div className="grid md:grid-cols-2 gap-12 items-start max-w-6xl mx-auto">
+        <div className="container mx-auto px-4 py-6 md:py-12">
+          <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-start max-w-6xl mx-auto">
             <div className="order-1 md:order-1">
               <img src="/lovable-uploads/399cdf8e-d7b2-47fa-b4d6-8106630d1e5e.png" alt="School Supplies Collection" className="rounded-2xl w-full animate-fadeIn transform hover:scale-[1.02] transition-transform duration-300" />
             </div>
