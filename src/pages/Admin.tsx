@@ -13,8 +13,6 @@ import { Button } from "@/components/ui/button";
 import { ArrowUpDown, LogOut } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
-import { SiteHeader } from "@/components/ui/site-header";
-import { SiteFooter } from "@/components/ui/site-footer";
 
 type SortField = "created_at" | "referral_count" | "total_entries";
 type SortOrder = "asc" | "desc";
@@ -128,26 +126,36 @@ export default function Admin() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <SiteHeader showLogout={true} />
-      <div className="flex-1 container mx-auto py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <div className="flex gap-4">
-            <Button 
-              onClick={testWebhook} 
-              disabled={isTestingWebhook}
-            >
-              {isTestingWebhook ? "Testing..." : "Test Referral Webhook"}
-            </Button>
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
+      <header className="w-full bg-[#f3f3f3] py-4 border-b border-gray-200">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-between items-center">
+            <img 
+              src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" 
+              alt="FPS Logo" 
+              className="h-12 w-auto"
+            />
             <Button 
               variant="outline"
               onClick={handleLogout}
+              className="gap-2"
             >
-              <LogOut className="h-4 w-4 mr-2" />
+              <LogOut className="h-4 w-4" />
               Logout
             </Button>
           </div>
+        </div>
+      </header>
+
+      <div className="flex-1 container mx-auto py-8">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+          <Button 
+            onClick={testWebhook} 
+            disabled={isTestingWebhook}
+          >
+            {isTestingWebhook ? "Testing..." : "Test Referral Webhook"}
+          </Button>
         </div>
         <div className="rounded-md border">
           <Table>
@@ -221,7 +229,19 @@ export default function Admin() {
           </Table>
         </div>
       </div>
-      <SiteFooter />
+
+      <footer className="w-full bg-[#f3f3f3] py-6 border-t border-gray-200">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col items-center gap-4">
+            <img 
+              src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" 
+              alt="FPS Logo" 
+              className="h-8 w-auto"
+            />
+            <p className="text-sm text-gray-600">© 2024 All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
