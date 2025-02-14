@@ -1,3 +1,4 @@
+
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 const Index = () => {
@@ -15,11 +16,11 @@ const Index = () => {
 
       <main className="flex-grow">
         <div className="container mx-auto px-4 py-6 md:py-12">
-          <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-start max-w-6xl mx-auto">
-            <div className="order-1 md:order-1">
+          <div className="relative grid md:grid-cols-2 gap-8 md:gap-0 items-center max-w-6xl mx-auto">
+            <div className="order-1 md:order-1 md:pr-12 md:z-0">
               <img src="/lovable-uploads/ee22247e-5122-41c5-ba85-664a60b0c1b4.png" alt="Students collaborating on laptop" className="w-full animate-fadeIn transform hover:scale-[1.02] transition-transform duration-300 rounded-none" />
             </div>
-            <div className="order-2 md:order-2">
+            <div className="order-2 md:order-2 md:-ml-12 md:z-10">
               <div className="bg-white p-8 rounded-xl shadow-md border border-gray-100 animate-slideUp">
                 <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-center text-[#2C3E50]">🏆 Win $1,000 for Your Classroom!
 📚 Help Your Students Read Better – Together</h2>
