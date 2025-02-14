@@ -6,7 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 
 const TestLanding = () => {
   const [searchParams] = useSearchParams();
-  const referralCode = searchParams.get("ref");
+  const referralCode = searchParams.get("sub1");
+  const offerId = searchParams.get("oid");
   const AFFILIATE_ID = 2628;
   const impressionFired = useRef(false);
   const scriptLoaded = useRef(false);
@@ -170,7 +171,7 @@ const TestLanding = () => {
             <h2 className="text-2xl font-semibold mb-4">Tracking Information</h2>
             <div className="space-y-4">
               <p className="text-gray-600">
-                <strong>Offer ID:</strong> {window.EF?.urlParameter('oid') || 'None'}
+                <strong>Offer ID:</strong> {offerId || 'None'}
               </p>
               <p className="text-gray-600">
                 <strong>Affiliate ID:</strong> {AFFILIATE_ID}
