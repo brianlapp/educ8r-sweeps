@@ -22,11 +22,14 @@ serve(async (req) => {
 
     // Parse the webhook payload
     const payload = await req.json()
-    console.log('Received Everflow webhook payload:', payload)
+    console.log('Received Everflow webhook payload:', JSON.stringify(payload, null, 2))
+
+    // Log headers for debugging
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()))
 
     // Validate required fields
     if (!payload.referral_code || !payload.transaction_id) {
-      console.error('Missing required fields in payload:', payload)
+      console.error('Missing required fields in payload:', JSON.stringify(payload, null, 2))
       return new Response(
         JSON.stringify({
           success: false,
