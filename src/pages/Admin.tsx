@@ -1,13 +1,14 @@
+
 import { Helmet } from 'react-helmet-async';
 import { useQuery } from "@tanstack/react-query";
-import { Table } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { Tables } from "@/integrations/supabase/types";
 
 const Admin = () => {
-  const [entries, setEntries] = useState<Tables<'public', 'entries'>[]>([]);
+  const [entries, setEntries] = useState<Tables<'entries'>[]>([]);
   const { toast } = useToast();
 
   const { isLoading, error } = useQuery({
@@ -20,18 +21,15 @@ const Admin = () => {
 
       if (error) {
         console.error("Error fetching entries:", error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch entries. Please try again.",
-          variant: "destructive",
-        });
         throw error;
       }
+
+      if (data) {
+        setEntries(data);
+      }
+      
       return data;
-    },
-    onSuccess: (data) => {
-      setEntries(data);
-    },
+    }
   });
 
   useEffect(() => {
@@ -99,7 +97,32 @@ const Admin = () => {
       <div className="container mx-auto py-12">
         <h1 className="text-3xl font-bold mb-6 text-center">Admin Dashboard</h1>
         {entries && entries.length > 0 ? (
-          <Table columns={columns} data={entries} />
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {columns.map((column) => (
+                    <TableHead key={column.accessorKey}>
+                      {column.header}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {entries.map((entry) => (
+                  <TableRow key={entry.id}>
+                    {columns.map((column) => (
+                      <TableCell key={`${entry.id}-${column.accessorKey}`}>
+                        {column.cell
+                          ? column.cell({ row: { getValue: () => entry[column.accessorKey] } })
+                          : entry[column.accessorKey]}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         ) : (
           <div className="text-center">No entries found.</div>
         )}
