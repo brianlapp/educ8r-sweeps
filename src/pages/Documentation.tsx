@@ -63,8 +63,8 @@ const Documentation = () => {
                 <pre className="bg-gray-50 p-4 rounded-lg overflow-x-auto">
                   <code>{`// Initialize tracking with these required parameters
 const impressionData = {
-  offer_id: window.EF.urlParameter('oid'),
-  affiliate_id: YOUR_AFFILIATE_ID, // Replace with your Affiliate ID
+  offer_id: '1987', // Educ8r Campaign ID
+  affiliate_id: 'FPS', // Free Parent Search
   sub1: window.EF.urlParameter('sub1'), // This contains the referral code
   transaction_id: generateUniqueId(), // Generate a unique transaction ID
   // Optional parameters
@@ -82,8 +82,8 @@ window.EF.impression(impressionData);`}</code>
                 <p className="mb-4">Implement click tracking when users interact with your offer:</p>
                 <pre className="bg-gray-50 p-4 rounded-lg overflow-x-auto">
                   <code>{`const clickData = {
-  offer_id: window.EF.urlParameter('oid'),
-  affiliate_id: YOUR_AFFILIATE_ID,
+  offer_id: '1987',
+  affiliate_id: 'FPS',
   sub1: window.EF.urlParameter('sub1'),
   transaction_id: YOUR_TRANSACTION_ID,
   uid: window.EF.urlParameter('uid'),
@@ -97,8 +97,8 @@ window.EF.click(clickData);`}</code>
                 <p className="mb-4">Implement conversion tracking at your conversion point (e.g., after form submission):</p>
                 <pre className="bg-gray-50 p-4 rounded-lg overflow-x-auto">
                   <code>{`const conversionData = {
-  offer_id: window.EF.urlParameter('oid'),
-  affiliate_id: YOUR_AFFILIATE_ID,
+  offer_id: '1987',
+  affiliate_id: 'FPS',
   transaction_id: YOUR_TRANSACTION_ID,
   sub1: window.EF.urlParameter('sub1')
 };
@@ -108,8 +108,8 @@ window.EF.conversion(conversionData);`}</code>
 
                 <h3 className="text-xl font-semibold mt-6 mb-4">5. Required Parameters</h3>
                 <ul className="list-disc pl-6 space-y-2">
-                  <li><code>offer_id</code>: Provided in URL parameter 'oid'</li>
-                  <li><code>affiliate_id</code>: Your unique affiliate ID</li>
+                  <li><code>offer_id</code>: '1987' (Educ8r Campaign ID)</li>
+                  <li><code>affiliate_id</code>: 'FPS' (Free Parent Search)</li>
                   <li><code>sub1</code>: Contains the referral code (CRITICAL for referral tracking)</li>
                   <li><code>transaction_id</code>: Must be unique per user session and consistent across all tracking calls</li>
                 </ul>
@@ -124,8 +124,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Track impression
   const impressionData = {
-    offer_id: window.EF.urlParameter('oid'),
-    affiliate_id: YOUR_AFFILIATE_ID,
+    offer_id: '1987',
+    affiliate_id: 'FPS',
     sub1: window.EF.urlParameter('sub1'),
     transaction_id: transactionId
   };
@@ -135,8 +135,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Track click when user interacts with offer
   document.getElementById('offerButton').addEventListener('click', () => {
     const clickData = {
-      offer_id: window.EF.urlParameter('oid'),
-      affiliate_id: YOUR_AFFILIATE_ID,
+      offer_id: '1987',
+      affiliate_id: 'FPS',
       sub1: window.EF.urlParameter('sub1'),
       transaction_id: transactionId
     };
@@ -152,8 +152,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Track conversion
     const conversionData = {
-      offer_id: window.EF.urlParameter('oid'),
-      affiliate_id: YOUR_AFFILIATE_ID,
+      offer_id: '1987',
+      affiliate_id: 'FPS',
       transaction_id: transactionId,
       sub1: window.EF.urlParameter('sub1')
     };
@@ -244,6 +244,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       </footer>
     </div>
   );
-}
+};
 
 export default Documentation;
