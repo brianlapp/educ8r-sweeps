@@ -37,8 +37,8 @@ const ThankYou = () => {
     localStorage.removeItem("referralCode");
   }, [toast]);
 
-  // Updated offer ID from 1986 to 1887
-  const referralLink = `${window.location.origin}/test-landing?oid=1887&sub1=${referralCode}`;
+  // Updated offer ID to 1987
+  const referralLink = `${window.location.origin}/test-landing?oid=1987&sub1=${referralCode}`;
 
   const copyReferralLink = async () => {
     try {
