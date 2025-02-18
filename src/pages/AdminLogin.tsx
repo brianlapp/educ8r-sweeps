@@ -1,3 +1,4 @@
+
 import { Helmet } from 'react-helmet-async';
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -18,22 +19,32 @@ const AdminLogin = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.from("admin_users").select("*").eq("email", email).single();
+      // First check if user is in admin_users table
+      const { data: adminUser, error: adminError } = await supabase
+        .from("admin_users")
+        .select("*")
+        .eq("email", email)
+        .single();
 
-      if (error) {
+      if (adminError || !adminUser) {
         throw new Error("Invalid credentials");
       }
 
-      if (data && data.email === email && password === "test") {
-        localStorage.setItem("isAdmin", "true");
-        toast({
-          title: "Success",
-          description: "Logged in as admin",
-        });
-        navigate("/admin");
-      } else {
-        throw new Error("Invalid credentials");
+      // If admin user exists, attempt to sign in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        throw signInError;
       }
+
+      toast({
+        title: "Success",
+        description: "Logged in as admin",
+      });
+      navigate("/admin");
     } catch (error: any) {
       toast({
         title: "Error",
