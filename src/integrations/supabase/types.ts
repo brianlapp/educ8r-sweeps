@@ -234,6 +234,10 @@ export type Database = {
       }
     }
     Functions: {
+      generate_clean_referral_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       handle_everflow_postback: {
         Args: {
           ref_code: string
