@@ -1,8 +1,8 @@
-
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { Helmet } from 'react-helmet-async';
 
 const TestLanding = () => {
   const [searchParams] = useSearchParams();
@@ -162,6 +162,9 @@ const TestLanding = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <Helmet>
+        <title>Test Landing Page | Educ8r Sweepstakes</title>
+      </Helmet>
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-2xl mx-auto">
           <h1 className="text-4xl font-bold mb-6 text-center text-[#2C3E50]">

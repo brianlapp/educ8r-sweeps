@@ -1,247 +1,111 @@
-import { useState, useEffect } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Helmet } from 'react-helmet-async';
+import { useQuery } from "@tanstack/react-query";
+import { Table } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
-import { Button } from "@/components/ui/button";
-import { ArrowUpDown, LogOut } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Tables } from "@/integrations/supabase/types";
 
-type SortField = "created_at" | "referral_count" | "total_entries";
-type SortOrder = "asc" | "desc";
-
-interface Entry {
-  email: string;
-  first_name: string;
-  last_name: string;
-  entry_count: number;
-  referral_count: number;
-  total_entries: number;
-  referral_code: string | null;
-  created_at: string;
-}
-
-export default function Admin() {
-  const [entries, setEntries] = useState<Entry[]>([]);
-  const [sortField, setSortField] = useState<SortField>("created_at");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isTestingWebhook, setIsTestingWebhook] = useState(false);
+const Admin = () => {
+  const [entries, setEntries] = useState<Tables<'public', 'entries'>[]>([]);
   const { toast } = useToast();
-  const navigate = useNavigate();
 
-  const fetchEntries = async () => {
-    setIsLoading(true);
-    try {
+  const { isLoading, error } = useQuery({
+    queryKey: ['entries'],
+    queryFn: async () => {
       const { data, error } = await supabase
-        .from('entry_stats')
+        .from('entries')
         .select('*')
-        .order(sortField, { ascending: sortOrder === 'asc' });
+        .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching entries:', error);
+        console.error("Error fetching entries:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch entries. Please try again.",
+          variant: "destructive",
+        });
         throw error;
       }
-      
-      console.log('Fetched entries:', data);
-      setEntries(data || []);
-    } catch (error) {
-      console.error('Error in fetchEntries:', error);
-      toast({
-        variant: "destructive",
-        title: "Error fetching entries",
-        description: error.message,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return data;
+    },
+    onSuccess: (data) => {
+      setEntries(data);
+    },
+  });
 
   useEffect(() => {
-    fetchEntries();
-  }, [sortField, sortOrder]);
-
-  const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('desc');
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      navigate('/admin/login');
-    } catch (error) {
-      console.error('Error signing out:', error);
+    if (error) {
       toast({
+        title: "Error",
+        description: "Failed to fetch entries. Please try again.",
         variant: "destructive",
-        title: "Error signing out",
-        description: "Please try again",
       });
     }
-  };
+  }, [error, toast]);
 
-  const testWebhook = async () => {
-    setIsTestingWebhook(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('test-webhook', {
-        method: 'POST',
-      });
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
 
-      console.log('Webhook test response:', data);
-
-      if (error) {
-        throw error;
-      }
-
-      if (data.success) {
-        toast({
-          title: "Webhook Test Successful",
-          description: "The test webhook was triggered successfully. Refreshing data...",
-        });
-        await fetchEntries();
-      } else {
-        throw new Error(data.error || 'Unknown error occurred');
-      }
-    } catch (error) {
-      console.error('Error testing webhook:', error);
-      toast({
-        variant: "destructive",
-        title: "Webhook Test Failed",
-        description: error.message || "There was an error testing the webhook.",
-      });
-    } finally {
-      setIsTestingWebhook(false);
-    }
-  };
+  const columns = [
+    {
+      header: "First Name",
+      accessorKey: "first_name",
+    },
+    {
+      header: "Last Name",
+      accessorKey: "last_name",
+    },
+    {
+      header: "Email",
+      accessorKey: "email",
+    },
+    {
+      header: "Referral Code",
+      accessorKey: "referral_code",
+    },
+    {
+      header: "Referred By",
+      accessorKey: "referred_by",
+    },
+    {
+      header: "Referral Count",
+      accessorKey: "referral_count",
+    },
+    {
+      header: "Entry Count",
+      accessorKey: "entry_count",
+    },
+    {
+      header: "Total Entries",
+      accessorKey: "total_entries",
+    },
+    {
+      header: "Created At",
+      accessorKey: "created_at",
+      cell: ({ row }) => {
+        const date = new Date(row.getValue("created_at"));
+        return date.toLocaleDateString() + " " + date.toLocaleTimeString();
+      },
+    },
+  ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
-      <header className="w-full bg-[#f3f3f3] py-4 border-b border-gray-200">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center">
-            <img 
-              src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" 
-              alt="FPS Logo" 
-              className="h-12 w-auto"
-            />
-            <Button 
-              variant="outline"
-              onClick={handleLogout}
-              className="gap-2"
-            >
-              <LogOut className="h-4 w-4" />
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex-1 container mx-auto py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <Button 
-            onClick={testWebhook} 
-            disabled={isTestingWebhook}
-          >
-            {isTestingWebhook ? "Testing..." : "Test Referral Webhook"}
-          </Button>
-        </div>
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Email</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Base Entry</TableHead>
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    onClick={() => toggleSort('referral_count')}
-                    className="hover:bg-transparent"
-                  >
-                    Referrals
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </TableHead>
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    onClick={() => toggleSort('total_entries')}
-                    className="hover:bg-transparent"
-                  >
-                    Total Entries
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </TableHead>
-                <TableHead>Referral ID</TableHead>
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    onClick={() => toggleSort('created_at')}
-                    className="hover:bg-transparent"
-                  >
-                    Joined
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-4">
-                    Loading...
-                  </TableCell>
-                </TableRow>
-              ) : entries.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-4">
-                    No entries found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                entries.map((entry) => (
-                  <TableRow key={entry.email}>
-                    <TableCell>{entry.email}</TableCell>
-                    <TableCell>{`${entry.first_name} ${entry.last_name}`}</TableCell>
-                    <TableCell>{entry.entry_count}</TableCell>
-                    <TableCell>{entry.referral_count}</TableCell>
-                    <TableCell>{entry.total_entries}</TableCell>
-                    <TableCell>{entry.referral_code || 'N/A'}</TableCell>
-                    <TableCell>
-                      {format(new Date(entry.created_at), 'yyyy-MM-dd')}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+    <div className="min-h-screen bg-gray-50">
+      <Helmet>
+        <title>Admin Dashboard | Educ8r Sweepstakes</title>
+      </Helmet>
+      <div className="container mx-auto py-12">
+        <h1 className="text-3xl font-bold mb-6 text-center">Admin Dashboard</h1>
+        {entries && entries.length > 0 ? (
+          <Table columns={columns} data={entries} />
+        ) : (
+          <div className="text-center">No entries found.</div>
+        )}
       </div>
-
-      <footer className="w-full bg-[#f3f3f3] py-6 border-t border-gray-200">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col items-center gap-4">
-            <img 
-              src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" 
-              alt="FPS Logo" 
-              className="h-8 w-auto"
-            />
-            <p className="text-sm text-gray-600">© 2024 All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
-}
+};
+
+export default Admin;

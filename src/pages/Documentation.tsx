@@ -1,11 +1,14 @@
-
 import React from "react";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Helmet } from 'react-helmet-async';
 
 const Documentation = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
+      <Helmet>
+        <title>Partner Integration Guide | Educ8r Sweepstakes</title>
+      </Helmet>
       <header className="w-full bg-[#f3f3f3] py-4 border-b border-gray-200">
         <div className="container mx-auto px-4">
           <div className="flex justify-center items-center">

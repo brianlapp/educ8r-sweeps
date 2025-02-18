@@ -1,5 +1,6 @@
 
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { HelmetProvider } from 'react-helmet-async';
 import Index from "./pages/Index";
 import ThankYou from "./pages/ThankYou";
 import TestLanding from "./pages/TestLanding";
@@ -14,27 +15,29 @@ import "./App.css";
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/thank-you" element={<ThankYou />} />
-          <Route path="/test-landing" element={<TestLanding />} />
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/terms" element={<Terms />} />
-          <Route 
-            path="/admin" 
-            element={
-              <ProtectedRoute>
-                <Admin />
-              </ProtectedRoute>
-            } 
-          />
-          <Route path="/docs" element={<Documentation />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+    <HelmetProvider>
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/thank-you" element={<ThankYou />} />
+            <Route path="/test-landing" element={<TestLanding />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route 
+              path="/admin" 
+              element={
+                <ProtectedRoute>
+                  <Admin />
+                </ProtectedRoute>
+              } 
+            />
+            <Route path="/docs" element={<Documentation />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </HelmetProvider>
   );
 }
 

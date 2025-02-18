@@ -1,7 +1,7 @@
-
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { Helmet } from 'react-helmet-async';
 
 declare global {
   interface Window {
@@ -59,6 +59,9 @@ const ThankYou = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
+      <Helmet>
+        <title>Thank You - Share & Win More | Educ8r Sweepstakes</title>
+      </Helmet>
       <header className="w-full bg-[#f3f3f3] py-4 border-b border-gray-200">
         <div className="container mx-auto px-4">
           <div className="flex justify-center items-center">

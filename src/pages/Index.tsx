@@ -1,10 +1,15 @@
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
+import { Helmet } from 'react-helmet-async';
+
 const Index = () => {
   const targetDate = new Date();
   targetDate.setDate(targetDate.getDate() + 57); // 57 days from now
 
   return <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
+      <Helmet>
+        <title>Win $1,000 for Your Classroom - Educ8r Sweepstakes</title>
+      </Helmet>
       <header className="w-full bg-[#f3f3f3] py-1 border-b border-gray-200">
         <div className="container mx-auto px-4">
           <div className="flex justify-center items-center">
