@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -53,8 +52,8 @@ const Documentation = () => {
 
               <Separator className="my-8" />
 
-              <section id="testing">
-                <h2 className="text-2xl font-semibold mb-4">Test Your Integration</h2>
+              <section id="reference">
+                <h2 className="text-2xl font-semibold mb-4">Reference Integration</h2>
                 <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
                   <h4 className="font-semibold text-blue-700 mb-2">Reference Implementation</h4>
                   <p className="text-gray-700 mb-2">
