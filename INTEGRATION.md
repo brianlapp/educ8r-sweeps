@@ -25,8 +25,8 @@ Implement impression tracking when your landing page loads:
 ```javascript
 // Initialize tracking with these required parameters
 const impressionData = {
-  offer_id: window.EF.urlParameter('oid'),
-  affiliate_id: YOUR_AFFILIATE_ID, // Replace with your Affiliate ID
+  offer_id: '1987', // Educ8r Campaign ID
+  affiliate_id: 'FPS', // Free Parent Search
   sub1: window.EF.urlParameter('sub1'), // This contains the referral code
   transaction_id: generateUniqueId(), // Generate a unique transaction ID
   // Optional parameters
@@ -45,8 +45,8 @@ Implement click tracking when users interact with your offer:
 
 ```javascript
 const clickData = {
-  offer_id: window.EF.urlParameter('oid'),
-  affiliate_id: YOUR_AFFILIATE_ID,
+  offer_id: '1987',
+  affiliate_id: 'FPS',
   sub1: window.EF.urlParameter('sub1'),
   transaction_id: YOUR_TRANSACTION_ID, // Use the same ID from impression
   uid: window.EF.urlParameter('uid'),
@@ -61,8 +61,8 @@ Implement conversion tracking at your conversion point (e.g., after form submiss
 
 ```javascript
 const conversionData = {
-  offer_id: window.EF.urlParameter('oid'),
-  affiliate_id: YOUR_AFFILIATE_ID,
+  offer_id: '1987',
+  affiliate_id: 'FPS',
   transaction_id: YOUR_TRANSACTION_ID, // Use the same ID from impression/click
   sub1: window.EF.urlParameter('sub1')
 };
@@ -71,8 +71,8 @@ window.EF.conversion(conversionData);
 ```
 
 ### 5. Required Parameters
-- `offer_id`: Provided in URL parameter 'oid'
-- `affiliate_id`: Your unique affiliate ID
+- `offer_id`: '1987' (Educ8r Campaign ID)
+- `affiliate_id`: 'FPS' (Free Parent Search)
 - `sub1`: Contains the referral code (CRITICAL for referral tracking)
 - `transaction_id`: Must be unique per user session and consistent across all tracking calls
 
@@ -88,8 +88,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Track impression
   const impressionData = {
-    offer_id: window.EF.urlParameter('oid'),
-    affiliate_id: YOUR_AFFILIATE_ID,
+    offer_id: '1987',
+    affiliate_id: 'FPS',
     sub1: window.EF.urlParameter('sub1'),
     transaction_id: transactionId
   };
@@ -99,8 +99,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Track click when user interacts with offer
   document.getElementById('offerButton').addEventListener('click', () => {
     const clickData = {
-      offer_id: window.EF.urlParameter('oid'),
-      affiliate_id: YOUR_AFFILIATE_ID,
+      offer_id: '1987',
+      affiliate_id: 'FPS',
       sub1: window.EF.urlParameter('sub1'),
       transaction_id: transactionId
     };
@@ -116,8 +116,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Track conversion
     const conversionData = {
-      offer_id: window.EF.urlParameter('oid'),
-      affiliate_id: YOUR_AFFILIATE_ID,
+      offer_id: '1987',
+      affiliate_id: 'FPS',
       transaction_id: transactionId,
       sub1: window.EF.urlParameter('sub1')
     };
@@ -153,8 +153,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 - Ensure the SDK URL is correct
 
 ### Missing Parameters
-- Always check that 'oid' and referral code ('sub1') are present in URL
-- Verify affiliate_id is correctly set
+- Always check that 'oid' (1987) and referral code ('sub1') are present in URL
+- Verify affiliate_id is correctly set to 'FPS'
 - Ensure transaction_id is generated and stored properly
 
 ### Tracking Not Firing
@@ -172,4 +172,3 @@ If you encounter any issues during implementation:
    - Browser console logs
    - Network request logs
    - URL parameters used for testing
-
