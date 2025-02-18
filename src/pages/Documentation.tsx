@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -55,9 +56,9 @@ const Documentation = () => {
               <section id="testing">
                 <h2 className="text-2xl font-semibold mb-4">Test Your Integration</h2>
                 <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
-                  <h4 className="font-semibold text-blue-700 mb-2">Test Landing Page Available</h4>
+                  <h4 className="font-semibold text-blue-700 mb-2">Reference Implementation</h4>
                   <p className="text-gray-700 mb-2">
-                    We provide a test landing page that allows you to verify your tracking implementation:
+                    We've created a reference implementation that demonstrates how tracking parameters are captured and events are triggered. Use this as a guide while building your own implementation:
                   </p>
                   <a 
                     href="/test-landing?oid=1987&sub1=TEST123" 
@@ -68,13 +69,13 @@ const Documentation = () => {
                     https://educ8r.freeparentsearch.com/test-landing
                   </a>
                   <p className="mt-2 text-gray-700">
-                    This page automatically captures tracking parameters from the URL and provides buttons to:
+                    This reference page showcases:
                   </p>
                   <ul className="mt-2 space-y-1 list-disc pl-4">
-                    <li>View tracked parameters (offer_id, sub1, etc.)</li>
-                    <li>Trigger click events</li>
-                    <li>Trigger conversion events</li>
-                    <li>View console logs for debugging</li>
+                    <li>How to capture tracking parameters (offer_id, sub1, etc.) from the URL</li>
+                    <li>Implementation of click event tracking</li>
+                    <li>Implementation of conversion event tracking</li>
+                    <li>Console logging for verification and debugging</li>
                   </ul>
                 </div>
               </section>
