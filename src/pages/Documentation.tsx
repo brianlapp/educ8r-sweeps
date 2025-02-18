@@ -65,7 +65,7 @@ const Documentation = () => {
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-800 underline break-all"
                   >
-                    https://educ8r.freeparentsearch.com/test-landing
+                    https://educ8r.freeparentsearch.com/test-landing?oid=1987&sub1=4FTFI4RX
                   </a>
                   <p className="mt-2 text-gray-700">
                     This reference page showcases:
