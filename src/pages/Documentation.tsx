@@ -52,6 +52,35 @@ const Documentation = () => {
 
               <Separator className="my-8" />
 
+              <section id="testing">
+                <h2 className="text-2xl font-semibold mb-4">Test Your Integration</h2>
+                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                  <h4 className="font-semibold text-blue-700 mb-2">Test Landing Page Available</h4>
+                  <p className="text-gray-700 mb-2">
+                    We provide a test landing page that allows you to verify your tracking implementation:
+                  </p>
+                  <a 
+                    href="/test-landing?oid=1987&sub1=TEST123" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 underline break-all"
+                  >
+                    https://educ8r.freeparentsearch.com/test-landing
+                  </a>
+                  <p className="mt-2 text-gray-700">
+                    This page automatically captures tracking parameters from the URL and provides buttons to:
+                  </p>
+                  <ul className="mt-2 space-y-1 list-disc pl-4">
+                    <li>View tracked parameters (offer_id, sub1, etc.)</li>
+                    <li>Trigger click events</li>
+                    <li>Trigger conversion events</li>
+                    <li>View console logs for debugging</li>
+                  </ul>
+                </div>
+              </section>
+
+              <Separator className="my-8" />
+
               <section id="implementation">
                 <h2 className="text-2xl font-semibold mb-4">Detailed Implementation Steps</h2>
                 
