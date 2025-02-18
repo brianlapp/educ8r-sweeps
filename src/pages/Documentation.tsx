@@ -21,7 +21,7 @@ const Documentation = () => {
       <div className="flex-1 bg-white">
         <div className="container mx-auto px-4 py-8">
           <header className="mb-8 px-6">
-            <h1 className="text-3xl font-bold text-gray-900">Sweeps Integration Guide</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Partner Integration Guide</h1>
             <p className="mt-2 text-gray-600">Complete documentation for implementing the referral tracking system</p>
           </header>
 
