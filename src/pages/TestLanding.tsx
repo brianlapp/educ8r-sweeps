@@ -8,7 +8,7 @@ const TestLanding = () => {
   const [searchParams] = useSearchParams();
   const referralCode = searchParams.get("sub1");
   const offerId = searchParams.get("oid");
-  const AFFILIATE_ID = 2628;
+  const AFFILIATE_ID = 2636; // Updated from 2628 to 2636
   const impressionFired = useRef(false);
   const scriptLoaded = useRef(false);
   const clickFired = useRef(false);
