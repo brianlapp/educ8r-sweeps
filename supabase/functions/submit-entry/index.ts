@@ -104,28 +104,28 @@ serve(async (req) => {
 
     console.log('Successfully created entry:', entry)
 
-    // Step 1: Initialize base tags array
-    const tags = ['sweeps'];  // Base tag for all sweepstakes entries
-    const customTag = 'comprendi';
-    if (customTag) {
-      tags.push(customTag);  // Add the sweepstakes-specific tag
-    }
+    // Step 1: Initialize base tags array and custom fields
+    const tags = ['sweeps', 'comprendi']
+    const customFields = [{
+      name: 'referral_code',
+      value: entry.referral_code
+    }]
 
-    // Step 2: Create/Update BeehiiV subscription
+    // Step 2: Create/Update BeehiiV subscription with custom fields
     const subscriberData = {
       email: email,
       first_name: firstName,
       last_name: lastName,
       utm_source: 'sweepstakes',
-      utm_medium: customTag || 'organic',
-      utm_campaign: customTag || undefined,
-      tags: tags,
+      utm_medium: 'comprendi',
+      utm_campaign: 'comprendi',
       reactivate: true,
-      referral_code: entry.referral_code
+      custom_fields: customFields
     }
 
     console.log('Sending subscription data to BeehiiV:', subscriberData)
     
+    // Create/update subscriber first
     const subscribeResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`, {
       method: 'POST',
       headers: {
@@ -136,15 +136,16 @@ serve(async (req) => {
     })
 
     if (!subscribeResponse.ok) {
-      console.error('BeehiiV subscription error:', await subscribeResponse.text())
+      const errorText = await subscribeResponse.text()
+      console.error('BeehiiV subscription error:', errorText)
       throw new Error('Failed to subscribe to newsletter')
     }
 
     const subscribeData = await subscribeResponse.json()
     console.log('BeehiiV subscription response:', subscribeData)
 
-    // Step 3: Explicitly add tags to ensure they stick
-    if (subscribeData.data?.id) {  // Notice the .data.id path
+    // Step 3: Add tags in a separate request
+    if (subscribeData.data?.id) {
       console.log('Adding tags explicitly:', tags)
       const tagResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscribeData.data.id}/tags`, {
         method: 'POST',
@@ -156,10 +157,30 @@ serve(async (req) => {
       })
 
       if (!tagResponse.ok) {
-        console.error('BeehiiV tag error:', await tagResponse.text())
-        // Don't throw here - the subscription was successful even if tag addition failed
+        const tagErrorText = await tagResponse.text()
+        console.error('BeehiiV tag error:', tagErrorText)
+        // Log error but don't throw - subscription was successful
+        console.log('Tag addition failed but subscription successful')
       } else {
-        console.log('Tags added successfully')
+        const tagData = await tagResponse.json()
+        console.log('Tags added successfully:', tagData)
+      }
+    }
+
+    // Step 4: Add debug entry for referral tracking
+    if (validReferral) {
+      const { error: debugError } = await supabaseClient
+        .from('referral_debug')
+        .insert({
+          email: email,
+          referrer_email: null, // We don't store referrer email
+          referred_by: referredBy,
+          referral_code: entry.referral_code
+        })
+
+      if (debugError) {
+        console.error('Error creating debug entry:', debugError)
+        // Don't throw, this is just for debugging
       }
     }
 
