@@ -104,12 +104,22 @@ serve(async (req) => {
 
     console.log('Successfully created entry:', entry)
 
-    // Step 1: Initialize base tags array and custom fields
+    // Step 1: Initialize base tags array and custom fields with exact BeehiiV field names
     const tags = ['sweeps', 'comprendi']
-    const customFields = [{
-      name: 'referral_code',
-      value: entry.referral_code
-    }]
+    const customFields = [
+      {
+        name: 'First Name',
+        value: firstName
+      },
+      {
+        name: 'Last Name',
+        value: lastName
+      },
+      {
+        name: 'referral_code',
+        value: entry.referral_code
+      }
+    ]
 
     // Step 2: Create/Update BeehiiV subscription with custom fields
     const subscriberData = {
