@@ -4,5 +4,10 @@ project_id = "epfzraejquaxqrfmkmyx"
 
 # Global settings for all functions
 [functions]
-verify_jwt = false
-allow_unauthenticated = true
+node_version = 18
+
+[functions.verify_jwt]
+enabled = false
+
+[functions.allow_unauthenticated]
+enabled = true
