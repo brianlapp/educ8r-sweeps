@@ -4,9 +4,4 @@ project_id = "epfzraejquaxqrfmkmyx"
 
 # Global settings for all functions
 [functions]
-
-[functions.verify_jwt]
-enabled = false
-
-[functions.allow_unauthenticated]
-enabled = true
+verify_jwt = false
