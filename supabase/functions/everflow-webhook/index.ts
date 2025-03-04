@@ -7,6 +7,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// This function is now configured to be publicly accessible
+// Supabase will still attempt to verify JWT tokens if present,
+// but we're making the authentication optional instead of required
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -14,7 +17,12 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Received request to everflow-webhook');
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+    
     // Initialize Supabase client
+    // This now uses the service role key to bypass RLS policies
+    // since the request might be unauthenticated
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -94,9 +102,6 @@ serve(async (req) => {
         }
       )
     }
-
-    // Log headers for debugging
-    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
 
     // Call the database function to handle the postback
     const { data, error } = await supabaseClient.rpc('handle_everflow_webhook', {
