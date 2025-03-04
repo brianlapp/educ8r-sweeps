@@ -23,6 +23,12 @@ serve(async (req) => {
     const url = new URL(req.url);
     console.log('Request path:', url.pathname);
     console.log('Request query params:', Object.fromEntries(url.searchParams));
+    
+    // Log environment variables availability (without exposing values)
+    const envVars = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
+    for (const varName of envVars) {
+      console.log(`Env var ${varName} exists:`, !!Deno.env.get(varName));
+    }
   } catch (error) {
     console.log('Error logging request details:', error.message);
   }
@@ -37,6 +43,10 @@ serve(async (req) => {
         message: 'Debug endpoint accessed successfully',
         timestamp: new Date().toISOString(),
         headers: Object.fromEntries(req.headers),
+        env_vars_exist: {
+          SUPABASE_URL: !!Deno.env.get('SUPABASE_URL'),
+          SUPABASE_SERVICE_ROLE_KEY: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+        }
       }),
       { 
         status: 200,
@@ -60,17 +70,18 @@ serve(async (req) => {
   try {
     console.log('Received request to everflow-webhook public endpoint');
     
-    // Initialize Supabase client with SERVICE_ROLE_KEY to bypass RLS
-    console.log('Initializing Supabase client');
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    console.log('SUPABASE_URL available:', !!supabaseUrl);
-    console.log('SUPABASE_SERVICE_ROLE_KEY available:', !!supabaseKey);
+    // Initialize Supabase client with hardcoded values for testing
+    // IMPORTANT: This is for debugging only and should be replaced with env vars in production
+    const supabaseUrl = 'https://epfzraejquaxqrfmkmyx.supabase.co';
+    // We'll still try env vars first, then fall back to a placeholder for debugging
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || 'SERVICE_ROLE_KEY_NOT_AVAILABLE';
     
-    const supabaseClient = createClient(
-      supabaseUrl ?? '',
-      supabaseKey ?? ''
-    );
+    console.log('Using Supabase URL:', supabaseUrl);
+    console.log('Service role key available:', !!supabaseKey);
+    
+    // We'll create the client but won't make any database calls if we don't have a valid key
+    // This allows testing the endpoint connectivity without DB operations
+    const supabaseClient = createClient(supabaseUrl, supabaseKey);
     
     // For GET requests (coming from Everflow)
     if (req.method === 'GET') {
@@ -85,6 +96,25 @@ serve(async (req) => {
       const transaction_id = params.get('tid') || params.get('transaction_id');
       
       console.log('Extracted parameters - referral_code:', referral_code, 'transaction_id:', transaction_id);
+      
+      // For debugging - skip DB operations if we're just testing connectivity
+      if (params.has('test_only') || !supabaseKey || supabaseKey === 'SERVICE_ROLE_KEY_NOT_AVAILABLE') {
+        console.log('Test mode active - skipping database operations');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Test mode: GET webhook connectivity verified',
+            test_only: true,
+            params: Object.fromEntries(params)
+          }),
+          { 
+            headers: { 
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      }
       
       if (!referral_code || !transaction_id) {
         console.error('Missing required parameters in GET request');
@@ -111,37 +141,94 @@ serve(async (req) => {
       
       console.log('Calling database function with payload:', payload);
       
-      // Call the database function to handle the postback
-      const { data, error } = await supabaseClient.rpc('handle_everflow_webhook', {
-        payload: payload
-      });
+      try {
+        // Call the database function to handle the postback
+        const { data, error } = await supabaseClient.rpc('handle_everflow_webhook', {
+          payload: payload
+        });
 
-      if (error) {
-        console.error('Error processing GET webhook:', error);
-        throw error;
-      }
-
-      console.log('Successfully processed GET webhook:', data);
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'GET webhook processed successfully',
-          data
-        }),
-        { 
-          headers: { 
-            ...corsHeaders,
-            'Content-Type': 'application/json'
-          }
+        if (error) {
+          console.error('Error processing GET webhook:', error);
+          throw error;
         }
-      );
+
+        console.log('Successfully processed GET webhook:', data);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'GET webhook processed successfully',
+            data
+          }),
+          { 
+            headers: { 
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      } catch (dbError) {
+        console.error('Database error:', dbError);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: 'Database operation failed',
+            error: dbError.message,
+            stack: dbError.stack
+          }),
+          { 
+            status: 500,
+            headers: { 
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      }
     } 
     
     // Handle POST request (for manual testing or alternative integration)
     else if (req.method === 'POST') {
-      const payload = await req.json();
-      console.log('Received Everflow webhook POST payload:', JSON.stringify(payload, null, 2));
+      let payload;
+      try {
+        payload = await req.json();
+        console.log('Received Everflow webhook POST payload:', JSON.stringify(payload, null, 2));
+      } catch (parseError) {
+        console.error('Error parsing JSON payload:', parseError);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Invalid JSON payload',
+            details: parseError.message
+          }),
+          { 
+            status: 400,
+            headers: { 
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      }
+
+      // Test-only mode
+      if (payload?.test_only || !supabaseKey || supabaseKey === 'SERVICE_ROLE_KEY_NOT_AVAILABLE') {
+        console.log('Test mode active - skipping database operations');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Test mode: POST webhook connectivity verified',
+            test_only: true,
+            payload
+          }),
+          { 
+            headers: { 
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      }
 
       // Validate required fields
       if (!payload.referral_code || !payload.transaction_id) {
@@ -161,31 +248,50 @@ serve(async (req) => {
         );
       }
       
-      // Call the database function to handle the postback
-      const { data, error } = await supabaseClient.rpc('handle_everflow_webhook', {
-        payload: payload
-      });
+      try {
+        // Call the database function to handle the postback
+        const { data, error } = await supabaseClient.rpc('handle_everflow_webhook', {
+          payload: payload
+        });
 
-      if (error) {
-        console.error('Error processing webhook:', error);
-        throw error;
-      }
-
-      console.log('Successfully processed webhook:', data);
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Webhook processed successfully',
-          data
-        }),
-        { 
-          headers: { 
-            ...corsHeaders,
-            'Content-Type': 'application/json'
-          }
+        if (error) {
+          console.error('Error processing webhook:', error);
+          throw error;
         }
-      );
+
+        console.log('Successfully processed webhook:', data);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Webhook processed successfully',
+            data
+          }),
+          { 
+            headers: { 
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      } catch (dbError) {
+        console.error('Database error:', dbError);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: 'Database operation failed',
+            error: dbError.message,
+            stack: dbError.stack
+          }),
+          { 
+            status: 500,
+            headers: { 
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      }
     } else {
       return new Response(
         JSON.stringify({

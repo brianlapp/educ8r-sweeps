@@ -19,8 +19,12 @@ export function SupabaseFunctionTester() {
       url: "https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/public-test"
     },
     {
+      name: "Connection Test Direct",
+      url: "https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/connection-test"
+    },
+    {
       name: "Everflow Debug",
-      url: "https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook/debug"
+      url: "https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook/debug?test_only=true"
     },
     {
       name: "Simple Test via SDK",
@@ -31,6 +35,17 @@ export function SupabaseFunctionTester() {
       name: "Public Test via SDK",
       type: "sdk", 
       fn: "public-test"
+    },
+    {
+      name: "Connection Test via SDK",
+      type: "sdk", 
+      fn: "connection-test"
+    },
+    {
+      name: "Everflow Test via SDK",
+      type: "sdk",
+      fn: "everflow-webhook",
+      params: { test_only: true }
     }
   ];
 
@@ -43,10 +58,14 @@ export function SupabaseFunctionTester() {
       
       if (test.type === "sdk") {
         // Test using the Supabase SDK
-        response = await supabase.functions.invoke(test.fn);
+        console.log(`Testing function ${test.fn} via SDK`, test.params || {});
+        response = await supabase.functions.invoke(test.fn, {
+          body: test.params || {}
+        });
         setResults(prev => ({ ...prev, [test.name]: response }));
       } else {
         // Test using direct fetch
+        console.log(`Testing function via direct URL: ${test.url}`);
         const fetchResponse = await fetch(test.url, {
           method: 'GET',
           headers: {
