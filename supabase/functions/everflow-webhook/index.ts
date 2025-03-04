@@ -8,8 +8,6 @@ const corsHeaders = {
 }
 
 // This function is now configured to be publicly accessible
-// Supabase will still attempt to verify JWT tokens if present,
-// but we're making the authentication optional instead of required
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -23,12 +21,24 @@ serve(async (req) => {
     console.log('Request method:', req.method);
     console.log('Config status: verify_jwt should be set to false in config.toml');
     
+    const authHeader = req.headers.get('authorization');
+
+    // 🚨 Force GET requests to bypass auth
+    if (req.method === 'GET') {
+      console.log("🚨 Allowing unauthenticated GET request.");
+    } else if (!authHeader) {
+      console.error("❌ Missing Authorization Header for non-GET request");
+      return new Response(
+        JSON.stringify({ error: "Missing authorization header" }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     // Initialize Supabase client
-    // This now uses the service role key to bypass RLS policies
-    // since the request might be unauthenticated
+    // Use anon key for GET requests to ensure public accessibility
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '' // Use anon key to ensure public access
     )
 
     let payload;
