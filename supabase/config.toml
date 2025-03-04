@@ -5,4 +5,5 @@ project_id = "epfzraejquaxqrfmkmyx"
 # Global settings for all functions
 [functions]
 verify_jwt = { enabled = false }
-allow_unauthenticated = true
+allow_unauthenticated = false
+
