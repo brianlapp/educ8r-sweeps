@@ -124,13 +124,13 @@ serve(async (req) => {
               'Content-Type': 'application/json'
             }
           }
-        )
+        );
       }
       
       // Call the database function to handle the postback
       const { data, error } = await supabaseClient.rpc('handle_everflow_webhook', {
         payload: payload
-      })
+      });
 
       if (error) {
         console.error('Error processing webhook:', error);
@@ -151,7 +151,7 @@ serve(async (req) => {
             'Content-Type': 'application/json'
           }
         }
-      )
+      );
     } else {
       return new Response(
         JSON.stringify({
@@ -165,7 +165,7 @@ serve(async (req) => {
             'Content-Type': 'application/json'
           }
         }
-      )
+      );
     }
 
   } catch (error) {
