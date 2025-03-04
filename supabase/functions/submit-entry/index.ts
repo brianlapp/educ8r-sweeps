@@ -118,6 +118,10 @@ serve(async (req) => {
       {
         name: 'referral_code',
         value: entry.referral_code
+      },
+      {
+        name: 'sweepstakes_entries',
+        value: '1'
       }
     ]
 

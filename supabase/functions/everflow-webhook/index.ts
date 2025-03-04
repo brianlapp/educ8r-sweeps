@@ -11,6 +11,10 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 }
 
+// Get environment variables
+const BEEHIIV_API_KEY = Deno.env.get('BEEHIIV_API_KEY');
+const BEEHIIV_PUBLICATION_ID = 'pub_4b47c3db-7b59-4c82-a18b-16cf10fc2d23';
+
 // This function is designed to be completely public with NO authentication
 serve(async (req) => {
   console.log('==== EVERFLOW WEBHOOK FUNCTION STARTED ====');
@@ -25,7 +29,7 @@ serve(async (req) => {
     console.log('Request query params:', Object.fromEntries(url.searchParams));
     
     // Log environment variables availability (without exposing values)
-    const envVars = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
+    const envVars = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "BEEHIIV_API_KEY"];
     for (const varName of envVars) {
       console.log(`Env var ${varName} exists:`, !!Deno.env.get(varName));
     }
@@ -45,7 +49,8 @@ serve(async (req) => {
         headers: Object.fromEntries(req.headers),
         env_vars_exist: {
           SUPABASE_URL: !!Deno.env.get('SUPABASE_URL'),
-          SUPABASE_SERVICE_ROLE_KEY: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+          SUPABASE_SERVICE_ROLE_KEY: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+          BEEHIIV_API_KEY: !!Deno.env.get('BEEHIIV_API_KEY')
         }
       }),
       { 
@@ -155,13 +160,92 @@ serve(async (req) => {
           throw error;
         }
 
-        console.log('Successfully processed GET webhook:', data);
+        console.log('Successfully processed GET webhook in database:', data);
+        
+        // Now we need to get the email of the person who referred
+        const { data: referrerData, error: referrerError } = await supabaseClient
+          .from('entries')
+          .select('email, referral_count, entry_count, total_entries')
+          .eq('referral_code', referral_code)
+          .single();
+        
+        if (referrerError) {
+          console.error('Error fetching referrer data:', referrerError);
+          throw referrerError;
+        }
+        
+        // If we found the referrer, update their BeehiiV entry count
+        if (referrerData && referrerData.email) {
+          try {
+            // Calculate current entries - should match total_entries in our DB
+            const currentEntries = (referrerData.entry_count || 1) + (referrerData.referral_count || 0);
+            
+            console.log('Updating BeehiiV for referrer email:', referrerData.email);
+            console.log('Current entry count in DB:', currentEntries);
+            
+            // First, get the subscriber ID by email
+            const subscriberResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscribers?email=${encodeURIComponent(referrerData.email)}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+              }
+            });
+            
+            if (!subscriberResponse.ok) {
+              const subscriberErrorText = await subscriberResponse.text();
+              console.error('Error fetching BeehiiV subscriber:', subscriberErrorText);
+              throw new Error('Failed to fetch BeehiiV subscriber');
+            }
+            
+            const subscriberData = await subscriberResponse.json();
+            console.log('BeehiiV subscriber response:', subscriberData);
+            
+            if (subscriberData.data && subscriberData.data.length > 0) {
+              const subscriberId = subscriberData.data[0].id;
+              console.log('Found BeehiiV subscriber ID:', subscriberId);
+              
+              // Update the subscriber's custom field with the new entry count
+              const updateResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscribers/${subscriberId}/custom_fields`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+                },
+                body: JSON.stringify({
+                  custom_fields: [
+                    {
+                      name: 'sweepstakes_entries',
+                      value: currentEntries.toString()
+                    }
+                  ]
+                })
+              });
+              
+              if (!updateResponse.ok) {
+                const updateErrorText = await updateResponse.text();
+                console.error('Error updating BeehiiV custom field:', updateErrorText);
+                throw new Error('Failed to update BeehiiV custom field');
+              }
+              
+              const updateData = await updateResponse.json();
+              console.log('BeehiiV update response:', updateData);
+            } else {
+              console.error('No subscriber found in BeehiiV for email:', referrerData.email);
+            }
+          } catch (beehiivError) {
+            // Log but don't fail the entire request if BeehiiV update fails
+            console.error('Error updating BeehiiV:', beehiivError);
+            console.log('Continuing despite BeehiiV error');
+          }
+        }
 
         return new Response(
           JSON.stringify({
             success: true,
             message: 'GET webhook processed successfully',
-            data
+            data,
+            beehiiv_updated: true
           }),
           { 
             headers: { 
@@ -262,13 +346,92 @@ serve(async (req) => {
           throw error;
         }
 
-        console.log('Successfully processed webhook:', data);
+        console.log('Successfully processed webhook in database:', data);
+        
+        // Now we need to get the email of the person who referred
+        const { data: referrerData, error: referrerError } = await supabaseClient
+          .from('entries')
+          .select('email, referral_count, entry_count, total_entries')
+          .eq('referral_code', payload.referral_code)
+          .single();
+        
+        if (referrerError) {
+          console.error('Error fetching referrer data:', referrerError);
+          throw referrerError;
+        }
+        
+        // If we found the referrer, update their BeehiiV entry count
+        if (referrerData && referrerData.email) {
+          try {
+            // Calculate current entries - should match total_entries in our DB
+            const currentEntries = (referrerData.entry_count || 1) + (referrerData.referral_count || 0);
+            
+            console.log('Updating BeehiiV for referrer email:', referrerData.email);
+            console.log('Current entry count in DB:', currentEntries);
+            
+            // First, get the subscriber ID by email
+            const subscriberResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscribers?email=${encodeURIComponent(referrerData.email)}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+              }
+            });
+            
+            if (!subscriberResponse.ok) {
+              const subscriberErrorText = await subscriberResponse.text();
+              console.error('Error fetching BeehiiV subscriber:', subscriberErrorText);
+              throw new Error('Failed to fetch BeehiiV subscriber');
+            }
+            
+            const subscriberData = await subscriberResponse.json();
+            console.log('BeehiiV subscriber response:', subscriberData);
+            
+            if (subscriberData.data && subscriberData.data.length > 0) {
+              const subscriberId = subscriberData.data[0].id;
+              console.log('Found BeehiiV subscriber ID:', subscriberId);
+              
+              // Update the subscriber's custom field with the new entry count
+              const updateResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscribers/${subscriberId}/custom_fields`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+                },
+                body: JSON.stringify({
+                  custom_fields: [
+                    {
+                      name: 'sweepstakes_entries',
+                      value: currentEntries.toString()
+                    }
+                  ]
+                })
+              });
+              
+              if (!updateResponse.ok) {
+                const updateErrorText = await updateResponse.text();
+                console.error('Error updating BeehiiV custom field:', updateErrorText);
+                throw new Error('Failed to update BeehiiV custom field');
+              }
+              
+              const updateData = await updateResponse.json();
+              console.log('BeehiiV update response:', updateData);
+            } else {
+              console.error('No subscriber found in BeehiiV for email:', referrerData.email);
+            }
+          } catch (beehiivError) {
+            // Log but don't fail the entire request if BeehiiV update fails
+            console.error('Error updating BeehiiV:', beehiivError);
+            console.log('Continuing despite BeehiiV error');
+          }
+        }
 
         return new Response(
           JSON.stringify({
             success: true,
             message: 'Webhook processed successfully',
-            data
+            data,
+            beehiiv_updated: true
           }),
           { 
             headers: { 

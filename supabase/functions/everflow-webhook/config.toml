@@ -2,9 +2,10 @@
 # Function-specific settings (must match parent project ID)
 project_id = "epfzraejquaxqrfmkmyx"
 
-# Maximum access settings
 [verify_jwt]
 enabled = false
 
-allow_unauthenticated = true
+[allow_unauthenticated]
+enabled = true
+
 import_map = "../import_map.json"
