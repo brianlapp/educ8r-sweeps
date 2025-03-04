@@ -15,6 +15,10 @@ export function SupabaseFunctionTester() {
       url: "https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/simple-test"
     },
     {
+      name: "Public Test Direct",
+      url: "https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/public-test"
+    },
+    {
       name: "Everflow Debug",
       url: "https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook/debug"
     },
@@ -22,6 +26,11 @@ export function SupabaseFunctionTester() {
       name: "Simple Test via SDK",
       type: "sdk",
       fn: "simple-test"
+    },
+    {
+      name: "Public Test via SDK",
+      type: "sdk", 
+      fn: "public-test"
     }
   ];
 
