@@ -1,9 +1,17 @@
 
-# This is the crucial setting - it allows the function to be accessed without authentication
+# Project ID must be first
+project_id = "epfzraejquaxqrfmkmyx"
+
+# Critical public access settings
 verify_jwt = false
-# This setting ensures the function is publicly accessible without any Supabase key verification
 allow_unauthenticated = true
 
-# Additional settings - not strictly necessary but good to be explicit
+# Global settings to ensure all functions have public access
+[functions."everflow-webhook"]
+verify_jwt = false
+allow_unauthenticated = true
+
+# Explicit wildcard configuration
 [functions."*"]
 verify_jwt = false
+allow_unauthenticated = true

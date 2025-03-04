@@ -2,17 +2,25 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+// Enhanced CORS headers for better compatibility
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, X-Requested-With',
+  'Access-Control-Max-Age': '86400',
 }
 
 // This function is designed to be completely public with NO authentication
 serve(async (req) => {
-  console.log('==== FUNCTION STARTED ====');
+  console.log('==== EVERFLOW WEBHOOK FUNCTION STARTED ====');
   console.log('Request method:', req.method);
   console.log('Request URL:', req.url);
-  console.log('Request headers:', Object.fromEntries(req.headers));
+  
+  try {
+    console.log('Request headers:', Object.fromEntries(req.headers));
+  } catch (error) {
+    console.log('Error logging headers:', error.message);
+  }
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
