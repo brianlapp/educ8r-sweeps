@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// This function is designed to be completely public
+// This function is designed to be completely public with NO authentication
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {

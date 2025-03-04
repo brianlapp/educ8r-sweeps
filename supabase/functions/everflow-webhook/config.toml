@@ -1,3 +1,5 @@
 
 # Set this to false to allow requests without valid JWT tokens
 verify_jwt = false
+# Set this to true to make function completely bypass auth and supabase key verification
+allow_unauthenticated = true
