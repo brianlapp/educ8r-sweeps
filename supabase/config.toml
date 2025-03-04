@@ -4,7 +4,7 @@ project_id = "epfzraejquaxqrfmkmyx"
 
 # Global settings for all functions
 [functions]
-node_version = 18
+node_version = "18"
 
 [functions.verify_jwt]
 enabled = false
