@@ -201,10 +201,11 @@ serve(async (req) => {
                   const subscriberId = subscriberData.data[0].id;
                   console.log('Found BeehiiV subscriber ID:', subscriberId);
                   
-                  // Update the subscriber with PATCH request - CORRECTED ENDPOINT AND METHOD
+                  // Update the subscriber with PATCH request - CORRECTED REQUEST BODY FORMAT
                   const updateUrl = `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}`;
                   console.log('Updating subscriber with URL:', updateUrl);
                   
+                  // FIXED: The custom_fields needs to be an array of objects with name and value properties
                   const updateResponse = await fetch(updateUrl, {
                     method: 'PATCH',
                     headers: {
@@ -212,9 +213,12 @@ serve(async (req) => {
                       'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
                     },
                     body: JSON.stringify({
-                      custom_fields: {
-                        sweepstakes_entries: currentEntries.toString()
-                      }
+                      custom_fields: [
+                        {
+                          name: "sweepstakes_entries",
+                          value: currentEntries.toString()
+                        }
+                      ]
                     })
                   });
                   
@@ -395,10 +399,11 @@ serve(async (req) => {
                   const subscriberId = subscriberData.data[0].id;
                   console.log('Found BeehiiV subscriber ID:', subscriberId);
                   
-                  // Update the subscriber with PATCH request - CORRECTED ENDPOINT AND METHOD
+                  // Update the subscriber with PATCH request - CORRECTED REQUEST BODY FORMAT
                   const updateUrl = `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}`;
                   console.log('Updating subscriber with URL:', updateUrl);
                   
+                  // FIXED: The custom_fields needs to be an array of objects with name and value properties
                   const updateResponse = await fetch(updateUrl, {
                     method: 'PATCH',
                     headers: {
@@ -406,9 +411,12 @@ serve(async (req) => {
                       'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
                     },
                     body: JSON.stringify({
-                      custom_fields: {
-                        sweepstakes_entries: currentEntries.toString()
-                      }
+                      custom_fields: [
+                        {
+                          name: "sweepstakes_entries",
+                          value: currentEntries.toString()
+                        }
+                      ]
                     })
                   });
                   
