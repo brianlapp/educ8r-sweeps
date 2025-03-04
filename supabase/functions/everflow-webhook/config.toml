@@ -1,0 +1,3 @@
+
+# Set this to false to allow requests without valid JWT tokens
+verify_jwt = false
