@@ -27,6 +27,10 @@ export function SupabaseFunctionTester() {
       url: "https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook/debug?test_only=true"
     },
     {
+      name: "Test Webhook Direct",
+      url: "https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/test-webhook"
+    },
+    {
       name: "Simple Test via SDK",
       type: "sdk",
       fn: "simple-test"
@@ -46,6 +50,11 @@ export function SupabaseFunctionTester() {
       type: "sdk",
       fn: "everflow-webhook",
       params: { test_only: true }
+    },
+    {
+      name: "Test Webhook via SDK",
+      type: "sdk",
+      fn: "test-webhook"
     }
   ];
 
@@ -102,6 +111,83 @@ export function SupabaseFunctionTester() {
     }
   };
 
+  const testEverflowSystem = async () => {
+    setIsLoading(true);
+    setError(null);
+    setResults({});
+    
+    try {
+      // Test the entire referral system: get a referral code and simulate a conversion
+      
+      // First get a referral code
+      const { data: entries, error: fetchError } = await supabase
+        .from('entries')
+        .select('referral_code')
+        .not('referral_code', 'is', null)
+        .limit(1);
+      
+      if (fetchError || !entries?.length) {
+        throw new Error('No valid referral code found');
+      }
+      
+      const referralCode = entries[0].referral_code;
+      const transactionId = 'test-' + Date.now();
+      
+      // First test what the database has before
+      const { data: beforeData } = await supabase
+        .from('entries')
+        .select('referral_count, total_entries')
+        .eq('referral_code', referralCode)
+        .single();
+      
+      setResults(prev => ({ 
+        ...prev, 
+        'Before Conversion': { 
+          referral_code: referralCode,
+          transaction_id: transactionId,
+          referral_count: beforeData?.referral_count,
+          total_entries: beforeData?.total_entries
+        } 
+      }));
+      
+      // Call the webhook with the test referral
+      const webhookResponse = await supabase.functions.invoke('everflow-webhook', {
+        body: {
+          referral_code: referralCode,
+          transaction_id: transactionId
+        }
+      });
+      
+      setResults(prev => ({ ...prev, 'Webhook Response': webhookResponse }));
+      
+      // Check what the database has after
+      const { data: afterData } = await supabase
+        .from('entries')
+        .select('referral_count, total_entries')
+        .eq('referral_code', referralCode)
+        .single();
+      
+      setResults(prev => ({ 
+        ...prev, 
+        'After Conversion': { 
+          referral_code: referralCode,
+          transaction_id: transactionId,
+          referral_count: afterData?.referral_count,
+          total_entries: afterData?.total_entries,
+          incremented: beforeData && afterData && 
+            (afterData.referral_count > beforeData.referral_count) &&
+            (afterData.total_entries > beforeData.total_entries)
+        } 
+      }));
+      
+    } catch (err) {
+      console.error('Error testing Everflow system:', err);
+      setError(`Everflow System Test: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
@@ -114,6 +200,17 @@ export function SupabaseFunctionTester() {
             <Button onClick={testAll} disabled={isLoading}>
               {isLoading ? "Testing..." : "Test All Functions"}
             </Button>
+            
+            <Button 
+              onClick={testEverflowSystem} 
+              variant="outline" 
+              className="bg-green-100 hover:bg-green-200 border-green-300"
+              disabled={isLoading}
+            >
+              Test Everflow System
+            </Button>
+            
+            <div className="border-t w-full my-2"></div>
             
             {testUrls.map((test) => (
               <Button 

@@ -20,10 +20,15 @@ serve(async (req) => {
 
   try {
     // Initialize Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? 'https://epfzraejquaxqrfmkmyx.supabase.co';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseKey) {
+      console.error('ERROR: SUPABASE_SERVICE_ROLE_KEY is not set');
+      throw new Error('Missing required environment variable: SUPABASE_SERVICE_ROLE_KEY');
+    }
+    
+    const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
     // First, get a valid referral code from the entries table
     const { data: entries, error: fetchError } = await supabaseClient

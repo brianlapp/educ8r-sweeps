@@ -238,13 +238,6 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
-      handle_everflow_postback: {
-        Args: {
-          ref_code: string
-          trans_id: string
-        }
-        Returns: undefined
-      }
       handle_everflow_webhook: {
         Args: {
           payload: Json
