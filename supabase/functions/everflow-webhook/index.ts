@@ -1,6 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from '@supabase/supabase-js'
 
 // Enhanced CORS headers for maximum compatibility
 const corsHeaders = {
@@ -70,18 +70,21 @@ serve(async (req) => {
   try {
     console.log('Received request to everflow-webhook public endpoint');
     
-    // Initialize Supabase client with hardcoded values for testing
-    // IMPORTANT: This is for debugging only and should be replaced with env vars in production
-    const supabaseUrl = 'https://epfzraejquaxqrfmkmyx.supabase.co';
-    // We'll still try env vars first, then fall back to a placeholder for debugging
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || 'SERVICE_ROLE_KEY_NOT_AVAILABLE';
+    // Get environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://epfzraejquaxqrfmkmyx.supabase.co';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     console.log('Using Supabase URL:', supabaseUrl);
     console.log('Service role key available:', !!supabaseKey);
     
-    // We'll create the client but won't make any database calls if we don't have a valid key
-    // This allows testing the endpoint connectivity without DB operations
-    const supabaseClient = createClient(supabaseUrl, supabaseKey);
+    // Create Supabase client with anon key if service role key is not available
+    // This ensures the webhook can work in development environments
+    const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwZnpyYWVxcXVheHFyZm1rbXl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk0NzA2ODIsImV4cCI6MjA1NTA0NjY4Mn0.LY300ASTr6cn4vl2ZkCR0pV0rmah9YKLaUXVM5ISytM';
+    const apiKey = supabaseKey || anonKey;
+    
+    console.log('Using API key type:', supabaseKey ? 'SERVICE_ROLE' : 'ANON');
+    
+    const supabaseClient = createClient(supabaseUrl, apiKey);
     
     // For GET requests (coming from Everflow)
     if (req.method === 'GET') {
@@ -98,7 +101,7 @@ serve(async (req) => {
       console.log('Extracted parameters - referral_code:', referral_code, 'transaction_id:', transaction_id);
       
       // For debugging - skip DB operations if we're just testing connectivity
-      if (params.has('test_only') || !supabaseKey || supabaseKey === 'SERVICE_ROLE_KEY_NOT_AVAILABLE') {
+      if (params.has('test_only')) {
         console.log('Test mode active - skipping database operations');
         return new Response(
           JSON.stringify({
@@ -212,7 +215,7 @@ serve(async (req) => {
       }
 
       // Test-only mode
-      if (payload?.test_only || !supabaseKey || supabaseKey === 'SERVICE_ROLE_KEY_NOT_AVAILABLE') {
+      if (payload?.test_only) {
         console.log('Test mode active - skipping database operations');
         return new Response(
           JSON.stringify({
