@@ -168,15 +168,19 @@ serve(async (req) => {
             console.log('Referrer data from database:', referrerData);
             
             if (referrerData && referrerData.email) {
-              // Calculate current entries from the returned data
+              // Clean and prepare the email
+              const email = referrerData.email.trim().toLowerCase();
               const currentEntries = referrerData.total_entries || 0;
               
-              console.log('Updating BeehiiV for referrer email:', referrerData.email);
+              console.log('Updating BeehiiV for referrer email:', email);
               console.log('Current entry count from DB:', currentEntries);
               
               if (BEEHIIV_API_KEY) {
-                // First, get the subscriber ID by email
-                const subscriberResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscribers?email=${encodeURIComponent(referrerData.email)}`, {
+                // First, get the subscriber ID by email - CORRECTED ENDPOINT
+                const subscriberUrl = `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions?email=${encodeURIComponent(email)}`;
+                console.log('Fetching subscriber with URL:', subscriberUrl);
+                
+                const subscriberResponse = await fetch(subscriberUrl, {
                   method: 'GET',
                   headers: {
                     'Content-Type': 'application/json',
@@ -187,47 +191,49 @@ serve(async (req) => {
                 if (!subscriberResponse.ok) {
                   const subscriberErrorText = await subscriberResponse.text();
                   console.error('Error fetching BeehiiV subscriber:', subscriberErrorText);
-                  throw new Error('Failed to fetch BeehiiV subscriber');
+                  throw new Error(`Failed to fetch BeehiiV subscriber: ${subscriberErrorText}`);
                 }
                 
                 const subscriberData = await subscriberResponse.json();
                 console.log('BeehiiV subscriber response:', subscriberData);
                 
-                if (subscriberData.data && subscriberData.data.length > 0) {
+                if (subscriberData && subscriberData.data && subscriberData.data.length > 0) {
                   const subscriberId = subscriberData.data[0].id;
                   console.log('Found BeehiiV subscriber ID:', subscriberId);
                   
-                  // Update the subscriber's custom field with the new entry count
-                  const updateResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscribers/${subscriberId}/custom_fields`, {
-                    method: 'PUT',
+                  // Update the subscriber with PATCH request - CORRECTED ENDPOINT AND METHOD
+                  const updateUrl = `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}`;
+                  console.log('Updating subscriber with URL:', updateUrl);
+                  
+                  const updateResponse = await fetch(updateUrl, {
+                    method: 'PATCH',
                     headers: {
                       'Content-Type': 'application/json',
                       'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
                     },
                     body: JSON.stringify({
-                      custom_fields: [
-                        {
-                          name: 'sweepstakes_entries',
-                          value: currentEntries.toString()
-                        }
-                      ]
+                      custom_fields: {
+                        sweepstakes_entries: currentEntries.toString()
+                      }
                     })
                   });
                   
                   if (!updateResponse.ok) {
                     const updateErrorText = await updateResponse.text();
-                    console.error('Error updating BeehiiV custom field:', updateErrorText);
-                    throw new Error('Failed to update BeehiiV custom field');
+                    console.error('Error updating BeehiiV subscriber:', updateErrorText);
+                    throw new Error(`Failed to update BeehiiV subscriber: ${updateErrorText}`);
                   }
                   
                   const updateData = await updateResponse.json();
                   console.log('BeehiiV update response:', updateData);
                   beehiivUpdated = true;
                 } else {
-                  console.warn('No subscriber found in BeehiiV for email:', referrerData.email);
+                  console.warn('No subscriber found in BeehiiV for email:', email);
+                  beehiivError = `No subscriber found in BeehiiV for email: ${email}`;
                 }
               } else {
                 console.warn('BEEHIIV_API_KEY not available, skipping BeehiiV update');
+                beehiivError = 'BEEHIIV_API_KEY not available';
               }
             }
           } catch (beehiivErr) {
@@ -356,15 +362,19 @@ serve(async (req) => {
             console.log('Referrer data from database:', referrerData);
             
             if (referrerData && referrerData.email) {
-              // Calculate current entries from the returned data
+              // Clean and prepare the email
+              const email = referrerData.email.trim().toLowerCase();
               const currentEntries = referrerData.total_entries || 0;
               
-              console.log('Updating BeehiiV for referrer email:', referrerData.email);
+              console.log('Updating BeehiiV for referrer email:', email);
               console.log('Current entry count from DB:', currentEntries);
               
               if (BEEHIIV_API_KEY) {
-                // First, get the subscriber ID by email
-                const subscriberResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscribers?email=${encodeURIComponent(referrerData.email)}`, {
+                // First, get the subscriber ID by email - CORRECTED ENDPOINT
+                const subscriberUrl = `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions?email=${encodeURIComponent(email)}`;
+                console.log('Fetching subscriber with URL:', subscriberUrl);
+                
+                const subscriberResponse = await fetch(subscriberUrl, {
                   method: 'GET',
                   headers: {
                     'Content-Type': 'application/json',
@@ -375,47 +385,49 @@ serve(async (req) => {
                 if (!subscriberResponse.ok) {
                   const subscriberErrorText = await subscriberResponse.text();
                   console.error('Error fetching BeehiiV subscriber:', subscriberErrorText);
-                  throw new Error('Failed to fetch BeehiiV subscriber');
+                  throw new Error(`Failed to fetch BeehiiV subscriber: ${subscriberErrorText}`);
                 }
                 
                 const subscriberData = await subscriberResponse.json();
                 console.log('BeehiiV subscriber response:', subscriberData);
                 
-                if (subscriberData.data && subscriberData.data.length > 0) {
+                if (subscriberData && subscriberData.data && subscriberData.data.length > 0) {
                   const subscriberId = subscriberData.data[0].id;
                   console.log('Found BeehiiV subscriber ID:', subscriberId);
                   
-                  // Update the subscriber's custom field with the new entry count
-                  const updateResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscribers/${subscriberId}/custom_fields`, {
-                    method: 'PUT',
+                  // Update the subscriber with PATCH request - CORRECTED ENDPOINT AND METHOD
+                  const updateUrl = `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}`;
+                  console.log('Updating subscriber with URL:', updateUrl);
+                  
+                  const updateResponse = await fetch(updateUrl, {
+                    method: 'PATCH',
                     headers: {
                       'Content-Type': 'application/json',
                       'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
                     },
                     body: JSON.stringify({
-                      custom_fields: [
-                        {
-                          name: 'sweepstakes_entries',
-                          value: currentEntries.toString()
-                        }
-                      ]
+                      custom_fields: {
+                        sweepstakes_entries: currentEntries.toString()
+                      }
                     })
                   });
                   
                   if (!updateResponse.ok) {
                     const updateErrorText = await updateResponse.text();
-                    console.error('Error updating BeehiiV custom field:', updateErrorText);
-                    throw new Error('Failed to update BeehiiV custom field');
+                    console.error('Error updating BeehiiV subscriber:', updateErrorText);
+                    throw new Error(`Failed to update BeehiiV subscriber: ${updateErrorText}`);
                   }
                   
                   const updateData = await updateResponse.json();
                   console.log('BeehiiV update response:', updateData);
                   beehiivUpdated = true;
                 } else {
-                  console.warn('No subscriber found in BeehiiV for email:', referrerData.email);
+                  console.warn('No subscriber found in BeehiiV for email:', email);
+                  beehiivError = `No subscriber found in BeehiiV for email: ${email}`;
                 }
               } else {
                 console.warn('BEEHIIV_API_KEY not available, skipping BeehiiV update');
+                beehiivError = 'BEEHIIV_API_KEY not available';
               }
             }
           } catch (beehiivErr) {
