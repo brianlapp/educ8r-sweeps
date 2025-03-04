@@ -20,23 +20,73 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Parse the webhook payload
-    const payload = await req.json()
-    console.log('Received Everflow webhook payload:', JSON.stringify(payload, null, 2))
+    let payload;
 
-    // Log headers for debugging
-    console.log('Request headers:', Object.fromEntries(req.headers.entries()))
+    // Handle different request methods
+    if (req.method === 'GET') {
+      // Parse URL search parameters for GET requests
+      const url = new URL(req.url);
+      const params = url.searchParams;
+      
+      console.log('Received Everflow GET request with params:', Object.fromEntries(params));
+      
+      // Extract required parameters from URL
+      const referral_code = params.get('sub1');
+      const transaction_id = params.get('tid') || params.get('transaction_id');
+      
+      if (!referral_code || !transaction_id) {
+        console.error('Missing required parameters in GET request');
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Missing required parameters: sub1 (referral_code) and tid/transaction_id are required'
+          }),
+          { 
+            status: 400,
+            headers: { 
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          }
+        )
+      }
+      
+      // Construct payload for database processing
+      payload = {
+        referral_code: referral_code,
+        transaction_id: transaction_id
+      };
+      
+    } else if (req.method === 'POST') {
+      // Handle POST requests as before
+      payload = await req.json();
+      console.log('Received Everflow webhook POST payload:', JSON.stringify(payload, null, 2));
 
-    // Validate required fields
-    if (!payload.referral_code || !payload.transaction_id) {
-      console.error('Missing required fields in payload:', JSON.stringify(payload, null, 2))
+      // Validate required fields
+      if (!payload.referral_code || !payload.transaction_id) {
+        console.error('Missing required fields in POST payload:', JSON.stringify(payload, null, 2));
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Missing required fields: referral_code and transaction_id are required'
+          }),
+          { 
+            status: 400,
+            headers: { 
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          }
+        )
+      }
+    } else {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Missing required fields: referral_code and transaction_id are required'
+          error: `Unsupported method: ${req.method}`
         }),
         { 
-          status: 400,
+          status: 405,
           headers: { 
             ...corsHeaders,
             'Content-Type': 'application/json'
@@ -45,20 +95,20 @@ serve(async (req) => {
       )
     }
 
+    // Log headers for debugging
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+
     // Call the database function to handle the postback
     const { data, error } = await supabaseClient.rpc('handle_everflow_webhook', {
-      payload: {
-        referral_code: payload.referral_code,
-        transaction_id: payload.transaction_id
-      }
+      payload: payload
     })
 
     if (error) {
-      console.error('Error processing webhook:', error)
-      throw error
+      console.error('Error processing webhook:', error);
+      throw error;
     }
 
-    console.log('Successfully processed webhook:', data)
+    console.log('Successfully processed webhook:', data);
 
     return new Response(
       JSON.stringify({
@@ -75,7 +125,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error in everflow-webhook function:', error)
+    console.error('Error in everflow-webhook function:', error);
     return new Response(
       JSON.stringify({
         success: false,

@@ -1,3 +1,4 @@
+
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -68,6 +69,11 @@ const TestLanding = () => {
           window.EF.impression(impressionData);
           impressionFired.current = true;
           console.log('Impression fired');
+          
+          // Log the postback URL for debugging
+          console.log('Postback URL would be (impression):', 
+            `https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook?sub1=${window.EF.urlParameter('sub1')}&tid=${transactionId.current}`
+          );
         }
       } catch (error) {
         console.error('Error in tracking setup:', error);
@@ -116,6 +122,11 @@ const TestLanding = () => {
         window.EF.click(clickData);
         clickFired.current = true;
         console.log('Click tracked');
+        
+        // Log the postback URL for debugging
+        console.log('Postback URL would be (click):', 
+          `https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook?sub1=${window.EF.urlParameter('sub1')}&tid=${transactionId.current}`
+        );
       }
     } catch (error) {
       console.error('Error tracking click:', error);
@@ -145,6 +156,11 @@ const TestLanding = () => {
         conversionFired.current = true;
         console.log('Conversion tracked');
 
+        // Log the postback URL for debugging
+        console.log('Postback URL would be (conversion):', 
+          `https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook?sub1=${window.EF.urlParameter('sub1')}&tid=${transactionId.current}`
+        );
+
         // After successful conversion, notify our backend
         supabase.functions.invoke('everflow-webhook', {
           body: {
@@ -157,6 +173,28 @@ const TestLanding = () => {
       }
     } catch (error) {
       console.error('Error tracking conversion:', error);
+    }
+  };
+
+  // Function to manually test the webhook with GET params
+  const testWebhookGet = async () => {
+    const sub1 = window.EF?.urlParameter('sub1') || referralCode;
+    const tid = transactionId.current;
+    
+    if (!sub1) {
+      console.error('No referral code (sub1) available for testing');
+      return;
+    }
+    
+    const url = `https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook?sub1=${sub1}&tid=${tid}`;
+    console.log('Testing webhook GET request:', url);
+    
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      console.log('Webhook GET test response:', data);
+    } catch (error) {
+      console.error('Error testing webhook GET:', error);
     }
   };
 
@@ -190,7 +228,7 @@ const TestLanding = () => {
                   <p className="text-sm text-gray-600 mb-2">
                     ✓ Impression tracking fired automatically on page load
                   </p>
-                  <div className="flex gap-4">
+                  <div className="flex flex-wrap gap-4">
                     <Button 
                       onClick={trackClick} 
                       variant="outline"
@@ -203,6 +241,13 @@ const TestLanding = () => {
                       disabled={conversionFired.current}
                     >
                       {conversionFired.current ? "Conversion Tracked" : "Track Conversion"}
+                    </Button>
+                    <Button 
+                      onClick={testWebhookGet}
+                      variant="outline"
+                      className="mt-2"
+                    >
+                      Test Webhook (GET)
                     </Button>
                   </div>
                 </div>
