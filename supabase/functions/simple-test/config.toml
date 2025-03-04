@@ -3,5 +3,7 @@
 project_id = "epfzraejquaxqrfmkmyx"
 
 # Maximum access settings
-verify_jwt = false
+[verify_jwt]
+enabled = false
+
 allow_unauthenticated = true
