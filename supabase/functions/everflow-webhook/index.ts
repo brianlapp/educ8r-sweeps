@@ -19,6 +19,9 @@ serve(async (req) => {
   try {
     console.log('Received request to everflow-webhook');
     console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+    console.log('Request URL:', req.url);
+    console.log('Request method:', req.method);
+    console.log('Config status: verify_jwt should be set to false in config.toml');
     
     // Initialize Supabase client
     // This now uses the service role key to bypass RLS policies
