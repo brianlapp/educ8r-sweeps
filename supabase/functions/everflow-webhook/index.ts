@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// This function is now configured to be publicly accessible
+// This function needs to be publicly accessible
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -19,10 +19,9 @@ serve(async (req) => {
     console.log('Request headers:', Object.fromEntries(req.headers.entries()));
     console.log('Request URL:', req.url);
     console.log('Request method:', req.method);
-    console.log('Config status: verify_jwt should be set to false in config.toml');
+    console.log('Config status: verify_jwt is set to false in config.toml');
     
     // For GET requests, we'll bypass all authentication checks completely
-    // No authorization header check for GET requests
     if (req.method === 'GET') {
       console.log("🚨 Allowing completely unauthenticated GET request");
       
@@ -53,10 +52,10 @@ serve(async (req) => {
         )
       }
       
-      // Initialize Supabase client with ANON KEY for public GET requests
+      // Initialize Supabase client with SERVICE_ROLE_KEY for GET requests to bypass RLS
       const supabaseClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       )
       
       // Construct payload for database processing
@@ -102,7 +101,7 @@ serve(async (req) => {
       );
     }
     
-    // Initialize Supabase client with auth for POST requests
+    // Initialize Supabase client with SERVICE_ROLE_KEY for POST requests
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
