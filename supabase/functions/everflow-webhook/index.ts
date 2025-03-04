@@ -9,21 +9,34 @@ const corsHeaders = {
 
 // This function is designed to be completely public with NO authentication
 serve(async (req) => {
+  console.log('==== FUNCTION STARTED ====');
+  console.log('Request method:', req.method);
+  console.log('Request URL:', req.url);
+  console.log('Request headers:', Object.fromEntries(req.headers));
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    console.log('Handling OPTIONS request with CORS headers');
+    return new Response(null, { 
+      headers: corsHeaders,
+      status: 200
+    });
   }
 
   try {
     console.log('Received request to everflow-webhook public endpoint');
-    console.log('Request URL:', req.url);
-    console.log('Request method:', req.method);
     
     // Initialize Supabase client with SERVICE_ROLE_KEY to bypass RLS
+    console.log('Initializing Supabase client');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    console.log('SUPABASE_URL available:', !!supabaseUrl);
+    console.log('SUPABASE_SERVICE_ROLE_KEY available:', !!supabaseKey);
+    
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+      supabaseUrl ?? '',
+      supabaseKey ?? ''
+    );
     
     // For GET requests (coming from Everflow)
     if (req.method === 'GET') {
@@ -53,7 +66,7 @@ serve(async (req) => {
               'Content-Type': 'application/json'
             }
           }
-        )
+        );
       }
       
       // Construct payload for database processing
@@ -67,7 +80,7 @@ serve(async (req) => {
       // Call the database function to handle the postback
       const { data, error } = await supabaseClient.rpc('handle_everflow_webhook', {
         payload: payload
-      })
+      });
 
       if (error) {
         console.error('Error processing GET webhook:', error);
@@ -88,7 +101,7 @@ serve(async (req) => {
             'Content-Type': 'application/json'
           }
         }
-      )
+      );
     } 
     
     // Handle POST request (for manual testing or alternative integration)
@@ -157,10 +170,13 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in everflow-webhook function:', error);
+    // Include detailed error information in the response for debugging
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message
+        error: error.message,
+        stack: error.stack,
+        details: String(error)
       }),
       { 
         status: 400,
@@ -169,6 +185,6 @@ serve(async (req) => {
           'Content-Type': 'application/json'
         }
       }
-    )
+    );
   }
 })
