@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// This function needs to be publicly accessible
+// This function is designed to be completely public
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -15,25 +15,29 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Received request to everflow-webhook');
-    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+    console.log('Received request to everflow-webhook public endpoint');
     console.log('Request URL:', req.url);
     console.log('Request method:', req.method);
-    console.log('Config status: verify_jwt is set to false in config.toml');
     
-    // For GET requests, we'll bypass all authentication checks completely
+    // Initialize Supabase client with SERVICE_ROLE_KEY to bypass RLS
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+    
+    // For GET requests (coming from Everflow)
     if (req.method === 'GET') {
-      console.log("🚨 Allowing completely unauthenticated GET request");
-      
       // Parse URL search parameters for GET requests
       const url = new URL(req.url);
       const params = url.searchParams;
       
       console.log('Received Everflow GET request with params:', Object.fromEntries(params));
       
-      // Extract required parameters from URL
+      // Extract required parameters from URL using Everflow parameter naming
       const referral_code = params.get('sub1');
       const transaction_id = params.get('tid') || params.get('transaction_id');
+      
+      console.log('Extracted parameters - referral_code:', referral_code, 'transaction_id:', transaction_id);
       
       if (!referral_code || !transaction_id) {
         console.error('Missing required parameters in GET request');
@@ -52,17 +56,13 @@ serve(async (req) => {
         )
       }
       
-      // Initialize Supabase client with SERVICE_ROLE_KEY for GET requests to bypass RLS
-      const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      )
-      
       // Construct payload for database processing
       const payload = {
         referral_code: referral_code,
         transaction_id: transaction_id
       };
+      
+      console.log('Calling database function with payload:', payload);
       
       // Call the database function to handle the postback
       const { data, error } = await supabaseClient.rpc('handle_everflow_webhook', {
@@ -91,30 +91,14 @@ serve(async (req) => {
       )
     } 
     
-    // For non-GET requests, continue with authorization checks
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      console.error("❌ Missing Authorization Header for non-GET request");
-      return new Response(
-        JSON.stringify({ error: "Missing authorization header" }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    // Initialize Supabase client with SERVICE_ROLE_KEY for POST requests
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    // Handle POST request
-    if (req.method === 'POST') {
+    // Handle POST request (for manual testing or alternative integration)
+    else if (req.method === 'POST') {
       const payload = await req.json();
       console.log('Received Everflow webhook POST payload:', JSON.stringify(payload, null, 2));
 
       // Validate required fields
       if (!payload.referral_code || !payload.transaction_id) {
-        console.error('Missing required fields in POST payload:', JSON.stringify(payload, null, 2));
+        console.error('Missing required fields in POST payload');
         return new Response(
           JSON.stringify({
             success: false,
