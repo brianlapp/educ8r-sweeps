@@ -2,16 +2,12 @@
 # Project ID must be first
 project_id = "epfzraejquaxqrfmkmyx"
 
-# Critical public access settings
+# Global settings - apply to all functions
 verify_jwt = false
 allow_unauthenticated = true
 
-# Global settings to ensure all functions have public access
+# Function-specific settings with explicit public access
 [functions."everflow-webhook"]
 verify_jwt = false
 allow_unauthenticated = true
-
-# Explicit wildcard configuration
-[functions."*"]
-verify_jwt = false
-allow_unauthenticated = true
+import_map = "../import_map.json"

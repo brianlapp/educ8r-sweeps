@@ -2,11 +2,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Enhanced CORS headers for better compatibility
+// Enhanced CORS headers for maximum compatibility
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, X-Requested-With',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, X-Requested-With, *',
+  'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Max-Age': '86400',
 }
 
@@ -17,9 +18,34 @@ serve(async (req) => {
   console.log('Request URL:', req.url);
   
   try {
+    // More detailed logging
     console.log('Request headers:', Object.fromEntries(req.headers));
+    const url = new URL(req.url);
+    console.log('Request path:', url.pathname);
+    console.log('Request query params:', Object.fromEntries(url.searchParams));
   } catch (error) {
-    console.log('Error logging headers:', error.message);
+    console.log('Error logging request details:', error.message);
+  }
+  
+  // Special debug endpoint to confirm the function is accessible
+  const url = new URL(req.url);
+  if (url.pathname.endsWith('/debug') || url.searchParams.has('debug')) {
+    console.log('Debug endpoint accessed');
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Debug endpoint accessed successfully',
+        timestamp: new Date().toISOString(),
+        headers: Object.fromEntries(req.headers),
+      }),
+      { 
+        status: 200,
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
   }
   
   // Handle CORS preflight requests
