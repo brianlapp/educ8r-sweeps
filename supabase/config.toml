@@ -1,2 +1,7 @@
 
+# Project ID must be first
 project_id = "epfzraejquaxqrfmkmyx"
+
+# Global settings for all functions
+[functions]
+verify_jwt = false

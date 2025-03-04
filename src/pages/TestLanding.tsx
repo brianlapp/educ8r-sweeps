@@ -1,9 +1,9 @@
-
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Helmet } from 'react-helmet-async';
+import { SupabaseFunctionTester } from "@/components/SupabaseFunctionTester";
 
 const TestLanding = () => {
   const [searchParams] = useSearchParams();
@@ -256,6 +256,11 @@ const TestLanding = () => {
                 </p>
               </div>
             </div>
+          </div>
+          
+          <div className="mt-8">
+            <h2 className="text-2xl font-semibold mb-4 text-center">Function Testing</h2>
+            <SupabaseFunctionTester />
           </div>
         </div>
       </div>
