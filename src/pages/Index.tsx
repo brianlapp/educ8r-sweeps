@@ -45,9 +45,23 @@ const Index = () => {
               </p>
 
               <div className="mt-8 bg-gradient-to-br from-blue-50 to-indigo-50 p-8 rounded-2xl border border-blue-100">
-                <div className="flex items-center gap-3 mb-4">
-                  <span className="text-blue-600 text-2xl">📚</span>
-                  <h3 className="text-xl font-semibold text-blue-800">About Comprendi</h3>
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-3 mb-6">
+                  <div className="flex items-center gap-3">
+                    <span className="text-blue-600 text-2xl">📚</span>
+                    <h3 className="text-xl font-semibold text-blue-800">About Comprendi</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-4 md:ml-auto">
+                    <img 
+                      src="https://i0.wp.com/dmlearninglab.com/wp-content/uploads/2024/03/DMLL-Logo-with-Marion-7.png?fit=5125%2C2887&ssl=1" 
+                      alt="Dr. Marion Learning Lab Logo" 
+                      className="h-10 object-contain" 
+                    />
+                    <img 
+                      src="https://i0.wp.com/dmlearninglab.com/wp-content/uploads/2024/03/Comprendi-Logo-5.png?fit=580%2C327&ssl=1" 
+                      alt="Comprendi Logo" 
+                      className="h-8 object-contain" 
+                    />
+                  </div>
                 </div>
                 <div className="space-y-4">
                   <p className="text-gray-700">
