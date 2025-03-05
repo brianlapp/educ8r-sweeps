@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,8 +34,7 @@ export const EntryForm = () => {
       const { data: response, error } = await supabase.functions.invoke('submit-entry', {
         body: {
           ...formData,
-          referredBy,
-          forceUpdate: true // Add this flag to force update for existing users
+          referredBy
         }
       });
       

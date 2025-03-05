@@ -19,8 +19,8 @@ serve(async (req) => {
   }
 
   try {
-    const { firstName, lastName, email, referredBy, forceUpdate = false } = await req.json()
-    console.log('Received submission with referral:', { firstName, lastName, email, referredBy, forceUpdate })
+    const { firstName, lastName, email, referredBy } = await req.json()
+    console.log('Received submission with referral:', { firstName, lastName, email, referredBy })
 
     // Initialize Supabase client
     const supabaseClient = createClient(
@@ -55,7 +55,7 @@ serve(async (req) => {
           utm_medium: 'comprendi',
           utm_campaign: 'comprendi',
           reactivate: true,
-          send_welcome_email: forceUpdate, // Force sending welcome email for existing users
+          // Removed send_welcome_email flag - we don't want the standard welcome email
           custom_fields: [
             {
               name: 'First Name',
@@ -132,7 +132,7 @@ serve(async (req) => {
               const subscriberId = subscriberData.data[0].id
               console.log(`Found subscriber ID: ${subscriberId}`)
               
-              // 3. Now add the comprendi tag
+              // 3. Now add the comprendi tag - this is critical for the automation to work
               console.log(`Adding 'comprendi' tag to subscriber ID: ${subscriberId}`)
               const updateTagsResponse = await fetch(
                 `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}/tags`,
@@ -157,7 +157,7 @@ serve(async (req) => {
                 console.log('Successfully added tags to BeehiiV subscriber')
               }
 
-              // 4. Add to automation explicitly 
+              // 4. Add to automation explicitly - this should ensure the automation runs
               await addToBeehiivAutomation(email)
             }
           } catch (parseError) {
@@ -246,7 +246,7 @@ serve(async (req) => {
       }
     ]
 
-    // Step 2: Create/Update BeehiiV subscription with custom fields
+    // Step 2: Create/Update BeehiiV subscription with custom fields - removed send_welcome_email flag
     const subscriberData = {
       email: email,
       first_name: firstName,
@@ -316,7 +316,7 @@ serve(async (req) => {
             const subscriberId = subscriberData.data[0].id
             console.log(`Found subscriber ID: ${subscriberId}`)
             
-            // Now add the comprendi tag
+            // Now add the comprendi tag - this is critical for the automation to work
             console.log(`Adding tags to subscriber ID: ${subscriberId}`)
             const updateTagsResponse = await fetch(
               `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}/tags`,
@@ -349,7 +349,7 @@ serve(async (req) => {
       console.error('Error adding tags:', tagError)
     }
 
-    // Add to BeehiiV automation 
+    // Add to BeehiiV automation explicitly
     try {
       await addToBeehiivAutomation(email)
     } catch (automationError) {
