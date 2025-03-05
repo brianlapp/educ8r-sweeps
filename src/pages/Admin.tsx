@@ -64,10 +64,6 @@ const Admin = () => {
       accessorKey: "referral_code",
     },
     {
-      header: "Referred By",
-      accessorKey: "referred_by",
-    },
-    {
       header: "Referral Count",
       accessorKey: "referral_count",
     },
