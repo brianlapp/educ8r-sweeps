@@ -1,8 +1,9 @@
-
+<lov-codelov-code>
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Helmet } from 'react-helmet-async';
+
 declare global {
   interface Window {
     EF: {
@@ -13,14 +14,16 @@ declare global {
     };
   }
 }
+
 const ThankYou = () => {
   const [referralCode, setReferralCode] = useState<string>("");
   const [isReturningUser, setIsReturningUser] = useState(false);
+  // Keep jwtStatus for debugging, but don't display it to users
   const [jwtStatus, setJwtStatus] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check JWT status of the everflow-webhook endpoint
+    // Check JWT status of the everflow-webhook endpoint (for debugging only)
     const checkJwtStatus = async () => {
       try {
         const response = await fetch("https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook/debug?jwt_check=true");
@@ -109,13 +112,7 @@ const ThankYou = () => {
             )}
           </h1>
 
-          {jwtStatus && jwtStatus !== 'Disabled (OK)' && (
-            <div className="bg-yellow-50 p-4 rounded-lg mb-6 border-l-4 border-yellow-500">
-              <p className="text-yellow-800 font-medium">
-                System Notice: Referral tracking status - {jwtStatus}
-              </p>
-            </div>
-          )}
+          {/* Removed the JWT status warning box that was here previously */}
 
           {isReturningUser && (
             <div className="bg-blue-50 p-4 rounded-lg mb-6 border-l-4 border-blue-500">
@@ -178,4 +175,6 @@ const ThankYou = () => {
       </footer>
     </div>;
 };
+
 export default ThankYou;
+</lov-code>
