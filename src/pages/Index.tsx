@@ -1,3 +1,4 @@
+
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Helmet } from 'react-helmet-async';
@@ -75,7 +76,7 @@ const Index = () => {
           </div>
 
           <div className="mt-12 text-center text-sm text-gray-500 max-w-2xl mx-auto">
-            <p>No purchase necessary. Void where prohibited. Must be 18 years or older to enter. See <Link to="/terms" className="text-primary hover:underline">official rules</Link> for complete details. Prize valued at approximately $1000.</p>
+            <p>No purchase necessary. Void where prohibited. Must be 18 years or older to enter. See <Link to="/rules" className="text-primary hover:underline">official rules</Link> for complete details. Prize valued at approximately $1000.</p>
           </div>
         </div>
       </main>

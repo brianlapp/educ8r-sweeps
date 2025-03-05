@@ -122,14 +122,21 @@ export const EntryForm = () => {
           </a>
           ,{" "}
           <a
-            href="/terms"
+            href="https://freeparentsearch.com/terms"
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary hover:underline"
           >
             Terms and Conditions
           </a>{" "}
-          and understand that we will be sending you our newsletters by email.
+          and our{" "}
+          <Link
+            to="/rules"
+            className="text-primary hover:underline"
+          >
+            Rules and Regulations
+          </Link>
+          .
           Unsubscribe at any time.
         </label>
       </div>
