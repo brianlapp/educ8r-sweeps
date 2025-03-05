@@ -9,6 +9,8 @@ const corsHeaders = {
 
 const BEEHIIV_API_KEY = Deno.env.get('BEEHIIV_API_KEY')
 const BEEHIIV_PUBLICATION_ID = 'pub_4b47c3db-7b59-4c82-a18b-16cf10fc2d23'
+// Define the automation ID for direct enrollment
+const BEEHIIV_AUTOMATION_ID = Deno.env.get('BEEHIIV_AUTOMATION_ID') || 'aut_default_automation_id'
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -40,6 +42,14 @@ serve(async (req) => {
 
     if (existingEntry) {
       console.log('Found existing entry:', existingEntry)
+      
+      // Add to BeehiiV automation (even for existing users)
+      try {
+        await addToBeehiivAutomation(email)
+      } catch (automationError) {
+        // Log the error but don't throw - we still want to continue with the response
+        console.error('Error adding existing user to BeehiiV automation:', automationError)
+      }
       
       // Return existing entry with a clear message about already being entered
       return new Response(
@@ -152,6 +162,14 @@ serve(async (req) => {
     const subscribeData = await subscribeResponse.json()
     console.log('BeehiiV subscription response:', subscribeData)
 
+    // Add to BeehiiV automation for new subscribers too
+    try {
+      await addToBeehiivAutomation(email)
+    } catch (automationError) {
+      // Log the error but don't throw - we still want to continue with the response
+      console.error('Error adding new user to BeehiiV automation:', automationError)
+    }
+
     // Step 3: Add tags in a separate request
     if (subscribeData.data?.id) {
       console.log('Adding tags explicitly:', tags)
@@ -225,3 +243,36 @@ serve(async (req) => {
     )
   }
 })
+
+/**
+ * Helper function to add a subscriber to a BeehiiV automation flow
+ * This function handles the API call and throws errors if unsuccessful
+ */
+async function addToBeehiivAutomation(email: string) {
+  console.log(`Adding email ${email} to BeehiiV automation: ${BEEHIIV_AUTOMATION_ID}`)
+  
+  const response = await fetch(
+    `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/automations/${BEEHIIV_AUTOMATION_ID}/journeys`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+      },
+      body: JSON.stringify({
+        email: email,
+        double_opt_override: "on"
+      })
+    }
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error(`BeehiiV automation error (${response.status}):`, errorText)
+    throw new Error(`Failed to add to automation: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('Successfully added to automation:', data)
+  return data
+}
