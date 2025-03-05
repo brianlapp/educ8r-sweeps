@@ -26,9 +26,15 @@ const ThankYou = () => {
         const response = await fetch("https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook/debug?jwt_check=true");
         const data = await response.json();
         console.log('JWT verification status check result:', data);
-        setJwtStatus(data.jwt_status?.enabled === false ? 'Disabled (OK)' : 'Enabled (Issue)');
         
-        if (data.jwt_status?.enabled !== false) {
+        // Improved detection of JWT status with explicit check of the enabled flag
+        const jwtEnabled = data.jwt_status?.enabled;
+        console.log('JWT enabled flag from endpoint:', jwtEnabled);
+        
+        // Only show "Disabled (OK)" when explicitly false, not when undefined or any other value
+        setJwtStatus(jwtEnabled === false ? 'Disabled (OK)' : 'Enabled (Issue)');
+        
+        if (jwtEnabled !== false) {
           console.warn('WARNING: JWT verification appears to be enabled for everflow-webhook!');
         }
       } catch (err) {

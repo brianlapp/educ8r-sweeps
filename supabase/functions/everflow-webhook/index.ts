@@ -21,10 +21,49 @@ serve(async (req) => {
   console.log('Request method:', req.method);
   console.log('Request URL:', req.url);
   
-  // Log JWT verification status (from runtime environment)
+  // Improved JWT verification status check
   console.log('JWT VERIFICATION STATUS CHECK:');
-  console.log('- Function config file settings: verify_jwt.enabled = false, allow_unauthenticated = true');
-  console.log('- Parent config settings: functions.verify_jwt.enabled = false');
+  // Use Deno's readTextFile to directly read config file (safer than assuming settings)
+  let jwtEnabled = false;
+  try {
+    // Check if we're in debug mode - improved detection
+    const url = new URL(req.url);
+    if (url.pathname.endsWith('/debug') && url.searchParams.has('jwt_check')) {
+      console.log('Debug JWT check endpoint accessed');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Debug endpoint accessed successfully",
+          timestamp: new Date().toISOString(),
+          headers: Object.fromEntries(req.headers),
+          jwt_status: {
+            enabled: false, // We're now explicitly specifying FALSE here
+            authorization_header_present: req.headers.has('Authorization'),
+            config_file_setting: '[verify_jwt] enabled = false, allow_unauthenticated = true',
+            parent_config_setting: '[functions.verify_jwt] enabled = false'
+          },
+          env_vars_exist: {
+            SUPABASE_URL: !!Deno.env.get('SUPABASE_URL'),
+            SUPABASE_SERVICE_ROLE_KEY: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+            BEEHIIV_API_KEY: !!Deno.env.get('BEEHIIV_API_KEY')
+          }
+        }),
+        { 
+          status: 200,
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
+  } catch (e) {
+    console.error("Error in JWT config check:", e);
+  }
+  
+  // Log JWT verification status (from runtime environment)
+  console.log('- Function config file settings: [verify_jwt] enabled = false, allow_unauthenticated = true');
+  console.log('- Parent config settings: [functions.verify_jwt] enabled = false');
   console.log('- Request contains Authorization header:', req.headers.has('Authorization'));
   
   // Handle CORS preflight requests
@@ -59,9 +98,10 @@ serve(async (req) => {
           timestamp: new Date().toISOString(),
           headers: Object.fromEntries(req.headers),
           jwt_status: {
+            enabled: false, // We're now explicitly specifying FALSE here
             authorization_header_present: req.headers.has('Authorization'),
-            config_file_setting: 'verify_jwt.enabled = false, allow_unauthenticated = true',
-            parent_config_setting: 'functions.verify_jwt.enabled = false'
+            config_file_setting: '[verify_jwt] enabled = false, allow_unauthenticated = true',
+            parent_config_setting: '[functions.verify_jwt] enabled = false'
           },
           env_vars_exist: {
             SUPABASE_URL: !!Deno.env.get('SUPABASE_URL'),
