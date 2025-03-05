@@ -2,8 +2,7 @@
 # Function-specific settings (must match parent project ID)
 project_id = "epfzraejquaxqrfmkmyx"
 
-[verify_jwt]
-enabled = false
+# Explicitly disable JWT verification
+verify_jwt = false
 
 allow_unauthenticated = true
-

@@ -2,8 +2,8 @@
 # Function-specific settings
 project_id = "epfzraejquaxqrfmkmyx"
 
-[verify_jwt]
-enabled = true
+# This function requires authentication
+verify_jwt = true
 
 allow_unauthenticated = false
 

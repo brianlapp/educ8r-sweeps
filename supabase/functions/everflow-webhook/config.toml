@@ -2,11 +2,10 @@
 # Function-specific settings (must match parent project ID)
 project_id = "epfzraejquaxqrfmkmyx"
 
-# Explicitly disable JWT verification using consistent syntax
+# Explicitly disable JWT verification
 verify_jwt = false
 
 # Additional settings
 allow_unauthenticated = true
 
 import_map = "../import_map.json"
-
