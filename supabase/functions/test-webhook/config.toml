@@ -3,9 +3,6 @@
 project_id = "epfzraejquaxqrfmkmyx"
 
 # Explicitly disable JWT verification
-[verify_jwt]
-enabled = false
-
+verify_jwt = false
 allow_unauthenticated = true
-
 import_map = "../import_map.json"

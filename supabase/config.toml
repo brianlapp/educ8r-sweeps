@@ -4,5 +4,5 @@ project_id = "epfzraejquaxqrfmkmyx"
 
 # Global settings for all functions
 [functions]
-[functions.verify_jwt]
-enabled = false
+# Global JWT verification setting (affects all functions unless overridden)
+verify_jwt = false
