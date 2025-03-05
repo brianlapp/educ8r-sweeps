@@ -16,9 +16,29 @@ declare global {
 const ThankYou = () => {
   const [referralCode, setReferralCode] = useState<string>("");
   const [isReturningUser, setIsReturningUser] = useState(false);
+  const [jwtStatus, setJwtStatus] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
+    // Check JWT status of the everflow-webhook endpoint
+    const checkJwtStatus = async () => {
+      try {
+        const response = await fetch("https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook/debug?jwt_check=true");
+        const data = await response.json();
+        console.log('JWT verification status check result:', data);
+        setJwtStatus(data.jwt_status?.enabled === false ? 'Disabled (OK)' : 'Enabled (Issue)');
+        
+        if (data.jwt_status?.enabled !== false) {
+          console.warn('WARNING: JWT verification appears to be enabled for everflow-webhook!');
+        }
+      } catch (err) {
+        console.error('Error checking JWT status:', err);
+        setJwtStatus('Error checking status');
+      }
+    };
+    
+    checkJwtStatus();
+    
     // Get the unique referral code that was saved during signup
     const code = localStorage.getItem("referralCode");
     console.log('Retrieved referral code from localStorage:', code);
@@ -60,6 +80,7 @@ const ThankYou = () => {
       });
     }
   };
+  
   return <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
       <Helmet>
         <title>Thank You - Share & Win More | Educ8r Sweepstakes</title>
@@ -81,6 +102,14 @@ const ThankYou = () => {
               <span>🎉 Thank You for Entering!</span>
             )}
           </h1>
+
+          {jwtStatus && jwtStatus !== 'Disabled (OK)' && (
+            <div className="bg-yellow-50 p-4 rounded-lg mb-6 border-l-4 border-yellow-500">
+              <p className="text-yellow-800 font-medium">
+                System Notice: Referral tracking status - {jwtStatus}
+              </p>
+            </div>
+          )}
 
           {isReturningUser && (
             <div className="bg-blue-50 p-4 rounded-lg mb-6 border-l-4 border-blue-500">

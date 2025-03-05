@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +8,7 @@ export function SupabaseFunctionTester() {
   const [results, setResults] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [jwtVerificationStatus, setJwtVerificationStatus] = useState<string | null>(null);
 
   const testUrls = [
     {
@@ -100,6 +102,43 @@ export function SupabaseFunctionTester() {
       console.error(`Error testing ${test.name}:`, err);
       setError(`${test.name}: ${err instanceof Error ? err.message : String(err)}`);
       setResults(prev => ({ ...prev, [test.name]: { error: String(err) } }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const checkJwtVerification = async () => {
+    setIsLoading(true);
+    setJwtVerificationStatus(null);
+    
+    try {
+      // Test unauthenticated access to public endpoint
+      const publicResponse = await fetch("https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook/debug?jwt_check=true");
+      const publicData = await publicResponse.json();
+      
+      // Report JWT status
+      const jwtEnabled = publicData.jwt_status?.enabled;
+      
+      if (jwtEnabled === false) {
+        setJwtVerificationStatus("DISABLED (Correct: Webhook is publicly accessible)");
+      } else if (jwtEnabled === true) {
+        setJwtVerificationStatus("ENABLED (Issue: Webhook requires auth but should be public)");
+      } else {
+        setJwtVerificationStatus("UNCLEAR (Response didn't clearly indicate JWT status)");
+      }
+      
+      setResults(prev => ({ 
+        ...prev, 
+        'JWT Verification Test': {
+          response: publicData,
+          status: publicResponse.status,
+          jwt_status: jwtEnabled === false ? "DISABLED (correct)" : "ENABLED or UNCLEAR (issue)"
+        } 
+      }));
+    } catch (err) {
+      console.error('Error checking JWT verification:', err);
+      setError(`JWT Check: ${err instanceof Error ? err.message : String(err)}`);
+      setJwtVerificationStatus("ERROR (Could not determine status)");
     } finally {
       setIsLoading(false);
     }
@@ -245,6 +284,33 @@ export function SupabaseFunctionTester() {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
+          <div className="bg-gray-50 p-4 rounded-lg mb-4 border border-gray-200">
+            <h3 className="text-lg font-semibold mb-2">JWT Verification Status</h3>
+            <p className="text-sm text-gray-500 mb-3">
+              Check if JWT verification is correctly disabled for public endpoints
+            </p>
+            
+            <div className="flex items-center gap-3">
+              <Button 
+                onClick={checkJwtVerification} 
+                disabled={isLoading}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                Check JWT Verification Status
+              </Button>
+              
+              {jwtVerificationStatus && (
+                <div className={`py-1 px-3 rounded text-sm font-medium ${
+                  jwtVerificationStatus.includes('DISABLED') 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {jwtVerificationStatus}
+                </div>
+              )}
+            </div>
+          </div>
+          
           <div className="flex flex-wrap gap-2">
             <Button onClick={testAll} disabled={isLoading}>
               {isLoading ? "Testing..." : "Test All Functions"}
