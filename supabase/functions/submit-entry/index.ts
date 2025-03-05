@@ -19,8 +19,8 @@ serve(async (req) => {
   }
 
   try {
-    const { firstName, lastName, email, referredBy } = await req.json()
-    console.log('Received submission with referral:', { firstName, lastName, email, referredBy })
+    const { firstName, lastName, email, referredBy, forceUpdate = false } = await req.json()
+    console.log('Received submission with referral:', { firstName, lastName, email, referredBy, forceUpdate })
 
     // Initialize Supabase client
     const supabaseClient = createClient(
@@ -43,13 +43,129 @@ serve(async (req) => {
     if (existingEntry) {
       console.log('Found existing entry with referral code:', existingEntry.referral_code)
       
-      // Add to BeehiiV automation (even for existing users)
+      // For existing users, we'll update their BeehiiV subscription with the current data
+      // This ensures the automation triggers correctly by detecting the new email submission
       try {
-        await addToBeehiivAutomation(email)
-        await updateBeehiivTags(email) // Add the comprendi tag
-      } catch (automationError) {
-        // Log the error but don't throw - we still want to continue with the response
-        console.error('Error adding existing user to BeehiiV automation:', automationError)
+        // 1. Create/Update BeehiiV subscription with current data to simulate a "new submission"
+        const subscriberData = {
+          email: email,
+          first_name: firstName,
+          last_name: lastName,
+          utm_source: 'sweepstakes',
+          utm_medium: 'comprendi',
+          utm_campaign: 'comprendi',
+          reactivate: true,
+          send_welcome_email: forceUpdate, // Force sending welcome email for existing users
+          custom_fields: [
+            {
+              name: 'First Name',
+              value: firstName
+            },
+            {
+              name: 'Last Name',
+              value: lastName
+            },
+            {
+              name: 'referral_code',
+              value: existingEntry.referral_code
+            },
+            {
+              name: 'sweepstakes_entries',
+              value: '1'
+            }
+          ]
+        }
+
+        console.log('Updating existing user in BeehiiV with data:', subscriberData)
+        
+        const subscribeResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+          },
+          body: JSON.stringify(subscriberData)
+        })
+
+        const subscribeResponseText = await subscribeResponse.text()
+        console.log(`BeehiiV subscription update response (${subscribeResponse.status}):`, subscribeResponseText)
+
+        if (!subscribeResponse.ok) {
+          console.error('BeehiiV subscription update error:', subscribeResponseText)
+        } else {
+          console.log('Successfully updated BeehiiV subscription for existing user')
+          let subscribeData
+          try {
+            subscribeData = JSON.parse(subscribeResponseText)
+            console.log('Parsed BeehiiV response:', subscribeData)
+          } catch (e) {
+            console.log('Could not parse BeehiiV response as JSON')
+          }
+        }
+
+        // 2. First get the subscriber ID
+        console.log(`Retrieving subscriber ID for: ${email}`)
+        const getSubscriberResponse = await fetch(
+          `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions?email=${encodeURIComponent(email)}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+            }
+          }
+        )
+        
+        const subscriberResponseText = await getSubscriberResponse.text()
+        console.log(`BeehiiV get subscriber response (${getSubscriberResponse.status}):`, subscriberResponseText)
+        
+        if (!getSubscriberResponse.ok) {
+          console.error(`BeehiiV get subscriber error (${getSubscriberResponse.status}):`, subscriberResponseText)
+        } else {
+          try {
+            const subscriberData = JSON.parse(subscriberResponseText)
+            console.log('BeehiiV subscriber data:', subscriberData)
+            
+            if (!subscriberData.data || subscriberData.data.length === 0) {
+              console.error('No subscriber found with email:', email)
+            } else {
+              const subscriberId = subscriberData.data[0].id
+              console.log(`Found subscriber ID: ${subscriberId}`)
+              
+              // 3. Now add the comprendi tag
+              console.log(`Adding 'comprendi' tag to subscriber ID: ${subscriberId}`)
+              const updateTagsResponse = await fetch(
+                `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}/tags`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+                  },
+                  body: JSON.stringify({ 
+                    tags: ['comprendi', 'sweeps']  // Explicitly setting both required tags
+                  })
+                }
+              )
+              
+              const tagsResponseText = await updateTagsResponse.text()
+              console.log(`BeehiiV tag update response (${updateTagsResponse.status}):`, tagsResponseText)
+              
+              if (!updateTagsResponse.ok) {
+                console.error(`BeehiiV tag update error (${updateTagsResponse.status}):`, tagsResponseText)
+              } else {
+                console.log('Successfully added tags to BeehiiV subscriber')
+              }
+
+              // 4. Add to automation explicitly 
+              await addToBeehiivAutomation(email)
+            }
+          } catch (parseError) {
+            console.error('Error parsing BeehiiV subscriber data:', parseError)
+          }
+        }
+      } catch (beehiivError) {
+        console.error('Error processing BeehiiV actions for existing user:', beehiivError)
       }
       
       // Return existing entry with a clear message about already being entered
@@ -154,45 +270,90 @@ serve(async (req) => {
       body: JSON.stringify(subscriberData)
     })
 
+    const subscribeResponseText = await subscribeResponse.text()
+    console.log(`BeehiiV subscription response (${subscribeResponse.status}):`, subscribeResponseText)
+
     if (!subscribeResponse.ok) {
-      const errorText = await subscribeResponse.text()
-      console.error('BeehiiV subscription error:', errorText)
+      console.error('BeehiiV subscription error:', subscribeResponseText)
       throw new Error('Failed to subscribe to newsletter')
     }
 
-    const subscribeData = await subscribeResponse.json()
-    console.log('BeehiiV subscription response:', subscribeData)
-
-    // Add to BeehiiV automation for new subscribers too
+    let subscribeData
     try {
-      await addToBeehiivAutomation(email)
-      await updateBeehiivTags(email) // Add the comprendi tag explicitly
-    } catch (automationError) {
-      // Log the error but don't throw - we still want to continue with the response
-      console.error('Error adding new user to BeehiiV automation:', automationError)
+      subscribeData = JSON.parse(subscribeResponseText)
+      console.log('BeehiiV subscription parsed response:', subscribeData)
+    } catch (e) {
+      console.error('Could not parse BeehiiV response as JSON:', e)
     }
 
-    // Step 3: Add tags in a separate request
-    if (subscribeData.data?.id) {
-      console.log('Adding tags explicitly:', tags)
-      const tagResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscribeData.data.id}/tags`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-        },
-        body: JSON.stringify({ tags })
-      })
-
-      if (!tagResponse.ok) {
-        const tagErrorText = await tagResponse.text()
-        console.error('BeehiiV tag error:', tagErrorText)
-        // Log error but don't throw - subscription was successful
-        console.log('Tag addition failed but subscription successful')
+    try {
+      // Get subscriber ID first (needed for tag update)
+      console.log(`Retrieving subscriber ID for: ${email}`)
+      const getSubscriberResponse = await fetch(
+        `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions?email=${encodeURIComponent(email)}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+          }
+        }
+      )
+      
+      const subscriberResponseText = await getSubscriberResponse.text()
+      console.log(`BeehiiV get subscriber response (${getSubscriberResponse.status}):`, subscriberResponseText)
+      
+      if (!getSubscriberResponse.ok) {
+        console.error(`BeehiiV get subscriber error:`, subscriberResponseText)
       } else {
-        const tagData = await tagResponse.json()
-        console.log('Tags added successfully:', tagData)
+        try {
+          const subscriberData = JSON.parse(subscriberResponseText)
+          console.log('BeehiiV subscriber data:', subscriberData)
+          
+          if (!subscriberData.data || subscriberData.data.length === 0) {
+            console.error('No subscriber found with email:', email)
+          } else {
+            const subscriberId = subscriberData.data[0].id
+            console.log(`Found subscriber ID: ${subscriberId}`)
+            
+            // Now add the comprendi tag
+            console.log(`Adding tags to subscriber ID: ${subscriberId}`)
+            const updateTagsResponse = await fetch(
+              `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}/tags`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+                },
+                body: JSON.stringify({ 
+                  tags: ['comprendi', 'sweeps']  // Explicitly setting both required tags
+                })
+              }
+            )
+            
+            const tagsResponseText = await updateTagsResponse.text()
+            console.log(`BeehiiV tag update response (${updateTagsResponse.status}):`, tagsResponseText)
+            
+            if (!updateTagsResponse.ok) {
+              console.error(`BeehiiV tag update error:`, tagsResponseText)
+            } else {
+              console.log('Successfully added tags to BeehiiV subscriber')
+            }
+          }
+        } catch (parseError) {
+          console.error('Error parsing BeehiiV subscriber data:', parseError)
+        }
       }
+    } catch (tagError) {
+      console.error('Error adding tags:', tagError)
+    }
+
+    // Add to BeehiiV automation 
+    try {
+      await addToBeehiivAutomation(email)
+    } catch (automationError) {
+      console.error('Error adding user to BeehiiV automation:', automationError)
     }
 
     // Step 4: Add debug entry for referral tracking
@@ -270,6 +431,7 @@ async function addToBeehiivAutomation(email: string) {
     )
 
     const responseText = await response.text()
+    console.log(`BeehiiV automation response (${response.status}):`, responseText)
     
     if (!response.ok) {
       console.error(`BeehiiV automation error (${response.status}):`, responseText)
@@ -286,73 +448,6 @@ async function addToBeehiivAutomation(email: string) {
     }
   } catch (error) {
     console.error('Error in addToBeehiivAutomation:', error)
-    throw error
-  }
-}
-
-/**
- * Helper function to explicitly update BeehiiV tags for a subscriber
- * This ensures the 'comprendi' tag is added to match automation trigger
- */
-async function updateBeehiivTags(email: string) {
-  console.log(`Adding 'comprendi' tag to BeehiiV subscriber: ${email}`)
-  
-  try {
-    // First get the subscriber ID
-    const getSubscriberResponse = await fetch(
-      `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions?email=${encodeURIComponent(email)}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-        }
-      }
-    )
-    
-    if (!getSubscriberResponse.ok) {
-      const errorText = await getSubscriberResponse.text()
-      console.error(`BeehiiV get subscriber error:`, errorText)
-      throw new Error(`Failed to get subscriber ID: ${errorText}`)
-    }
-    
-    const subscriberData = await getSubscriberResponse.json()
-    console.log('BeehiiV subscriber data:', subscriberData)
-    
-    if (!subscriberData.data || subscriberData.data.length === 0) {
-      console.error('No subscriber found with email:', email)
-      throw new Error('Subscriber not found')
-    }
-    
-    const subscriberId = subscriberData.data[0].id
-    console.log(`Found subscriber ID: ${subscriberId}`)
-    
-    // Now add the comprendi tag
-    const updateTagsResponse = await fetch(
-      `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}/tags`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-        },
-        body: JSON.stringify({ 
-          tags: ['comprendi']  // Explicitly setting the comprendi tag
-        })
-      }
-    )
-    
-    if (!updateTagsResponse.ok) {
-      const errorText = await updateTagsResponse.text()
-      console.error(`BeehiiV tag update error:`, errorText)
-      throw new Error(`Failed to update tags: ${errorText}`)
-    }
-    
-    const updateTagsData = await updateTagsResponse.json()
-    console.log('Successfully updated BeehiiV tags:', updateTagsData)
-    return updateTagsData
-  } catch (error) {
-    console.error('Error in updateBeehiivTags:', error)
     throw error
   }
 }

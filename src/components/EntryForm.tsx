@@ -35,7 +35,8 @@ export const EntryForm = () => {
       const { data: response, error } = await supabase.functions.invoke('submit-entry', {
         body: {
           ...formData,
-          referredBy
+          referredBy,
+          forceUpdate: true // Add this flag to force update for existing users
         }
       });
       
@@ -52,8 +53,13 @@ export const EntryForm = () => {
         // Set flag for returning user status
         localStorage.setItem('isReturningUser', response.isExisting ? 'true' : 'false');
         
-        if (!response.isExisting) {
-          // Only show success toast for new users
+        // Show appropriate toast based on whether the user is new or existing
+        if (response.isExisting) {
+          toast({
+            title: "Welcome Back!",
+            description: "You've been re-entered in the sweepstakes! Check your email for confirmation."
+          });
+        } else {
           toast({
             title: "Success!",
             description: response.message || "Your entry has been submitted successfully."
