@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,13 +46,16 @@ export const EntryForm = () => {
       if (response.isExisting) {
         console.log('Using existing referral code:', referralCode);
         localStorage.setItem('referralCode', referralCode);
-        toast({
-          title: "Welcome Back!",
-          description: response.message || "You've already entered the sweepstakes. We'll take you to your referral page."
-        });
+        // Set flag for returning user to display on thank you page
+        localStorage.setItem('isReturningUser', 'true');
+        
+        // Removed toast message since we'll show it on the Thank You page
       } else {
         console.log('Saving new referral code:', referralCode);
         localStorage.setItem('referralCode', referralCode);
+        localStorage.setItem('isReturningUser', 'false');
+        
+        // Keep success toast for new users
         toast({
           title: "Success!",
           description: response.message || "Your entry has been submitted successfully."

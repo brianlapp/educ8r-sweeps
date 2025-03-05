@@ -15,12 +15,18 @@ declare global {
 }
 const ThankYou = () => {
   const [referralCode, setReferralCode] = useState<string>("");
+  const [isReturningUser, setIsReturningUser] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     // Get the unique referral code that was saved during signup
     const code = localStorage.getItem("referralCode");
     console.log('Retrieved referral code from localStorage:', code);
+    
+    // Check if user is returning from localStorage flag
+    const returningUserFlag = localStorage.getItem("isReturningUser");
+    setIsReturningUser(returningUserFlag === "true");
+    
     if (!code) {
       console.error("No referral code found in localStorage");
       toast({
@@ -69,9 +75,20 @@ const ThankYou = () => {
       <main className="flex-grow container mx-auto px-4 py-8 md:py-12">
         <div className="max-w-2xl mx-auto text-center">
           <h1 className="text-3xl md:text-4xl font-bold mb-3 md:mb-4 text-[#2C3E50]">
-            <span className="hidden md:inline">🎉 Thank You for Entering!</span>
-            <span className="md:hidden">🎉 Thanks for Entering!</span>
+            {isReturningUser ? (
+              <span className="text-blue-500">Welcome Back!</span>
+            ) : (
+              <span>🎉 Thank You for Entering!</span>
+            )}
           </h1>
+
+          {isReturningUser && (
+            <div className="bg-blue-50 p-4 rounded-lg mb-6 border-l-4 border-blue-500">
+              <p className="text-blue-800 font-medium">
+                You've already entered the sweepstakes. We've retrieved your referral code so you can still share it with parents!
+              </p>
+            </div>
+          )}
 
           <div className="bg-white p-5 md:p-8 rounded-xl shadow-md border border-gray-100">
             <h3 className="font-bold text-lg md:text-xl mb-3">
