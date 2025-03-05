@@ -3,7 +3,8 @@
 project_id = "epfzraejquaxqrfmkmyx"
 
 # This function requires authentication
-verify_jwt = true
+[verify_jwt]
+enabled = true
 
 allow_unauthenticated = false
 

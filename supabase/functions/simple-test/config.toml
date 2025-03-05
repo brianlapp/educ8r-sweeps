@@ -3,6 +3,7 @@
 project_id = "epfzraejquaxqrfmkmyx"
 
 # Explicitly disable JWT verification
-verify_jwt = false
+[verify_jwt]
+enabled = false
 
 allow_unauthenticated = true
