@@ -85,7 +85,7 @@ const ThankYou = () => {
               <p className="text-primary font-medium break-all text-sm md:text-base">{referralLink}</p>
             </div>
 
-            <Button onClick={copyReferralLink} className="w-full text-base py-6 mb-5 md:mb-6 text-neutral-50 bg-green-500 hover:bg-green-400">
+            <Button onClick={copyReferralLink} className="w-full text-base py-6 mb-5 md:mb-6 text-neutral-50 bg-green-600 hover:bg-green-500">
               Copy Referral Link
             </Button>
             
