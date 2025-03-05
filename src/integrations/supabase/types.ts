@@ -164,6 +164,7 @@ export type Database = {
           entries_synced: number | null
           id: string
           last_sync_time: string | null
+          last_sync_type: string | null
           total_entries_synced: number | null
           updated_at: string | null
         }
@@ -172,6 +173,7 @@ export type Database = {
           entries_synced?: number | null
           id: string
           last_sync_time?: string | null
+          last_sync_type?: string | null
           total_entries_synced?: number | null
           updated_at?: string | null
         }
@@ -180,6 +182,7 @@ export type Database = {
           entries_synced?: number | null
           id?: string
           last_sync_time?: string | null
+          last_sync_type?: string | null
           total_entries_synced?: number | null
           updated_at?: string | null
         }
