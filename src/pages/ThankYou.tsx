@@ -1,4 +1,3 @@
-<lov-codelov-code>
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -177,4 +176,3 @@ const ThankYou = () => {
 };
 
 export default ThankYou;
-</lov-code>
