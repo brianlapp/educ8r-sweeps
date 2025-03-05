@@ -69,42 +69,52 @@ const ThankYou = () => {
             <img 
               src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" 
               alt="FPS Logo" 
-              className="h-12 w-auto"
+              className="h-10 md:h-12 w-auto"
             />
           </div>
         </div>
       </header>
 
-      <main className="flex-grow container mx-auto px-4 py-12">
+      <main className="flex-grow container mx-auto px-4 py-8 md:py-12">
         <div className="max-w-2xl mx-auto text-center">
-          <h1 className="text-4xl font-bold mb-4 text-[#2C3E50]">
+          <h1 className="text-3xl md:text-4xl font-bold mb-3 md:mb-4 text-[#2C3E50]">
             🎉 Thank You for Entering!
           </h1>
-          <p className="text-xl text-gray-600 mb-8">
+          <p className="text-lg md:text-xl text-gray-600 mb-6 md:mb-8">
             Give Your Students' Parents a Free Gift!
           </p>
 
-          <div className="bg-white p-8 rounded-xl shadow-md border border-gray-100">
-            <p className="text-gray-600 mb-6">
+          <div className="bg-white p-5 md:p-8 rounded-xl shadow-md border border-gray-100">
+            <p className="text-gray-600 mb-5 md:mb-6 text-sm md:text-base">
               Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you'll earn an extra entry for every parent who activates the trial.
             </p>
             
-            <div className="bg-blue-50 p-4 rounded-lg mb-6">
-              <h3 className="font-semibold text-lg mb-2">📚 Why Share?</h3>
-              <ul className="text-left text-gray-700 space-y-2">
-                <li><span className="font-medium">A Gift for Parents:</span> Provide them with a valuable, no-cost resource to help their kids thrive in reading.</li>
-                <li><span className="font-medium">A Team Effort:</span> Working together, we can support kids in building confidence and comprehension.</li>
+            <div className="bg-blue-100 p-4 md:p-5 rounded-lg mb-5 md:mb-6 border-l-4 border-blue-500">
+              <h3 className="font-bold text-lg md:text-xl mb-3 text-blue-800">📚 Why Share?</h3>
+              <ul className="text-left text-gray-700 space-y-3">
+                <li className="flex items-start">
+                  <span className="inline-block mr-2 text-blue-600">•</span>
+                  <div>
+                    <span className="font-medium">A Gift for Parents:</span> Provide them with a valuable, no-cost resource to help their kids thrive in reading.
+                  </div>
+                </li>
+                <li className="flex items-start">
+                  <span className="inline-block mr-2 text-blue-600">•</span>
+                  <div>
+                    <span className="font-medium">A Team Effort:</span> Working together, we can support kids in building confidence and comprehension.
+                  </div>
+                </li>
               </ul>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg mb-6">
+            <div className="bg-gray-50 p-3 md:p-4 rounded-lg mb-5 md:mb-6">
               <p className="text-sm text-gray-500 mb-2">🔗 Your Referral Link:</p>
-              <p className="text-primary font-medium break-all">{referralLink}</p>
+              <p className="text-primary font-medium break-all text-sm md:text-base">{referralLink}</p>
             </div>
 
             <Button 
               onClick={copyReferralLink}
-              className="w-full"
+              className="w-full text-base py-6"
             >
               Copy Referral Link
             </Button>
@@ -116,15 +126,15 @@ const ThankYou = () => {
         </div>
       </main>
 
-      <footer className="w-full bg-[#f3f3f3] py-6 border-t border-gray-200">
+      <footer className="w-full bg-[#f3f3f3] py-4 md:py-6 border-t border-gray-200">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-3 md:gap-4">
             <img 
               src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" 
               alt="FPS Logo" 
-              className="h-8 w-auto"
+              className="h-6 md:h-8 w-auto"
             />
-            <p className="text-sm text-gray-600">© 2024 All rights reserved.</p>
+            <p className="text-xs md:text-sm text-gray-600">© 2024 All rights reserved.</p>
           </div>
         </div>
       </footer>
