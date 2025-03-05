@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -9,8 +8,8 @@ const corsHeaders = {
 
 const BEEHIIV_API_KEY = Deno.env.get('BEEHIIV_API_KEY')
 const BEEHIIV_PUBLICATION_ID = 'pub_4b47c3db-7b59-4c82-a18b-16cf10fc2d23'
-// Define the automation ID from the URL you provided
-const BEEHIIV_AUTOMATION_ID = 'a1eb15e2-5d7c-4d3e-867f-d8a3c8c06642'
+// Update the automation ID to use the correct format with the 'aut_' prefix
+const BEEHIIV_AUTOMATION_ID = 'aut_a1eb15e2-5d7c-4d3e-867f-d8a3c8c06642'
 
 serve(async (req) => {
   // Handle CORS preflight requests
