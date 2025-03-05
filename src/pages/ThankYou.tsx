@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -78,18 +77,29 @@ const ThankYou = () => {
       <main className="flex-grow container mx-auto px-4 py-8 md:py-12">
         <div className="max-w-2xl mx-auto text-center">
           <h1 className="text-3xl md:text-4xl font-bold mb-3 md:mb-4 text-[#2C3E50]">
-            🎉 Thank You for Entering!
+            <span className="hidden md:inline">🎉 Thank You for Entering!</span>
+            <span className="md:hidden">🎉 Thanks for Entering!</span>
           </h1>
-          <p className="text-lg md:text-xl text-gray-600 mb-6 md:mb-8">
-            Give Your Students' Parents a Free Gift!
-          </p>
 
           <div className="bg-white p-5 md:p-8 rounded-xl shadow-md border border-gray-100">
+            <h3 className="font-bold text-lg md:text-xl mb-3 text-blue-800">Give Your Students' Parents a Free Gift!</h3>
             <p className="text-gray-600 mb-5 md:mb-6 text-sm md:text-base">
               Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you'll earn an extra entry for every parent who activates the trial.
             </p>
             
-            <div className="bg-blue-100 p-4 md:p-5 rounded-lg mb-5 md:mb-6 border-l-4 border-blue-500">
+            <div className="bg-gray-50 p-3 md:p-4 rounded-lg mb-5 md:mb-6">
+              <p className="text-sm text-gray-500 mb-2">🔗 Your Referral Link:</p>
+              <p className="text-primary font-medium break-all text-sm md:text-base">{referralLink}</p>
+            </div>
+
+            <Button 
+              onClick={copyReferralLink}
+              className="w-full text-base py-6 mb-5 md:mb-6"
+            >
+              Copy Referral Link
+            </Button>
+            
+            <div className="bg-blue-100 p-4 md:p-5 rounded-lg border-l-4 border-blue-500">
               <h3 className="font-bold text-lg md:text-xl mb-3 text-blue-800">📚 Why Share?</h3>
               <ul className="text-left text-gray-700 space-y-3">
                 <li className="flex items-start">
@@ -106,18 +116,6 @@ const ThankYou = () => {
                 </li>
               </ul>
             </div>
-
-            <div className="bg-gray-50 p-3 md:p-4 rounded-lg mb-5 md:mb-6">
-              <p className="text-sm text-gray-500 mb-2">🔗 Your Referral Link:</p>
-              <p className="text-primary font-medium break-all text-sm md:text-base">{referralLink}</p>
-            </div>
-
-            <Button 
-              onClick={copyReferralLink}
-              className="w-full text-base py-6"
-            >
-              Copy Referral Link
-            </Button>
             
             <p className="text-sm text-gray-500 mt-4 italic">
               Quick Tip: Share the link in your class newsletter, emails, or parent groups!
