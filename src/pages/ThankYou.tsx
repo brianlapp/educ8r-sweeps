@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -76,36 +77,41 @@ const ThankYou = () => {
 
       <main className="flex-grow container mx-auto px-4 py-12">
         <div className="max-w-2xl mx-auto text-center">
-          <h1 className="text-4xl font-bold mb-6 text-[#2C3E50]">
+          <h1 className="text-4xl font-bold mb-4 text-[#2C3E50]">
             🎉 Thank You for Entering!
           </h1>
           <p className="text-xl text-gray-600 mb-8">
-            Your entry has been received. Want to increase your chances of winning?
+            Give Your Students' Parents a Free Gift!
           </p>
 
           <div className="bg-white p-8 rounded-xl shadow-md border border-gray-100">
-            <h2 className="text-2xl font-semibold mb-4">Share & Win More!</h2>
             <p className="text-gray-600 mb-6">
-              Share your unique referral link with friends and family. For each person who enters using your link, you'll get an extra entry!
+              Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you'll earn an extra entry for every parent who activates the trial.
             </p>
-
-            <div className="flex flex-col gap-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-500 mb-2">Your Referral Link:</p>
-                <p className="text-primary font-medium break-all">{referralLink}</p>
-              </div>
-
-              <Button 
-                onClick={copyReferralLink}
-                className="w-full"
-              >
-                Copy Referral Link
-              </Button>
+            
+            <div className="bg-blue-50 p-4 rounded-lg mb-6">
+              <h3 className="font-semibold text-lg mb-2">📚 Why Share?</h3>
+              <ul className="text-left text-gray-700 space-y-2">
+                <li><span className="font-medium">A Gift for Parents:</span> Provide them with a valuable, no-cost resource to help their kids thrive in reading.</li>
+                <li><span className="font-medium">A Team Effort:</span> Working together, we can support kids in building confidence and comprehension.</li>
+              </ul>
             </div>
-          </div>
 
-          <div className="mt-8 text-gray-500 text-sm">
-            <p>Check your email for confirmation and updates about the giveaway!</p>
+            <div className="bg-gray-50 p-4 rounded-lg mb-6">
+              <p className="text-sm text-gray-500 mb-2">🔗 Your Referral Link:</p>
+              <p className="text-primary font-medium break-all">{referralLink}</p>
+            </div>
+
+            <Button 
+              onClick={copyReferralLink}
+              className="w-full"
+            >
+              Copy Referral Link
+            </Button>
+            
+            <p className="text-sm text-gray-500 mt-4 italic">
+              Quick Tip: Share the link in your class newsletter, emails, or parent groups!
+            </p>
           </div>
         </div>
       </main>
