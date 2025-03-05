@@ -138,7 +138,7 @@ export const EntryForm = () => {
         disabled={isSubmitting}
         className="w-full text-white font-medium rounded-lg transition-colors duration-200 bg-green-500 hover:bg-green-400 text-2xl py-[28px]"
       >
-        {isSubmitting ? "Submitting..." : "Enter to Win! →"}
+        {isSubmitting ? "Submitting..." : "Enter Now for FREE!"}
       </Button>
     </form>
   );
