@@ -73,7 +73,7 @@ const ThankYou = () => {
 
           <div className="bg-white p-5 md:p-8 rounded-xl shadow-md border border-gray-100">
             <h3 className="font-bold text-lg md:text-xl mb-3">
-              <span className="hidden md:inline text-blue-500">Give Your Students' Parents a Free Gift!</span>
+              <span className="hidden md:inline text-2xl text-blue-500">Give Your Students' Parents a Free Gift!</span>
               <span className="md:hidden text-blue-500 text-3xl">Give a Free Gift!</span>
             </h3>
             <p className="text-gray-600 mb-5 md:mb-6 text-sm md:text-base">
