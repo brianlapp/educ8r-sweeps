@@ -30,7 +30,7 @@ export const ManualSyncButton = () => {
 
       console.log("Sync response:", data);
       
-      if (data.success) {
+      if (data && data.success) {
         setSyncStatus('success');
         toast({
           title: "Sync Complete",
@@ -40,7 +40,7 @@ export const ManualSyncButton = () => {
         setSyncStatus('error');
         toast({
           title: "Sync Failed",
-          description: data.error || "Failed to sync entries to Google Sheets",
+          description: (data && data.error) || "Failed to sync entries to Google Sheets",
           variant: "destructive",
         });
       }

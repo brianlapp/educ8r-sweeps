@@ -111,6 +111,10 @@ serve(async (req) => {
       new Date(entry.created_at).toISOString(),
     ]);
 
+    // Generate JWT token for authentication
+    const jwt = await generateJWT(serviceAccountCreds);
+    console.log('Generated JWT token for Google auth');
+
     // Get OAuth2 token using service account credentials
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -119,7 +123,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-        assertion: generateJWT(serviceAccountCreds),
+        assertion: jwt,
       }),
     });
 
@@ -356,87 +360,101 @@ serve(async (req) => {
 /**
  * Generate a JWT token for Google API authentication
  */
-function generateJWT(serviceAccountKey: any): string {
-  const iat = Math.floor(Date.now() / 1000);
-  const exp = iat + 3600; // 1 hour expiration
-  
+async function generateJWT(serviceAccountKey) {
+  // Create header
   const header = {
     alg: 'RS256',
     typ: 'JWT',
     kid: serviceAccountKey.private_key_id
   };
   
+  // Create claim set
+  const now = Math.floor(Date.now() / 1000);
   const payload = {
     iss: serviceAccountKey.client_email,
     sub: serviceAccountKey.client_email,
     aud: 'https://oauth2.googleapis.com/token',
-    iat: iat,
-    exp: exp,
+    iat: now,
+    exp: now + 3600, // 1 hour expiration
     scope: 'https://www.googleapis.com/auth/spreadsheets'
   };
+
+  // Base64 encode the header and payload
+  const encoder = new TextEncoder();
+  const headerBase64 = btoa(JSON.stringify(header))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
   
-  // Encode header and payload
-  const encodedHeader = btoa(JSON.stringify(header));
-  const encodedPayload = btoa(JSON.stringify(payload));
+  const payloadBase64 = btoa(JSON.stringify(payload))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
   
   // Create the content to be signed
-  const signatureInput = `${encodedHeader}.${encodedPayload}`;
+  const signatureBase = `${headerBase64}.${payloadBase64}`;
   
-  // Sign using the private key
-  const textEncoder = new TextEncoder();
-  const data = textEncoder.encode(signatureInput);
+  // Convert the private key from PEM format
+  const pemContent = serviceAccountKey.private_key;
+  const privateKey = await importPrivateKey(pemContent);
   
-  // Import the private key
-  const privateKey = serviceAccountKey.private_key;
-  
-  // Create a signature using the private key and data
-  const importedKey = crypto.subtle.importKey(
-    'pkcs8',
-    pemToArrayBuffer(privateKey),
-    {
-      name: 'RSASSA-PKCS1-v1_5',
-      hash: 'SHA-256'
-    },
-    false,
-    ['sign']
+  // Sign the content
+  const signatureBytes = await crypto.subtle.sign(
+    { name: 'RSASSA-PKCS1-v1_5' },
+    privateKey,
+    encoder.encode(signatureBase)
   );
   
-  return importedKey.then(key => {
-    return crypto.subtle.sign(
-      {
-        name: 'RSASSA-PKCS1-v1_5'
-      },
-      key,
-      data
-    );
-  }).then(signature => {
-    const encodedSignature = btoa(
-      String.fromCharCode(...new Uint8Array(signature))
-    ).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    
-    // Return the complete JWT token
-    return `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
-  });
+  // Convert signature to Base64URL
+  const signature = arrayBufferToBase64URL(signatureBytes);
+  
+  // Return the complete JWT
+  return `${headerBase64}.${payloadBase64}.${signature}`;
 }
 
 /**
- * Convert PEM format private key to ArrayBuffer
+ * Convert ArrayBuffer to Base64URL
  */
-function pemToArrayBuffer(pem: string): ArrayBuffer {
-  // Remove PEM header, footer, and newlines, then decode base64
-  const base64 = pem
+function arrayBufferToBase64URL(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+/**
+ * Import RSA private key from PEM format
+ */
+async function importPrivateKey(pemKey) {
+  // Remove headers and newlines
+  const pemContents = pemKey
     .replace('-----BEGIN PRIVATE KEY-----', '')
     .replace('-----END PRIVATE KEY-----', '')
     .replace(/\n/g, '');
   
-  // Decode base64 to binary string
-  const binaryString = atob(base64);
+  // Base64 decode the PEM content to get the DER
+  const binaryDer = atob(pemContents);
   
-  // Convert binary string to Uint8Array
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
+  // Convert to Uint8Array
+  const derBytes = new Uint8Array(binaryDer.length);
+  for (let i = 0; i < binaryDer.length; i++) {
+    derBytes[i] = binaryDer.charCodeAt(i);
   }
   
-  return bytes.buffer;
+  // Import the key
+  return await crypto.subtle.importKey(
+    'pkcs8',
+    derBytes.buffer,
+    {
+      name: 'RSASSA-PKCS1-v1_5',
+      hash: { name: 'SHA-256' }
+    },
+    false,
+    ['sign']
+  );
 }
