@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,29 +41,30 @@ export const EntryForm = () => {
       
       if (error) throw error;
 
-      const referralCode = response.data.referral_code;
-      console.log('Got referral code from response:', referralCode);
-      
-      if (response.isExisting) {
-        console.log('Using existing referral code:', referralCode);
-        localStorage.setItem('referralCode', referralCode);
-        // Set flag for returning user to display on thank you page
-        localStorage.setItem('isReturningUser', 'true');
+      // Always use the referral code from the response
+      if (response && response.data && response.data.referral_code) {
+        const referralCode = response.data.referral_code;
+        console.log('Got referral code from response:', referralCode);
         
-        // Removed toast message since we'll show it on the Thank You page
-      } else {
-        console.log('Saving new referral code:', referralCode);
+        // Save the referral code to localStorage
         localStorage.setItem('referralCode', referralCode);
-        localStorage.setItem('isReturningUser', 'false');
         
-        // Keep success toast for new users
-        toast({
-          title: "Success!",
-          description: response.message || "Your entry has been submitted successfully."
-        });
-      }
+        // Set flag for returning user status
+        localStorage.setItem('isReturningUser', response.isExisting ? 'true' : 'false');
+        
+        if (!response.isExisting) {
+          // Only show success toast for new users
+          toast({
+            title: "Success!",
+            description: response.message || "Your entry has been submitted successfully."
+          });
+        }
 
-      navigate('/thank-you');
+        navigate('/thank-you');
+      } else {
+        console.error('Missing referral code in response:', response);
+        throw new Error('Missing referral code in response');
+      }
     } catch (error) {
       console.error('Error submitting entry:', error);
       toast({
