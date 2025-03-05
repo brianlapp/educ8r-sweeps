@@ -1,7 +1,7 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
+import { RefreshCw, CheckCircle, AlertCircle, ExternalLink, Clock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -10,7 +10,42 @@ export const ManualSyncButton = () => {
   const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [sheetsApiError, setSheetsApiError] = useState<string | null>(null);
   const [sheetUrl, setSheetUrl] = useState<string | null>(null);
+  const [lastSyncInfo, setLastSyncInfo] = useState<{
+    time: string | null;
+    entries: number | null;
+    type: 'manual' | 'automated' | null;
+  }>({ time: null, entries: null, type: null });
   const { toast } = useToast();
+
+  // Fetch last sync information on component mount
+  useEffect(() => {
+    fetchLastSyncInfo();
+  }, []);
+
+  const fetchLastSyncInfo = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sheets_sync_metadata')
+        .select('last_sync_time, entries_synced, last_sync_type')
+        .eq('id', 'google_sheets_sync')
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error fetching sync info:", error);
+        return;
+      }
+
+      if (data) {
+        setLastSyncInfo({
+          time: data.last_sync_time,
+          entries: data.entries_synced,
+          type: data.last_sync_type as 'manual' | 'automated' | null
+        });
+      }
+    } catch (error) {
+      console.error("Exception fetching sync info:", error);
+    }
+  };
 
   const handleSync = async () => {
     setIsLoading(true);
@@ -19,7 +54,7 @@ export const ManualSyncButton = () => {
     setSheetUrl(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('sync-to-sheets');
+      const { data, error } = await supabase.functions.invoke('manual-sync');
 
       if (error) {
         console.error("Error triggering sync:", error);
@@ -55,6 +90,9 @@ export const ManualSyncButton = () => {
           title: "Sync Complete",
           description: data.message || "Successfully synced entries to Google Sheets",
         });
+        
+        // Refresh sync info after successful sync
+        fetchLastSyncInfo();
       } else {
         setSyncStatus('error');
         toast({
@@ -76,6 +114,12 @@ export const ManualSyncButton = () => {
     }
   };
 
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Never';
+    const date = new Date(dateString);
+    return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+  };
+
   const extractProjectId = (errorMessage: string) => {
     const match = errorMessage.match(/project=(\d+)/);
     return match ? match[1] : "452914012806"; // Default to the ID from the error if not found
@@ -83,6 +127,21 @@ export const ManualSyncButton = () => {
 
   return (
     <div className="flex flex-col space-y-2">
+      <div className="mb-2 text-sm text-gray-600">
+        <div className="flex items-center gap-1">
+          <Clock className="h-3 w-3" />
+          <span>Last {lastSyncInfo.type || ''} sync: {formatDate(lastSyncInfo.time)}</span>
+        </div>
+        {lastSyncInfo.entries !== null && (
+          <div className="ml-4 text-xs text-gray-500">
+            {lastSyncInfo.entries} {lastSyncInfo.entries === 1 ? 'entry' : 'entries'} synced
+          </div>
+        )}
+        <div className="ml-4 text-xs text-gray-500">
+          Automated sync scheduled daily at midnight UTC
+        </div>
+      </div>
+      
       <Button 
         onClick={handleSync} 
         disabled={isLoading}

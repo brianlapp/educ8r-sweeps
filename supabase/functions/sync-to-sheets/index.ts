@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -29,7 +30,15 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Starting Google Sheets sync');
+    // Check if this is an automated sync
+    let isAutomated = false;
+    try {
+      const requestData = await req.json();
+      isAutomated = requestData?.automated === true;
+      console.log(isAutomated ? 'Starting automated Google Sheets sync' : 'Starting manual Google Sheets sync');
+    } catch (e) {
+      console.log('Starting manual Google Sheets sync (no request body)');
+    }
     
     // Parse service account credentials from string
     let serviceAccountCreds;
@@ -92,8 +101,38 @@ serve(async (req) => {
     console.log(`Found ${entries?.length || 0} new entries to sync`);
 
     if (!entries || entries.length === 0) {
+      // Also update the sync metadata with the latest attempt even if no new entries
+      const now = new Date();
+      try {
+        const { error: syncUpdateError } = await supabaseClient
+          .from(SYNC_METADATA_TABLE)
+          .upsert(
+            { 
+              id: 'google_sheets_sync', 
+              last_sync_time: now.toISOString(),
+              entries_synced: 0,
+              total_entries_synced: syncMetadataRecord?.total_entries_synced || 0,
+              is_automated: isAutomated,
+              last_sync_type: isAutomated ? 'automated' : 'manual'
+            },
+            { onConflict: 'id' }
+          );
+
+        if (syncUpdateError) {
+          console.error('Error updating sync metadata:', syncUpdateError);
+        } else {
+          console.log('Successfully updated sync metadata (no new entries)');
+        }
+      } catch (error) {
+        console.error('Error handling sync metadata:', error);
+      }
+
       return new Response(
-        JSON.stringify({ success: true, message: 'No new entries to sync' }),
+        JSON.stringify({ 
+          success: true, 
+          message: 'No new entries to sync',
+          is_automated: isAutomated
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -298,7 +337,9 @@ serve(async (req) => {
         id: 'google_sheets_sync', 
         last_sync_time: now.toISOString(),
         entries_synced: rows.length,
-        total_entries_synced: totalEntriesSynced
+        total_entries_synced: totalEntriesSynced,
+        is_automated: isAutomated,
+        last_sync_type: isAutomated ? 'automated' : 'manual'
       });
       
       const { error: syncUpdateError } = await supabaseClient
@@ -308,7 +349,9 @@ serve(async (req) => {
             id: 'google_sheets_sync', 
             last_sync_time: now.toISOString(),
             entries_synced: rows.length,
-            total_entries_synced: totalEntriesSynced
+            total_entries_synced: totalEntriesSynced,
+            is_automated: isAutomated,
+            last_sync_type: isAutomated ? 'automated' : 'manual'
           },
           { onConflict: 'id' }
         );
@@ -323,11 +366,33 @@ serve(async (req) => {
       // Continue with the response even if metadata update fails
     }
 
+    // Log to the automated_sync_logs table if this was an automated sync
+    if (isAutomated) {
+      try {
+        const { error: logError } = await supabaseClient
+          .from('automated_sync_logs')
+          .insert({ 
+            job_name: 'daily-sheets-sync', 
+            status: 'completed', 
+            message: `Successfully synced ${rows.length} entries to Google Sheets` 
+          });
+        
+        if (logError) {
+          console.error('Error logging automated sync completion:', logError);
+        } else {
+          console.log('Logged automated sync completion');
+        }
+      } catch (error) {
+        console.error('Error inserting automated sync log:', error);
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: `Successfully synced ${rows.length} entries to Google Sheets`,
         sheet_url: `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit#gid=${sheetId}`,
+        is_automated: isAutomated
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

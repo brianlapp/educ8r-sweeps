@@ -17,7 +17,7 @@ serve(async (req) => {
   try {
     console.log('Manual sync requested, forwarding to sync-to-sheets function');
     
-    // Forward to the sync-to-sheets function
+    // Forward to the sync-to-sheets function with manual flag
     const syncResponse = await fetch(
       `${Deno.env.get('SUPABASE_URL')}/functions/v1/sync-to-sheets`,
       {
@@ -26,6 +26,7 @@ serve(async (req) => {
           'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ automated: false }),
       }
     );
     

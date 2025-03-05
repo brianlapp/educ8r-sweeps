@@ -27,6 +27,30 @@ export type Database = {
         }
         Relationships: []
       }
+      automated_sync_logs: {
+        Row: {
+          execution_time: string | null
+          id: string
+          job_name: string
+          message: string | null
+          status: string | null
+        }
+        Insert: {
+          execution_time?: string | null
+          id?: string
+          job_name: string
+          message?: string | null
+          status?: string | null
+        }
+        Update: {
+          execution_time?: string | null
+          id?: string
+          job_name?: string
+          message?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       entries: {
         Row: {
           created_at: string | null
