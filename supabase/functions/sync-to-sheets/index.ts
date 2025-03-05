@@ -55,12 +55,13 @@ serve(async (req) => {
 
     // Get the last successful sync timestamp
     let lastSyncTime = new Date(0); // Default to epoch if no previous sync
+    let syncMetadataRecord = null;
     
     try {
       // Try to get the last sync metadata
       const { data: syncMetadata, error: syncError } = await supabaseClient
         .from(SYNC_METADATA_TABLE)
-        .select('last_sync_time')
+        .select('last_sync_time, total_entries_synced')
         .eq('id', 'google_sheets_sync')
         .maybeSingle();
 
@@ -69,6 +70,7 @@ serve(async (req) => {
         console.log('Sync metadata table might not exist yet:', syncError.message);
       } else if (syncMetadata?.last_sync_time) {
         lastSyncTime = new Date(syncMetadata.last_sync_time);
+        syncMetadataRecord = syncMetadata;
         console.log('Last successful sync at:', lastSyncTime.toISOString());
       }
     } catch (error) {
@@ -280,6 +282,8 @@ serve(async (req) => {
     // Update the sync metadata with the latest timestamp
     const now = new Date();
     try {
+      const totalEntriesSynced = (syncMetadataRecord?.total_entries_synced || 0) + rows.length;
+      
       // Use upsert to handle both insert and update cases
       const { error: syncUpdateError } = await supabaseClient
         .from(SYNC_METADATA_TABLE)
@@ -288,7 +292,7 @@ serve(async (req) => {
             id: 'google_sheets_sync', 
             last_sync_time: now.toISOString(),
             entries_synced: rows.length,
-            total_entries_synced: (syncMetadata?.total_entries_synced || 0) + rows.length
+            total_entries_synced: totalEntriesSynced
           },
           { onConflict: 'id' }
         );
