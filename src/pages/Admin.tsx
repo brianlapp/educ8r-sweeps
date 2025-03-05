@@ -1,4 +1,3 @@
-
 import { Helmet } from 'react-helmet-async';
 import { useQuery } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -6,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { Tables } from "@/integrations/supabase/types";
+import { ManualSyncButton } from "@/components/ManualSyncButton";
 
 const Admin = () => {
   const [entries, setEntries] = useState<Tables<'entries'>[]>([]);
@@ -95,7 +95,10 @@ const Admin = () => {
         <title>Admin Dashboard | Educ8r Sweepstakes</title>
       </Helmet>
       <div className="container mx-auto py-12">
-        <h1 className="text-3xl font-bold mb-6 text-center">Admin Dashboard</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-center">Admin Dashboard</h1>
+          <ManualSyncButton />
+        </div>
         {entries && entries.length > 0 ? (
           <div className="rounded-md border">
             <Table>
