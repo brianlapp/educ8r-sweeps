@@ -38,23 +38,25 @@ export const EntryForm = () => {
           referredBy
         }
       });
+      
       if (error) throw error;
 
       const referralCode = response.data.referral_code;
       console.log('Got referral code from response:', referralCode);
+      
       if (response.isExisting) {
         console.log('Using existing referral code:', referralCode);
         localStorage.setItem('referralCode', referralCode);
         toast({
           title: "Welcome Back!",
-          description: "You've already entered the sweepstakes. We'll take you to your referral page."
+          description: response.message || "You've already entered the sweepstakes. We'll take you to your referral page."
         });
       } else {
         console.log('Saving new referral code:', referralCode);
         localStorage.setItem('referralCode', referralCode);
         toast({
           title: "Success!",
-          description: "Your entry has been submitted successfully."
+          description: response.message || "Your entry has been submitted successfully."
         });
       }
 

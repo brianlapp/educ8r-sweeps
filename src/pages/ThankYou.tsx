@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -14,9 +15,8 @@ declare global {
 }
 const ThankYou = () => {
   const [referralCode, setReferralCode] = useState<string>("");
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
+
   useEffect(() => {
     // Get the unique referral code that was saved during signup
     const code = localStorage.getItem("referralCode");
@@ -32,7 +32,9 @@ const ThankYou = () => {
     }
     setReferralCode(code);
     // Only remove the code after we've successfully set it in state
-    localStorage.removeItem("referralCode");
+    // NOTE: We're no longer removing the code to make it persistent 
+    // across sessions for returning users
+    // localStorage.removeItem("referralCode");
   }, [toast]);
 
   // Updated to use the production partner URL

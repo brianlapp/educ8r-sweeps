@@ -29,33 +29,25 @@ serve(async (req) => {
     // First check if the email already exists
     const { data: existingEntry, error: lookupError } = await supabaseClient
       .from('entries')
-      .select('referral_code, entry_count')
+      .select('referral_code, entry_count, created_at')
       .eq('email', email)
-      .single()
+      .maybeSingle()
 
-    if (lookupError && lookupError.code !== 'PGRST116') { // PGRST116 means no rows found
+    if (lookupError) {
       console.error('Error checking for existing entry:', lookupError)
       throw new Error(lookupError.message)
     }
 
     if (existingEntry) {
-      // Update entry count for existing entry
-      const { error: updateError } = await supabaseClient
-        .from('entries')
-        .update({ entry_count: (existingEntry.entry_count || 1) + 1 })
-        .eq('email', email)
-
-      if (updateError) {
-        console.error('Error updating entry count:', updateError)
-        throw new Error(updateError.message)
-      }
-
-      // Return existing entry
+      console.log('Found existing entry:', existingEntry)
+      
+      // Return existing entry with a clear message about already being entered
       return new Response(
         JSON.stringify({
           success: true,
           data: existingEntry,
-          isExisting: true
+          isExisting: true,
+          message: "You've already entered the sweepstakes. We've retrieved your referral code so you can still share it!"
         }),
         {
           headers: {
@@ -73,14 +65,16 @@ serve(async (req) => {
         .from('entries')
         .select('referral_code')
         .eq('referral_code', referredBy)
-        .single()
+        .maybeSingle()
 
       if (referrerError) {
         console.error('Error verifying referral code:', referrerError)
         console.log('Invalid referral code provided:', referredBy)
-      } else {
+      } else if (referrerEntry) {
         console.log('Valid referral code found:', referredBy)
         validReferral = true
+      } else {
+        console.log('Referral code not found in database:', referredBy)
       }
     }
 
@@ -203,7 +197,8 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         data: entry,
-        isExisting: false
+        isExisting: false,
+        message: "Your entry has been successfully submitted!"
       }),
       { 
         headers: { 
