@@ -1,9 +1,7 @@
-
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Helmet } from 'react-helmet-async';
-
 declare global {
   interface Window {
     EF: {
@@ -14,26 +12,24 @@ declare global {
     };
   }
 }
-
 const ThankYou = () => {
   const [referralCode, setReferralCode] = useState<string>("");
-  const { toast } = useToast();
-
+  const {
+    toast
+  } = useToast();
   useEffect(() => {
     // Get the unique referral code that was saved during signup
     const code = localStorage.getItem("referralCode");
     console.log('Retrieved referral code from localStorage:', code);
-    
     if (!code) {
       console.error("No referral code found in localStorage");
       toast({
         title: "Error",
         description: "Could not retrieve your referral code. Please try signing up again.",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
-    
     setReferralCode(code);
     // Only remove the code after we've successfully set it in state
     localStorage.removeItem("referralCode");
@@ -41,36 +37,29 @@ const ThankYou = () => {
 
   // Updated to use the production partner URL
   const referralLink = `https://dmlearninglab.com/homesc/?utm_source=sweeps&oid=1987&sub1=${referralCode}`;
-
   const copyReferralLink = async () => {
     try {
       await navigator.clipboard.writeText(referralLink);
       toast({
         title: "Link Copied!",
-        description: "Your referral link has been copied to clipboard.",
+        description: "Your referral link has been copied to clipboard."
       });
     } catch (err) {
       toast({
         title: "Error",
         description: "Failed to copy link. Please try again.",
-        variant: "destructive",
+        variant: "destructive"
       });
     }
   };
-
-  return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
+  return <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
       <Helmet>
         <title>Thank You - Share & Win More | Educ8r Sweepstakes</title>
       </Helmet>
       <header className="w-full bg-[#f3f3f3] py-4 border-b border-gray-200">
         <div className="container mx-auto px-4">
           <div className="flex justify-center items-center">
-            <img 
-              src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" 
-              alt="FPS Logo" 
-              className="h-10 md:h-12 w-auto"
-            />
+            <img src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" alt="FPS Logo" className="h-10 md:h-12 w-auto" />
           </div>
         </div>
       </header>
@@ -85,7 +74,7 @@ const ThankYou = () => {
           <div className="bg-white p-5 md:p-8 rounded-xl shadow-md border border-gray-100">
             <h3 className="font-bold text-lg md:text-xl mb-3 text-blue-800">
               <span className="hidden md:inline">Give Your Students' Parents a Free Gift!</span>
-              <span className="md:hidden">Give a Free Gift!</span>
+              <span className="md:hidden text-blue-500">Give a Free Gift!</span>
             </h3>
             <p className="text-gray-600 mb-5 md:mb-6 text-sm md:text-base">
               Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you'll earn an extra entry for every parent who activates the trial.
@@ -96,10 +85,7 @@ const ThankYou = () => {
               <p className="text-primary font-medium break-all text-sm md:text-base">{referralLink}</p>
             </div>
 
-            <Button 
-              onClick={copyReferralLink}
-              className="w-full text-base py-6 mb-5 md:mb-6"
-            >
+            <Button onClick={copyReferralLink} className="w-full text-base py-6 mb-5 md:mb-6">
               Copy Referral Link
             </Button>
             
@@ -131,17 +117,11 @@ const ThankYou = () => {
       <footer className="w-full bg-[#f3f3f3] py-4 md:py-6 border-t border-gray-200">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center gap-3 md:gap-4">
-            <img 
-              src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" 
-              alt="FPS Logo" 
-              className="h-6 md:h-8 w-auto"
-            />
+            <img src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" alt="FPS Logo" className="h-6 md:h-8 w-auto" />
             <p className="text-xs md:text-sm text-gray-600">© 2024 All rights reserved.</p>
           </div>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default ThankYou;
