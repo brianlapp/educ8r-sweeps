@@ -134,6 +134,33 @@ export type Database = {
           },
         ]
       }
+      sheets_sync_metadata: {
+        Row: {
+          created_at: string | null
+          entries_synced: number | null
+          id: string
+          last_sync_time: string | null
+          total_entries_synced: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          entries_synced?: number | null
+          id: string
+          last_sync_time?: string | null
+          total_entries_synced?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          entries_synced?: number | null
+          id?: string
+          last_sync_time?: string | null
+          total_entries_synced?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       entry_stats: {
@@ -234,6 +261,10 @@ export type Database = {
       }
     }
     Functions: {
+      create_sheets_sync_metadata_table: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       generate_clean_referral_code: {
         Args: Record<PropertyKey, never>
         Returns: string

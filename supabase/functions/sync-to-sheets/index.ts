@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -284,7 +283,24 @@ serve(async (req) => {
     try {
       const totalEntriesSynced = (syncMetadataRecord?.total_entries_synced || 0) + rows.length;
       
+      // First, make sure the table exists by calling the function
+      console.log('Making sure sheets_sync_metadata table exists');
+      try {
+        await supabaseClient.rpc('create_sheets_sync_metadata_table');
+        console.log('Called create_sheets_sync_metadata_table function');
+      } catch (createTableError) {
+        console.error('Error calling create_sheets_sync_metadata_table function:', createTableError);
+        // Continue anyway, as the table might already exist
+      }
+      
       // Use upsert to handle both insert and update cases
+      console.log('Updating sync metadata with:', {
+        id: 'google_sheets_sync', 
+        last_sync_time: now.toISOString(),
+        entries_synced: rows.length,
+        total_entries_synced: totalEntriesSynced
+      });
+      
       const { error: syncUpdateError } = await supabaseClient
         .from(SYNC_METADATA_TABLE)
         .upsert(
@@ -299,33 +315,6 @@ serve(async (req) => {
 
       if (syncUpdateError) {
         console.error('Error updating sync metadata:', syncUpdateError);
-        
-        // If the table doesn't exist, create it
-        if (syncUpdateError.code === '42P01') { // undefined_table error code
-          console.log('Creating sync metadata table...');
-          
-          // Create the table first
-          await supabaseClient.rpc('create_sheets_sync_metadata_table');
-          
-          // Then try the upsert again
-          const { error: retryError } = await supabaseClient
-            .from(SYNC_METADATA_TABLE)
-            .upsert(
-              { 
-                id: 'google_sheets_sync', 
-                last_sync_time: now.toISOString(),
-                entries_synced: rows.length,
-                total_entries_synced: rows.length
-              },
-              { onConflict: 'id' }
-            );
-            
-          if (retryError) {
-            console.error('Error updating sync metadata after table creation:', retryError);
-          } else {
-            console.log('Successfully created and updated sync metadata');
-          }
-        }
       } else {
         console.log('Successfully updated sync metadata');
       }

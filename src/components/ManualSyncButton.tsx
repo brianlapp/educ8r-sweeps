@@ -9,18 +9,20 @@ export const ManualSyncButton = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [sheetsApiError, setSheetsApiError] = useState<string | null>(null);
+  const [sheetUrl, setSheetUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleSync = async () => {
     setIsLoading(true);
     setSyncStatus('idle');
     setSheetsApiError(null);
+    setSheetUrl(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('manual-sync');
+      const { data, error } = await supabase.functions.invoke('sync-to-sheets');
 
       if (error) {
-        console.error("Error triggering manual sync:", error);
+        console.error("Error triggering sync:", error);
         setSyncStatus('error');
         toast({
           title: "Sync Failed",
@@ -46,6 +48,9 @@ export const ManualSyncButton = () => {
       
       if (data && data.success) {
         setSyncStatus('success');
+        if (data.sheet_url) {
+          setSheetUrl(data.sheet_url);
+        }
         toast({
           title: "Sync Complete",
           description: data.message || "Successfully synced entries to Google Sheets",
@@ -116,6 +121,18 @@ export const ManualSyncButton = () => {
         >
           <ExternalLink className="h-3 w-3" />
           Enable Google Sheets API
+        </a>
+      )}
+      
+      {sheetUrl && (
+        <a 
+          href={sheetUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-blue-500 flex items-center gap-1 hover:underline"
+        >
+          <ExternalLink className="h-3 w-3" />
+          View Google Sheet
         </a>
       )}
     </div>

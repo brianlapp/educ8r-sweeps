@@ -1,11 +1,12 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// This is a proxy function to trigger the sync-to-sheets function
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -14,42 +15,28 @@ serve(async (req) => {
   }
 
   try {
-    // Initialize Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+    console.log('Manual sync requested, forwarding to sync-to-sheets function');
+    
+    // Forward to the sync-to-sheets function
+    const syncResponse = await fetch(
+      `${Deno.env.get('SUPABASE_URL')}/functions/v1/sync-to-sheets`,
       {
-        global: { headers: { Authorization: req.headers.get('Authorization')! } },
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          'Content-Type': 'application/json',
+        },
       }
     );
-
-    // Verify admin status
-    const {
-      data: { user },
-    } = await supabaseClient.auth.getUser();
-
-    if (!user) {
-      throw new Error('Unauthorized: User not logged in');
-    }
-
-    // Check if user is an admin
-    const { data: adminUser, error: adminError } = await supabaseClient
-      .from('admin_users')
-      .select('*')
-      .eq('email', user.email)
-      .maybeSingle();
-
-    if (adminError || !adminUser) {
-      console.error('Admin verification failed:', adminError);
-      throw new Error('Unauthorized: User is not an admin');
-    }
-
-    // Call the sync-to-sheets function to trigger a manual sync
-    const response = await supabaseClient.functions.invoke('sync-to-sheets');
     
+    // Get the response
+    const responseData = await syncResponse.json();
+    
+    // Return the response from the sync function
     return new Response(
-      JSON.stringify(response.data),
+      JSON.stringify(responseData),
       { 
+        status: syncResponse.status,
         headers: { 
           ...corsHeaders,
           'Content-Type': 'application/json'
@@ -58,6 +45,7 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error in manual-sync function:', error);
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
