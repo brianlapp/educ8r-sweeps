@@ -76,7 +76,7 @@ const ThankYou = () => {
               <span className="hidden md:inline text-2xl text-blue-500">Give Your Students' Parents a Free Gift!</span>
               <span className="md:hidden text-blue-500 text-3xl">Give a Free Gift!</span>
             </h3>
-            <p className="text-gray-600 mb-5 md:mb-6 text-sm md:text-base">
+            <p className="text-gray-600 mb-5 md:mb-6 text-sm md:text-base font-medium">
               Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you'll earn an extra entry for every parent who activates the trial.
             </p>
             
