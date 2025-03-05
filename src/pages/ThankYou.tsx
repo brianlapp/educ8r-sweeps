@@ -85,12 +85,12 @@ const ThankYou = () => {
               <p className="text-primary font-medium break-all text-sm md:text-base">{referralLink}</p>
             </div>
 
-            <Button onClick={copyReferralLink} className="w-full text-base py-6 mb-5 md:mb-6">
+            <Button onClick={copyReferralLink} className="w-full text-base py-6 mb-5 md:mb-6 text-neutral-50 bg-green-500 hover:bg-green-400">
               Copy Referral Link
             </Button>
             
-            <div className="bg-blue-100 p-4 md:p-5 rounded-lg border-l-4 border-blue-500">
-              <h3 className="font-bold text-lg md:text-xl mb-3 text-blue-800">📚 Why Share?</h3>
+            <div className="p-4 md:p-5 rounded-lg border-l-4 border-blue-500 bg-blue-50">
+              <h3 className="font-bold text-lg md:text-xl mb-3 text-blue-500">📚 Why Share?</h3>
               <ul className="text-left text-gray-700 space-y-3">
                 <li className="flex items-start">
                   <span className="inline-block mr-2 text-blue-600">•</span>
