@@ -1,4 +1,3 @@
-
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Helmet } from 'react-helmet-async';
@@ -29,7 +28,10 @@ const Index = () => {
             <div className="order-2 md:order-2 md:-ml-12 z-10 -mt-4 sm:-mt-8 md:mt-0">
               <div className="bg-white p-6 md:p-8 rounded-xl shadow-md border border-blue-200 border-4  animate-slideUp">
                 <h2 className="text-2xl md:text-3xl lg:text-4xl mb-3 text-center text-[#2C3E50] font-bold">🏆 Win $1,000 for Your Classroom!</h2>
-                <p className="text-lg md:text-xl mb-6 text-center text-gray-600">Support Your Students and Stock Up on Classroom Supplies</p>
+                <p className="text-lg md:text-xl mb-6 text-center text-gray-600">
+                  <span className="hidden md:inline">Support Your Students and Stock Up on Classroom Supplies</span>
+                  <span className="md:hidden">Support Your Students Success</span>
+                </p>
                 <EntryForm />
                 <p className="text-center text-xs text-gray-500 mt-4">In partnership with Comprendi™ by Dr. Marion's Learning Lab – Because tackling the reading crisis is a team effort.</p>
               </div>
