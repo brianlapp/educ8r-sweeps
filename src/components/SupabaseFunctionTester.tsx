@@ -1,14 +1,16 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ShieldCheck, ShieldAlert, RefreshCw } from 'lucide-react';
 
 export function SupabaseFunctionTester() {
   const [results, setResults] = useState<Record<string, any>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jwtVerificationStatus, setJwtVerificationStatus] = useState<string | null>(null);
+  const [isJwtEnabled, setIsJwtEnabled] = useState<boolean | null>(null);
 
   const testUrls = [
     {
@@ -110,14 +112,36 @@ export function SupabaseFunctionTester() {
   const checkJwtVerification = async () => {
     setIsLoading(true);
     setJwtVerificationStatus(null);
+    setIsJwtEnabled(null);
     
     try {
+      console.log('Checking JWT verification status...');
+      
       // Test unauthenticated access to public endpoint
       const publicResponse = await fetch("https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook/debug?jwt_check=true");
       const publicData = await publicResponse.json();
       
-      // Report JWT status
-      const jwtEnabled = publicData.jwt_status?.enabled;
+      console.log('JWT check response:', publicData);
+      
+      // Report JWT status - improved detection logic
+      let jwtEnabled = null;
+      
+      // Check multiple possible locations in the response
+      if (publicData.jwt_status?.enabled !== undefined) {
+        jwtEnabled = publicData.jwt_status.enabled;
+      } else if (publicData.jwt_enabled !== undefined) {
+        jwtEnabled = publicData.jwt_enabled;
+      } else if (publicData.status === 401) {
+        // If we got a 401 unauthorized, JWT is likely enabled
+        jwtEnabled = true;
+      } else if (publicResponse.status === 401) {
+        jwtEnabled = true;
+      } else if (publicResponse.status === 200) {
+        // If we got a 200 OK without auth, JWT is likely disabled
+        jwtEnabled = false;
+      }
+      
+      setIsJwtEnabled(jwtEnabled);
       
       if (jwtEnabled === false) {
         setJwtVerificationStatus("DISABLED (Correct: Webhook is publicly accessible)");
@@ -284,31 +308,50 @@ export function SupabaseFunctionTester() {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="bg-gray-50 p-4 rounded-lg mb-4 border border-gray-200">
-            <h3 className="text-lg font-semibold mb-2">JWT Verification Status</h3>
-            <p className="text-sm text-gray-500 mb-3">
-              Check if JWT verification is correctly disabled for public endpoints
-            </p>
-            
-            <div className="flex items-center gap-3">
+          {/* JWT Verification Status Panel - Enhanced and more prominent */}
+          <div className={`p-4 rounded-lg mb-4 border ${
+            isJwtEnabled === false 
+              ? 'bg-green-50 border-green-200' 
+              : isJwtEnabled === true 
+                ? 'bg-red-50 border-red-200'
+                : 'bg-gray-50 border-gray-200'
+          }`}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-semibold">JWT Verification Status</h3>
               <Button 
                 onClick={checkJwtVerification} 
                 disabled={isLoading}
-                className="bg-orange-600 hover:bg-orange-700"
+                size="sm"
+                variant="outline"
+                className="gap-1"
               >
-                Check JWT Verification Status
+                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                {isLoading ? "Checking..." : "Check Now"}
               </Button>
-              
-              {jwtVerificationStatus && (
-                <div className={`py-1 px-3 rounded text-sm font-medium ${
-                  jwtVerificationStatus.includes('DISABLED') 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-red-100 text-red-800'
-                }`}>
-                  {jwtVerificationStatus}
-                </div>
-              )}
             </div>
+            
+            <p className="text-sm text-gray-600 mb-3">
+              Critical: JWT verification must be disabled for the webhook to work properly with external integrations
+            </p>
+            
+            {jwtVerificationStatus && (
+              <Alert variant={isJwtEnabled === false ? "default" : "destructive"} className="mt-2">
+                {isJwtEnabled === false ? (
+                  <ShieldCheck className="h-4 w-4" />
+                ) : (
+                  <ShieldAlert className="h-4 w-4" />
+                )}
+                <AlertTitle>{isJwtEnabled === false ? "Correctly Configured" : "Configuration Issue"}</AlertTitle>
+                <AlertDescription>
+                  {jwtVerificationStatus}
+                  {isJwtEnabled === true && (
+                    <div className="mt-2 text-sm">
+                      <strong>Action needed:</strong> JWT verification must be disabled for the webhook to work with external services.
+                    </div>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
           
           <div className="flex flex-wrap gap-2">

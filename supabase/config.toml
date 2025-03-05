@@ -2,6 +2,7 @@
 # Project ID must be first
 project_id = "epfzraejquaxqrfmkmyx"
 
-# Global settings for all functions
+# Global settings for all functions using the correct syntax for JWT verification
 [functions]
-verify_jwt = { enabled = false }
+verify_jwt = false
+
