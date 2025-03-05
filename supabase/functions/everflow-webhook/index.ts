@@ -21,6 +21,12 @@ serve(async (req) => {
   console.log('Request method:', req.method);
   console.log('Request URL:', req.url);
   
+  // Log JWT verification status (from runtime environment)
+  console.log('JWT VERIFICATION STATUS CHECK:');
+  console.log('- Function config file settings: verify_jwt.enabled = false, allow_unauthenticated = true');
+  console.log('- Parent config settings: functions.verify_jwt.enabled = false');
+  console.log('- Request contains Authorization header:', req.headers.has('Authorization'));
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     console.log('Handling OPTIONS request with CORS headers');
@@ -52,6 +58,11 @@ serve(async (req) => {
           message: 'Debug endpoint accessed successfully',
           timestamp: new Date().toISOString(),
           headers: Object.fromEntries(req.headers),
+          jwt_status: {
+            authorization_header_present: req.headers.has('Authorization'),
+            config_file_setting: 'verify_jwt.enabled = false, allow_unauthenticated = true',
+            parent_config_setting: 'functions.verify_jwt.enabled = false'
+          },
           env_vars_exist: {
             SUPABASE_URL: !!Deno.env.get('SUPABASE_URL'),
             SUPABASE_SERVICE_ROLE_KEY: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),

@@ -13,6 +13,12 @@ serve(async (req) => {
   console.log('Request method:', req.method);
   console.log('Request URL:', req.url);
   
+  // Log JWT verification status
+  console.log('JWT VERIFICATION STATUS CHECK:');
+  console.log('- Function config file settings: verify_jwt.enabled = false, allow_unauthenticated = true');
+  console.log('- Parent config settings: functions.verify_jwt.enabled = false');
+  console.log('- Request contains Authorization header:', req.headers.has('Authorization'));
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -103,7 +109,12 @@ serve(async (req) => {
       JSON.stringify({ 
         success: false,
         error: error.message,
-        stack: error.stack
+        stack: error.stack,
+        jwt_status: {
+          authorization_header_present: req.headers.has('Authorization'),
+          config_file_setting: 'verify_jwt.enabled = false, allow_unauthenticated = true',
+          parent_config_setting: 'functions.verify_jwt.enabled = false'
+        }
       }),
       { 
         status: 500,

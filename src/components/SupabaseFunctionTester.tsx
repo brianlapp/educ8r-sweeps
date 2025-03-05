@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +9,10 @@ export function SupabaseFunctionTester() {
   const [error, setError] = useState<string | null>(null);
 
   const testUrls = [
+    {
+      name: "Everflow JWT Status",
+      url: "https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook/debug?jwt_check=true"
+    },
     {
       name: "Simple Test Direct",
       url: "https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/simple-test"
@@ -188,6 +191,52 @@ export function SupabaseFunctionTester() {
     }
   };
 
+  const testJwtStatus = async () => {
+    setIsLoading(true);
+    setError(null);
+    setResults({});
+    
+    try {
+      // Test via direct URL
+      const directUrl = "https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook/debug?jwt_check=true";
+      console.log('Testing JWT status via direct URL:', directUrl);
+      
+      const directResponse = await fetch(directUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      const directData = await directResponse.json().catch(() => ({ error: "Failed to parse JSON" }));
+      
+      setResults(prev => ({ 
+        ...prev, 
+        'JWT Status Direct': {
+          status: directResponse.status,
+          data: directData
+        } 
+      }));
+      
+      // Test via SDK (with auth token if user is logged in)
+      console.log('Testing JWT status via SDK');
+      const sdkResponse = await supabase.functions.invoke('everflow-webhook', {
+        body: { debug: true, jwt_check: true }
+      });
+      
+      setResults(prev => ({ 
+        ...prev, 
+        'JWT Status SDK': sdkResponse
+      }));
+      
+    } catch (err) {
+      console.error('Error testing JWT status:', err);
+      setError(`JWT Status Test: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
@@ -208,6 +257,15 @@ export function SupabaseFunctionTester() {
               disabled={isLoading}
             >
               Test Everflow System
+            </Button>
+            
+            <Button 
+              onClick={testJwtStatus} 
+              variant="outline" 
+              className="bg-yellow-100 hover:bg-yellow-200 border-yellow-300"
+              disabled={isLoading}
+            >
+              Test JWT Verification Status
             </Button>
             
             <div className="border-t w-full my-2"></div>
