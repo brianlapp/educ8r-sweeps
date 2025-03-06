@@ -13,6 +13,10 @@ const BEEHIIV_PUBLICATION_ID = 'pub_4b47c3db-7b59-4c82-a18b-16cf10fc2d23'
 const BEEHIIV_AUTOMATION_ID = 'aut_a1eb15e2-5d7c-4d3e-867f-d8a3c8c06642'
 
 serve(async (req) => {
+  // Record start time for performance monitoring
+  const startTime = Date.now()
+  console.log(`[${new Date().toISOString()}] Request started`)
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -27,6 +31,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+    
+    console.log(`Supabase client initialized in ${Date.now() - startTime}ms`)
 
     // First check if the email already exists
     const { data: existingEntry, error: lookupError } = await supabaseClient
@@ -40,6 +46,8 @@ serve(async (req) => {
       throw new Error(lookupError.message)
     }
 
+    console.log(`Database lookup completed in ${Date.now() - startTime}ms`)
+    
     if (existingEntry) {
       console.log('Found existing entry with referral code:', existingEntry.referral_code)
       
@@ -55,8 +63,7 @@ serve(async (req) => {
           utm_medium: 'comprendi',
           utm_campaign: 'comprendi',
           reactivate: true,
-          trigger_automation: true, // Add flag to trigger automations on subscription
-          // Removed send_welcome_email flag - we don't want the standard welcome email
+          // CHANGE: Remove trigger_automation flag as it may conflict with Email Submitted trigger
           custom_fields: [
             {
               name: 'First Name',
@@ -78,6 +85,7 @@ serve(async (req) => {
         }
 
         console.log('Updating existing user in BeehiiV with data:', subscriberData)
+        console.log(`BeehiiV update started at ${Date.now() - startTime}ms`)
         
         const subscribeResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`, {
           method: 'POST',
@@ -89,7 +97,7 @@ serve(async (req) => {
         })
 
         const subscribeResponseText = await subscribeResponse.text()
-        console.log(`BeehiiV subscription update response (${subscribeResponse.status}):`, subscribeResponseText)
+        console.log(`BeehiiV subscription update response (${subscribeResponse.status}) at ${Date.now() - startTime}ms:`, subscribeResponseText)
 
         if (!subscribeResponse.ok) {
           console.error('BeehiiV subscription update error:', subscribeResponseText)
@@ -117,6 +125,7 @@ serve(async (req) => {
           }
         )
         
+        console.log(`Get subscriber completed at ${Date.now() - startTime}ms`)
         const subscriberResponseText = await getSubscriberResponse.text()
         console.log(`BeehiiV get subscriber response (${getSubscriberResponse.status}):`, subscriberResponseText)
         
@@ -149,6 +158,7 @@ serve(async (req) => {
                 }
               )
               
+              console.log(`Tags update completed at ${Date.now() - startTime}ms`)
               const tagsResponseText = await updateTagsResponse.text()
               console.log(`BeehiiV tag update response (${updateTagsResponse.status}):`, tagsResponseText)
               
@@ -160,6 +170,8 @@ serve(async (req) => {
 
               // 4. Try both automation endpoints to ensure one works
               try {
+                // CHANGE: Add trigger timing logs
+                console.log(`Starting automation at ${Date.now() - startTime}ms`)
                 await addToBeehiivAutomation(email)
               } catch (automationError) {
                 console.error('Error with /subscribers endpoint, trying /journeys:', automationError)
@@ -212,6 +224,8 @@ serve(async (req) => {
       }
     }
 
+    console.log(`Referral verification completed at ${Date.now() - startTime}ms`)
+
     // If email doesn't exist, proceed with insertion
     const { data: entry, error: supabaseError } = await supabaseClient
       .from('entries')
@@ -230,6 +244,7 @@ serve(async (req) => {
       throw new Error(supabaseError.message)
     }
 
+    console.log(`Database insert completed at ${Date.now() - startTime}ms`)
     console.log('Successfully created entry with referral code:', entry.referral_code)
 
     // Step 1: Initialize base tags array and custom fields with exact BeehiiV field names
@@ -253,7 +268,8 @@ serve(async (req) => {
       }
     ]
 
-    // Step 2: Create/Update BeehiiV subscription with custom fields and trigger automation flag
+    // Step 2: Create/Update BeehiiV subscription with custom fields
+    // CHANGE: Remove trigger_automation flag to avoid conflicts with Email Submitted trigger
     const subscriberData = {
       email: email,
       first_name: firstName,
@@ -262,11 +278,11 @@ serve(async (req) => {
       utm_medium: 'comprendi',
       utm_campaign: 'comprendi',
       reactivate: true,
-      trigger_automation: true, // Add flag to trigger automations on subscription creation
       custom_fields: customFields
     }
 
     console.log('Sending subscription data to BeehiiV:', subscriberData)
+    console.log(`BeehiiV subscription started at ${Date.now() - startTime}ms`)
     
     // Create/update subscriber first
     const subscribeResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`, {
@@ -279,7 +295,7 @@ serve(async (req) => {
     })
 
     const subscribeResponseText = await subscribeResponse.text()
-    console.log(`BeehiiV subscription response (${subscribeResponse.status}):`, subscribeResponseText)
+    console.log(`BeehiiV subscription response (${subscribeResponse.status}) at ${Date.now() - startTime}ms:`, subscribeResponseText)
 
     if (!subscribeResponse.ok) {
       console.error('BeehiiV subscription error:', subscribeResponseText)
@@ -308,6 +324,7 @@ serve(async (req) => {
         }
       )
       
+      console.log(`Get subscriber completed at ${Date.now() - startTime}ms`)
       const subscriberResponseText = await getSubscriberResponse.text()
       console.log(`BeehiiV get subscriber response (${getSubscriberResponse.status}):`, subscriberResponseText)
       
@@ -340,6 +357,7 @@ serve(async (req) => {
               }
             )
             
+            console.log(`Tags update completed at ${Date.now() - startTime}ms`)
             const tagsResponseText = await updateTagsResponse.text()
             console.log(`BeehiiV tag update response (${updateTagsResponse.status}):`, tagsResponseText)
             
@@ -359,6 +377,8 @@ serve(async (req) => {
 
     // Try both automation endpoints to ensure one works
     try {
+      // CHANGE: Add timing logs for automation
+      console.log(`Starting automation process at ${Date.now() - startTime}ms`)
       // First try the new endpoint
       await addToBeehiivAutomation(email)
     } catch (automationError) {
@@ -383,6 +403,8 @@ serve(async (req) => {
         // Don't throw, this is just for debugging
       }
     }
+
+    console.log(`Total processing time: ${Date.now() - startTime}ms`)
 
     // Return success response with the entry data
     return new Response(
@@ -423,6 +445,7 @@ serve(async (req) => {
  * This function handles the API call and provides detailed logging
  */
 async function addToBeehiivAutomation(email: string) {
+  const startTime = Date.now()
   console.log(`Adding email ${email} to BeehiiV automation via /subscribers endpoint: ${BEEHIIV_AUTOMATION_ID}`)
   
   try {
@@ -442,8 +465,9 @@ async function addToBeehiivAutomation(email: string) {
       }
     )
 
+    const processingTime = Date.now() - startTime
     const responseText = await response.text()
-    console.log(`BeehiiV automation /subscribers response (${response.status}):`, responseText)
+    console.log(`BeehiiV automation /subscribers response (${response.status}) in ${processingTime}ms:`, responseText)
     
     if (!response.ok) {
       console.error(`BeehiiV automation /subscribers error (${response.status}):`, responseText)
@@ -469,6 +493,7 @@ async function addToBeehiivAutomation(email: string) {
  * This function is included as a fallback to the newer subscribers endpoint
  */
 async function addToBeehiivAutomationJourneys(email: string) {
+  const startTime = Date.now()
   console.log(`Adding email ${email} to BeehiiV automation via /journeys endpoint: ${BEEHIIV_AUTOMATION_ID}`)
   
   try {
@@ -488,8 +513,9 @@ async function addToBeehiivAutomationJourneys(email: string) {
       }
     )
 
+    const processingTime = Date.now() - startTime
     const responseText = await response.text()
-    console.log(`BeehiiV automation /journeys response (${response.status}):`, responseText)
+    console.log(`BeehiiV automation /journeys response (${response.status}) in ${processingTime}ms:`, responseText)
     
     if (!response.ok) {
       console.error(`BeehiiV automation /journeys error (${response.status}):`, responseText)

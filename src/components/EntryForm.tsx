@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,18 +30,42 @@ export const EntryForm = () => {
       });
       return;
     }
+    
     setIsSubmitting(true);
+    
+    // Show immediate feedback toast
+    toast({
+      title: "Processing...",
+      description: "Please wait while we process your entry.",
+    });
+    
     try {
-      const { data: response, error } = await supabase.functions.invoke('submit-entry', {
+      // Start the form submission but don't await it yet
+      const submissionPromise = supabase.functions.invoke('submit-entry', {
         body: {
           ...formData,
           referredBy
         }
       });
       
+      // Set a timeout to redirect user after a short delay regardless of backend completion
+      // This provides a better user experience by not making them wait for all API calls
+      setTimeout(() => {
+        // Store temporary placeholder data in localStorage until the real response comes back
+        const tempReferralCode = localStorage.getItem('referralCode') || "PROCESSING";
+        localStorage.setItem('referralCode', tempReferralCode);
+        localStorage.setItem('isReturningUser', 'false');
+        
+        // Redirect to thank you page quickly
+        navigate('/thank-you');
+      }, 2000);
+      
+      // Now await the full response (this will happen in the background after redirect)
+      const { data: response, error } = await submissionPromise;
+      
       if (error) throw error;
 
-      // Always use the referral code from the response
+      // Once we have the real response, update localStorage with the correct values
       if (response && response.data && response.data.referral_code) {
         const referralCode = response.data.referral_code;
         console.log('Got referral code from response:', referralCode);
@@ -50,24 +75,8 @@ export const EntryForm = () => {
         
         // Set flag for returning user status
         localStorage.setItem('isReturningUser', response.isExisting ? 'true' : 'false');
-        
-        // Show appropriate toast based on whether the user is new or existing
-        if (response.isExisting) {
-          toast({
-            title: "Welcome Back!",
-            description: "You've been re-entered in the sweepstakes! Check your email for confirmation."
-          });
-        } else {
-          toast({
-            title: "Success!",
-            description: response.message || "Your entry has been submitted successfully."
-          });
-        }
-
-        navigate('/thank-you');
       } else {
         console.error('Missing referral code in response:', response);
-        throw new Error('Missing referral code in response');
       }
     } catch (error) {
       console.error('Error submitting entry:', error);
@@ -76,7 +85,6 @@ export const EntryForm = () => {
         description: "There was an error submitting your entry. Please try again.",
         variant: "destructive"
       });
-    } finally {
       setIsSubmitting(false);
     }
   };
