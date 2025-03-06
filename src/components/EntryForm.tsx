@@ -107,6 +107,8 @@ export const EntryForm = () => {
       // Set processing state in localStorage
       localStorage.setItem('referralCode', 'PROCESSING');
       localStorage.setItem('isReturningUser', 'false');
+      // Store the user's email for verification purposes
+      localStorage.setItem('userEmail', formData.email);
       
       // Start the form submission
       const { data, error } = await supabase.functions.invoke<SubmitEntryResponse>('submit-entry', {

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Helmet } from 'react-helmet-async';
+import { supabase } from "@/integrations/supabase/client";
 
 declare global {
   interface Window {
@@ -111,7 +112,7 @@ const ThankYou = () => {
     checkJwtStatus();
     
     // Get the unique referral code that was saved during signup
-    const checkForReferralCode = () => {
+    const checkForReferralCode = async () => {
       const code = localStorage.getItem("referralCode");
       console.log('Retrieved referral code from localStorage:', code);
       
@@ -136,8 +137,37 @@ const ThankYou = () => {
         return;
       }
       
-      // We have a valid code, set it and stop loading
-      setReferralCode(code);
+      // Verify the referral code matches what's in the database
+      // This will help us debug the mismatch
+      try {
+        const { data, error } = await supabase
+          .from('entries')
+          .select('referral_code')
+          .eq('email', localStorage.getItem('userEmail') || '')
+          .single();
+          
+        if (error) {
+          console.error("Error verifying referral code:", error);
+        } else if (data) {
+          console.log("Referral code in database:", data.referral_code);
+          console.log("Referral code in localStorage:", code);
+          
+          if (data.referral_code !== code) {
+            console.warn("MISMATCH: Local storage referral code doesn't match database code");
+            // Update localStorage with the correct code from the database
+            localStorage.setItem("referralCode", data.referral_code);
+            setReferralCode(data.referral_code);
+          } else {
+            // We have a valid code, set it and stop loading
+            setReferralCode(code);
+          }
+        }
+      } catch (err) {
+        console.error("Error during referral code verification:", err);
+        // We still set the code from localStorage as a fallback
+        setReferralCode(code);
+      }
+      
       setIsLoading(false);
     };
     

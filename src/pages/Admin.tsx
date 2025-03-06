@@ -52,6 +52,10 @@ const Admin = () => {
     try {
       console.log("Deleting entry with ID:", id);
       
+      // First immediately update local state to provide instant feedback
+      setEntries(prev => prev.filter(entry => entry.id !== id));
+      
+      // Then perform the actual delete operation
       const { error } = await supabase
         .from('entries')
         .delete()
@@ -59,19 +63,15 @@ const Admin = () => {
         
       if (error) {
         console.error("Supabase delete error:", error);
+        // If delete fails, restore the entry in the state
+        refetch();
         throw error;
       }
-      
-      // Update the local state to remove the deleted entry
-      setEntries(prev => prev.filter(entry => entry.id !== id));
-      
+            
       toast({
         title: "Entry deleted",
         description: "The entry has been successfully deleted.",
       });
-      
-      // Also refresh the data from the server
-      refetch();
     } catch (error) {
       console.error("Error deleting entry:", error);
       toast({
