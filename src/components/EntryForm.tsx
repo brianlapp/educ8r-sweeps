@@ -7,6 +7,18 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 
+// Define an interface for the API response structure
+interface SubmitEntryResponse {
+  success: boolean;
+  data: {
+    referral_code: string;
+    id: string;
+    [key: string]: any; // For other properties that might be present
+  };
+  isExisting: boolean;
+  message: string;
+}
+
 export const EntryForm = () => {
   const [formData, setFormData] = useState({
     firstName: "",
@@ -45,62 +57,31 @@ export const EntryForm = () => {
       localStorage.setItem('isReturningUser', 'false');
       
       // Start the form submission
-      const submissionPromise = supabase.functions.invoke('submit-entry', {
+      const { data, error } = await supabase.functions.invoke<SubmitEntryResponse>('submit-entry', {
         body: {
           ...formData,
           referredBy
         }
       });
       
-      // Set a timeout for waiting
-      const timeoutPromise = new Promise((resolve) => {
-        setTimeout(() => resolve({ timedOut: true }), 3000);
-      });
+      if (error) throw error;
       
-      // Race between API response and timeout
-      const result = await Promise.race([
-        submissionPromise,
-        timeoutPromise
-      ]);
-      
-      // If we got a real response (not timeout)
-      if ('data' in result && !('timedOut' in result)) {
-        const response = result.data;
+      if (data && data.data && data.data.referral_code) {
+        const referralCode = data.data.referral_code;
+        console.log('Got referral code from response:', referralCode);
         
-        if (response && response.data && response.data.referral_code) {
-          const referralCode = response.data.referral_code;
-          console.log('Got referral code from response:', referralCode);
-          
-          // Save the referral code to localStorage
-          localStorage.setItem('referralCode', referralCode);
-          
-          // Set flag for returning user status
-          localStorage.setItem('isReturningUser', response.isExisting ? 'true' : 'false');
-        } else {
-          console.error('Missing referral code in response:', response);
-        }
+        // Save the referral code to localStorage
+        localStorage.setItem('referralCode', referralCode);
+        
+        // Set flag for returning user status
+        localStorage.setItem('isReturningUser', data.isExisting ? 'true' : 'false');
+      } else {
+        console.error('Missing referral code in response:', data);
       }
       
-      // Navigate to thank you page (after max 3s or when we get the response)
+      // Navigate to thank you page
       navigate('/thank-you');
       
-      // If we redirected before getting response, still finish processing in background
-      if (!('data' in result) || ('timedOut' in result)) {
-        submissionPromise.then(({ data: response, error }) => {
-          if (error) throw error;
-          
-          if (response && response.data && response.data.referral_code) {
-            const referralCode = response.data.referral_code;
-            console.log('Got referral code from response (after redirect):', referralCode);
-            
-            // Update the referral code in localStorage
-            localStorage.setItem('referralCode', referralCode);
-            localStorage.setItem('isReturningUser', response.isExisting ? 'true' : 'false');
-          }
-        }).catch(err => {
-          console.error('Error processing submission in background:', err);
-        });
-      }
     } catch (error) {
       console.error('Error submitting entry:', error);
       toast({
