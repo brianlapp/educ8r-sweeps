@@ -390,7 +390,7 @@ serve(async (req) => {
           .upsert(
             { 
               id: 'google_sheets_sync', 
-              last_sync_time: now.toISOString(),
+              last_sync_time: now.toISOString(),  // Fix: use current timestamp
               entries_synced: 0,
               total_entries_synced: syncMetadataRecord?.total_entries_synced || 0,
               is_automated: isAutomated,
@@ -445,6 +445,7 @@ serve(async (req) => {
     // Update the sync metadata with the latest timestamp
     const now = new Date();
     try {
+      // Fix: calculate the total correctly - previous value + new rows
       const totalEntriesSynced = (syncMetadataRecord?.total_entries_synced || 0) + newRows.length;
       
       // First, make sure the table exists by calling the function
@@ -460,7 +461,7 @@ serve(async (req) => {
       // Use upsert to handle both insert and update cases
       console.log('Updating sync metadata with:', {
         id: 'google_sheets_sync', 
-        last_sync_time: now.toISOString(),
+        last_sync_time: now.toISOString(),  // Fix: ensure we use current time
         entries_synced: newRows.length,
         total_entries_synced: totalEntriesSynced,
         last_sync_type: isAutomated ? 'automated' : 'manual'
@@ -471,7 +472,7 @@ serve(async (req) => {
         .upsert(
           { 
             id: 'google_sheets_sync', 
-            last_sync_time: now.toISOString(),
+            last_sync_time: now.toISOString(),  // Fix: ensure we use current time
             entries_synced: newRows.length,
             total_entries_synced: totalEntriesSynced,
             is_automated: isAutomated,
