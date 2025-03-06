@@ -131,34 +131,6 @@ export const WebhookStatus = () => {
         </div>
         
         <Separator />
-        
-        <div className="bg-slate-50 p-3 rounded-md text-sm">
-          <div className="flex items-start gap-2">
-            {everflowStatus && emailStatus ? (
-              <>
-                {!everflowStatus.jwt_status?.enabled && !emailStatus.jwt_status?.enabled ? (
-                  <CheckCircleIcon className="h-5 w-5 text-green-500 mt-0.5" />
-                ) : (
-                  <XCircleIcon className="h-5 w-5 text-red-500 mt-0.5" />
-                )}
-                <div>
-                  <p className="font-medium">
-                    {!everflowStatus.jwt_status?.enabled && !emailStatus.jwt_status?.enabled ? 
-                      "JWT verification is correctly disabled" : 
-                      "JWT verification issue detected"}
-                  </p>
-                  <p className="text-muted-foreground mt-1">
-                    {!everflowStatus.jwt_status?.enabled && !emailStatus.jwt_status?.enabled ? 
-                      "Both webhooks have JWT verification disabled, referrals should work correctly." : 
-                      "One or both webhooks have JWT verification enabled, which may cause referrals to fail."}
-                  </p>
-                </div>
-              </>
-            ) : (
-              <p className="text-muted-foreground">Check webhook status to see verification details</p>
-            )}
-          </div>
-        </div>
       </CardContent>
       <CardFooter>
         <Button 
