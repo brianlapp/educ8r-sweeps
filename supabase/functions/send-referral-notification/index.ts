@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { Resend } from "npm:resend@2.0.0"
 
@@ -179,7 +178,7 @@ serve(async (req) => {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${referralLink}" style="display: inline-block; background-color: #16a34a; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; font-size: 16px;">Share Your Link</a>
+            <a href="${referralLink}" style="display: inline-block; background-color: #16a34a; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; font-size: 16px;">Visit Comprendi Reading</a>
           </div>
           
           <p style="font-size: 16px; line-height: 1.5;">
@@ -191,7 +190,7 @@ serve(async (req) => {
           </p>
           
           <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 14px;">
-            <p>© 2024 Free Parent Search. All rights reserved.</p>
+            <p>© 2025 Free Parent Search. All rights reserved.</p>
           </div>
         </div>
       `
