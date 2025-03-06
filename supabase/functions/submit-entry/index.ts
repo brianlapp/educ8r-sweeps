@@ -414,8 +414,10 @@ async function addToBeehiivAutomation(email: string) {
   console.log(`Adding email ${email} to BeehiiV automation: ${BEEHIIV_AUTOMATION_ID}`)
   
   try {
+    // Updated to use the correct endpoint for "Add by API" trigger
+    // Changed from /automations/{id}/journeys to /automations/{id}/subscribers
     const response = await fetch(
-      `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/automations/${BEEHIIV_AUTOMATION_ID}/journeys`,
+      `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/automations/${BEEHIIV_AUTOMATION_ID}/subscribers`,
       {
         method: 'POST',
         headers: {
