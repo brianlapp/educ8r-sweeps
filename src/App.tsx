@@ -6,6 +6,7 @@ import Index from "./pages/Index";
 import ThankYou from "./pages/ThankYou";
 import TestLanding from "./pages/TestLanding";
 import Admin from "./pages/Admin";
+import AdminWebhookStatus from "./pages/AdminWebhookStatus";
 import AdminLogin from "./pages/AdminLogin";
 import Documentation from "./pages/Documentation";
 import Terms from "./pages/Terms";
@@ -38,6 +39,14 @@ function App() {
                     <Admin />
                   </ProtectedRoute>
                 } 
+              />
+              <Route
+                path="/admin/webhooks"
+                element={
+                  <ProtectedRoute>
+                    <AdminWebhookStatus />
+                  </ProtectedRoute>
+                }
               />
               <Route path="/docs" element={<Documentation />} />
               <Route path="*" element={<NotFound />} />

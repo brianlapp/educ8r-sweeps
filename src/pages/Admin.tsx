@@ -2,12 +2,13 @@
 import { Helmet } from 'react-helmet-async';
 import { useQuery } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { Tables } from "@/integrations/supabase/types";
 import { ManualSyncButton } from "@/components/ManualSyncButton";
-import { WebhookStatus } from "@/components/WebhookStatus";
+import { Link } from 'react-router-dom';
 
 const Admin = () => {
   const [entries, setEntries] = useState<Tables<'entries'>[]>([]);
@@ -94,17 +95,26 @@ const Admin = () => {
       </Helmet>
       <div className="container mx-auto py-12">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-center">Admin Dashboard</h1>
-          <ManualSyncButton />
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <div className="space-x-4 flex">
+            <Link to="/admin/webhooks">
+              <Button variant="outline">Webhook Status</Button>
+            </Link>
+            <ManualSyncButton />
+          </div>
         </div>
 
-        {/* New Webhook Status Section */}
         <div className="mb-8">
-          <WebhookStatus />
+          <div className="bg-white p-4 rounded-md shadow">
+            <h2 className="text-xl font-semibold mb-2">User Entries</h2>
+            <p className="text-muted-foreground mb-4">
+              Total entries: {entries.length}
+            </p>
+          </div>
         </div>
 
         {entries && entries.length > 0 ? (
-          <div className="rounded-md border">
+          <div className="rounded-md border bg-white shadow">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -131,7 +141,7 @@ const Admin = () => {
             </Table>
           </div>
         ) : (
-          <div className="text-center">No entries found.</div>
+          <div className="text-center bg-white p-8 rounded-md shadow">No entries found.</div>
         )}
       </div>
     </div>
