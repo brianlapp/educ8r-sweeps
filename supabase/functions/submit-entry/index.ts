@@ -9,8 +9,6 @@ const corsHeaders = {
 
 const BEEHIIV_API_KEY = Deno.env.get('BEEHIIV_API_KEY')
 const BEEHIIV_PUBLICATION_ID = 'pub_4b47c3db-7b59-4c82-a18b-16cf10fc2d23'
-// Update the automation ID to use the correct format with the 'aut_' prefix
-const BEEHIIV_AUTOMATION_ID = 'aut_a1eb15e2-5d7c-4d3e-867f-d8a3c8c06642'
 
 serve(async (req) => {
   // Record start time for performance monitoring
@@ -51,10 +49,10 @@ serve(async (req) => {
     if (existingEntry) {
       console.log('Found existing entry with referral code:', existingEntry.referral_code)
       
-      // For existing users, we'll update their BeehiiV subscription with the current data
-      // This ensures the automation triggers correctly by detecting the new email submission
+      // For existing users, update BeehiiV subscription 
       try {
-        // 1. Create/Update BeehiiV subscription with current data to simulate a "new submission"
+        // Only update subscription data - no need to trigger automation directly
+        // since BeehiiV will now trigger based on "Email Submitted" event
         const subscriberData = {
           email: email,
           first_name: firstName,
@@ -63,7 +61,6 @@ serve(async (req) => {
           utm_medium: 'comprendi',
           utm_campaign: 'comprendi',
           reactivate: true,
-          // CHANGE: Remove trigger_automation flag as it may conflict with Email Submitted trigger
           custom_fields: [
             {
               name: 'First Name',
@@ -85,7 +82,6 @@ serve(async (req) => {
         }
 
         console.log('Updating existing user in BeehiiV with data:', subscriberData)
-        console.log(`BeehiiV update started at ${Date.now() - startTime}ms`)
         
         const subscribeResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`, {
           method: 'POST',
@@ -97,97 +93,18 @@ serve(async (req) => {
         })
 
         const subscribeResponseText = await subscribeResponse.text()
-        console.log(`BeehiiV subscription update response (${subscribeResponse.status}) at ${Date.now() - startTime}ms:`, subscribeResponseText)
+        console.log(`BeehiiV subscription update response (${subscribeResponse.status}):`, subscribeResponseText)
 
         if (!subscribeResponse.ok) {
           console.error('BeehiiV subscription update error:', subscribeResponseText)
         } else {
           console.log('Successfully updated BeehiiV subscription for existing user')
-          let subscribeData
-          try {
-            subscribeData = JSON.parse(subscribeResponseText)
-            console.log('Parsed BeehiiV response:', subscribeData)
-          } catch (e) {
-            console.log('Could not parse BeehiiV response as JSON')
-          }
-        }
-
-        // 2. First get the subscriber ID
-        console.log(`Retrieving subscriber ID for: ${email}`)
-        const getSubscriberResponse = await fetch(
-          `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions?email=${encodeURIComponent(email)}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-            }
-          }
-        )
-        
-        console.log(`Get subscriber completed at ${Date.now() - startTime}ms`)
-        const subscriberResponseText = await getSubscriberResponse.text()
-        console.log(`BeehiiV get subscriber response (${getSubscriberResponse.status}):`, subscriberResponseText)
-        
-        if (!getSubscriberResponse.ok) {
-          console.error(`BeehiiV get subscriber error (${getSubscriberResponse.status}):`, subscriberResponseText)
-        } else {
-          try {
-            const subscriberData = JSON.parse(subscriberResponseText)
-            console.log('BeehiiV subscriber data:', subscriberData)
-            
-            if (!subscriberData.data || subscriberData.data.length === 0) {
-              console.error('No subscriber found with email:', email)
-            } else {
-              const subscriberId = subscriberData.data[0].id
-              console.log(`Found subscriber ID: ${subscriberId}`)
-              
-              // 3. Now add the comprendi tag - this is critical for the automation to work
-              console.log(`Adding 'comprendi' tag to subscriber ID: ${subscriberId}`)
-              const updateTagsResponse = await fetch(
-                `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}/tags`,
-                {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-                  },
-                  body: JSON.stringify({ 
-                    tags: ['comprendi', 'sweeps']  // Explicitly setting both required tags
-                  })
-                }
-              )
-              
-              console.log(`Tags update completed at ${Date.now() - startTime}ms`)
-              const tagsResponseText = await updateTagsResponse.text()
-              console.log(`BeehiiV tag update response (${updateTagsResponse.status}):`, tagsResponseText)
-              
-              if (!updateTagsResponse.ok) {
-                console.error(`BeehiiV tag update error (${updateTagsResponse.status}):`, tagsResponseText)
-              } else {
-                console.log('Successfully added tags to BeehiiV subscriber')
-              }
-
-              // 4. Try both automation endpoints to ensure one works
-              try {
-                // CHANGE: Add trigger timing logs
-                console.log(`Starting automation at ${Date.now() - startTime}ms`)
-                await addToBeehiivAutomation(email)
-              } catch (automationError) {
-                console.error('Error with /subscribers endpoint, trying /journeys:', automationError)
-                // Fallback to previous endpoint if the new one fails
-                await addToBeehiivAutomationJourneys(email)
-              }
-            }
-          } catch (parseError) {
-            console.error('Error parsing BeehiiV subscriber data:', parseError)
-          }
         }
       } catch (beehiivError) {
         console.error('Error processing BeehiiV actions for existing user:', beehiivError)
       }
       
-      // Return existing entry with a clear message about already being entered
+      // Return existing entry with a clear message
       return new Response(
         JSON.stringify({
           success: true,
@@ -247,8 +164,7 @@ serve(async (req) => {
     console.log(`Database insert completed at ${Date.now() - startTime}ms`)
     console.log('Successfully created entry with referral code:', entry.referral_code)
 
-    // Step 1: Initialize base tags array and custom fields with exact BeehiiV field names
-    const tags = ['sweeps', 'comprendi']
+    // Create/Update BeehiiV subscription
     const customFields = [
       {
         name: 'First Name',
@@ -268,8 +184,6 @@ serve(async (req) => {
       }
     ]
 
-    // Step 2: Create/Update BeehiiV subscription with custom fields
-    // CHANGE: Remove trigger_automation flag to avoid conflicts with Email Submitted trigger
     const subscriberData = {
       email: email,
       first_name: firstName,
@@ -282,9 +196,8 @@ serve(async (req) => {
     }
 
     console.log('Sending subscription data to BeehiiV:', subscriberData)
-    console.log(`BeehiiV subscription started at ${Date.now() - startTime}ms`)
     
-    // Create/update subscriber first
+    // Create/update subscriber
     const subscribeResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`, {
       method: 'POST',
       headers: {
@@ -295,21 +208,14 @@ serve(async (req) => {
     })
 
     const subscribeResponseText = await subscribeResponse.text()
-    console.log(`BeehiiV subscription response (${subscribeResponse.status}) at ${Date.now() - startTime}ms:`, subscribeResponseText)
+    console.log(`BeehiiV subscription response (${subscribeResponse.status}):`, subscribeResponseText)
 
     if (!subscribeResponse.ok) {
       console.error('BeehiiV subscription error:', subscribeResponseText)
       throw new Error('Failed to subscribe to newsletter')
     }
 
-    let subscribeData
-    try {
-      subscribeData = JSON.parse(subscribeResponseText)
-      console.log('BeehiiV subscription parsed response:', subscribeData)
-    } catch (e) {
-      console.error('Could not parse BeehiiV response as JSON:', e)
-    }
-
+    // Add tags to the subscriber
     try {
       // Get subscriber ID first (needed for tag update)
       console.log(`Retrieving subscriber ID for: ${email}`)
@@ -324,7 +230,6 @@ serve(async (req) => {
         }
       )
       
-      console.log(`Get subscriber completed at ${Date.now() - startTime}ms`)
       const subscriberResponseText = await getSubscriberResponse.text()
       console.log(`BeehiiV get subscriber response (${getSubscriberResponse.status}):`, subscriberResponseText)
       
@@ -357,7 +262,6 @@ serve(async (req) => {
               }
             )
             
-            console.log(`Tags update completed at ${Date.now() - startTime}ms`)
             const tagsResponseText = await updateTagsResponse.text()
             console.log(`BeehiiV tag update response (${updateTagsResponse.status}):`, tagsResponseText)
             
@@ -375,19 +279,7 @@ serve(async (req) => {
       console.error('Error adding tags:', tagError)
     }
 
-    // Try both automation endpoints to ensure one works
-    try {
-      // CHANGE: Add timing logs for automation
-      console.log(`Starting automation process at ${Date.now() - startTime}ms`)
-      // First try the new endpoint
-      await addToBeehiivAutomation(email)
-    } catch (automationError) {
-      console.error('Error with new endpoint, trying legacy endpoint:', automationError)
-      // Fallback to legacy endpoint if the new one fails
-      await addToBeehiivAutomationJourneys(email)
-    }
-
-    // Step 4: Add debug entry for referral tracking
+    // Add debug entry for referral tracking
     if (validReferral) {
       const { error: debugError } = await supabaseClient
         .from('referral_debug')
@@ -439,99 +331,3 @@ serve(async (req) => {
     )
   }
 })
-
-/**
- * Helper function to add a subscriber to a BeehiiV automation flow using the new subscribers endpoint
- * This function handles the API call and provides detailed logging
- */
-async function addToBeehiivAutomation(email: string) {
-  const startTime = Date.now()
-  console.log(`Adding email ${email} to BeehiiV automation via /subscribers endpoint: ${BEEHIIV_AUTOMATION_ID}`)
-  
-  try {
-    // Use the newer /subscribers endpoint
-    const response = await fetch(
-      `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/automations/${BEEHIIV_AUTOMATION_ID}/subscribers`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-        },
-        body: JSON.stringify({
-          email: email,
-          double_opt_override: "on"
-        })
-      }
-    )
-
-    const processingTime = Date.now() - startTime
-    const responseText = await response.text()
-    console.log(`BeehiiV automation /subscribers response (${response.status}) in ${processingTime}ms:`, responseText)
-    
-    if (!response.ok) {
-      console.error(`BeehiiV automation /subscribers error (${response.status}):`, responseText)
-      throw new Error(`Failed to add to automation: ${response.status} - ${responseText}`)
-    }
-
-    try {
-      const data = JSON.parse(responseText)
-      console.log('Successfully added to automation via /subscribers:', data)
-      return data
-    } catch (parseError) {
-      console.log('Successfully added to automation but response is not JSON:', responseText)
-      return { success: true, responseText }
-    }
-  } catch (error) {
-    console.error('Error in addToBeehiivAutomation with /subscribers endpoint:', error)
-    throw error
-  }
-}
-
-/**
- * Helper function to add a subscriber to a BeehiiV automation flow using the legacy journeys endpoint
- * This function is included as a fallback to the newer subscribers endpoint
- */
-async function addToBeehiivAutomationJourneys(email: string) {
-  const startTime = Date.now()
-  console.log(`Adding email ${email} to BeehiiV automation via /journeys endpoint: ${BEEHIIV_AUTOMATION_ID}`)
-  
-  try {
-    // Use the legacy /journeys endpoint as a fallback
-    const response = await fetch(
-      `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/automations/${BEEHIIV_AUTOMATION_ID}/journeys`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-        },
-        body: JSON.stringify({
-          email: email,
-          double_opt_override: "on"
-        })
-      }
-    )
-
-    const processingTime = Date.now() - startTime
-    const responseText = await response.text()
-    console.log(`BeehiiV automation /journeys response (${response.status}) in ${processingTime}ms:`, responseText)
-    
-    if (!response.ok) {
-      console.error(`BeehiiV automation /journeys error (${response.status}):`, responseText)
-      throw new Error(`Failed to add to automation: ${response.status} - ${responseText}`)
-    }
-
-    try {
-      const data = JSON.parse(responseText)
-      console.log('Successfully added to automation via /journeys:', data)
-      return data
-    } catch (parseError) {
-      console.log('Successfully added to automation via /journeys but response is not JSON:', responseText)
-      return { success: true, responseText }
-    }
-  } catch (error) {
-    console.error('Error in addToBeehiivAutomationJourneys with /journeys endpoint:', error)
-    throw error
-  }
-}
