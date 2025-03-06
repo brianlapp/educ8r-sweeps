@@ -22,24 +22,26 @@ const Admin = () => {
   const { isLoading, error, refetch } = useQuery({
     queryKey: ['entries'],
     queryFn: async () => {
-      console.log("Fetching entries from Supabase...");
+      console.log("[AdminPage] Fetching entries from Supabase...");
       const { data, error } = await supabase
         .from('entries')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error("Error fetching entries:", error);
+        console.error("[AdminPage] Error fetching entries:", error);
         throw error;
       }
 
       if (data) {
-        console.log(`Retrieved ${data.length} entries from Supabase`);
+        console.log(`[AdminPage] Retrieved ${data.length} entries from Supabase`);
         setEntries(data);
       }
       
       return data;
-    }
+    },
+    // Force a refetch on component mount to ensure we have the latest data
+    refetchOnMount: 'always'
   });
 
   useEffect(() => {
@@ -54,36 +56,71 @@ const Admin = () => {
 
   const handleDeleteEntry = async (id: string) => {
     try {
-      console.log("Deleting entry with ID:", id);
+      console.log("[AdminPage] Starting delete process for entry ID:", id);
       setIsDeleting(id);
       
-      // First immediately update local state to provide instant feedback
-      setEntries(prev => prev.filter(entry => entry.id !== id));
-      
-      // Perform the delete operation
-      const { error } = await supabase
+      // First, double-check that the entry exists
+      const { data: checkData, error: checkError } = await supabase
         .from('entries')
-        .delete()
-        .eq('id', id);
-      
-      console.log("Delete operation completed, error:", error);
-      
-      if (error) {
-        console.error("Supabase delete error:", error);
-        throw error;
+        .select('id')
+        .eq('id', id)
+        .single();
+        
+      if (checkError) {
+        console.error("[AdminPage] Error verifying entry exists:", checkError);
+        throw new Error("Could not verify entry exists");
       }
       
-      // After successful deletion, invalidate and refetch the query
+      if (!checkData) {
+        console.warn("[AdminPage] Entry already deleted or doesn't exist:", id);
+        // Update local state
+        setEntries(prev => prev.filter(entry => entry.id !== id));
+        return;
+      }
+      
+      console.log("[AdminPage] Confirmed entry exists, proceeding with deletion");
+      
+      // Clear React Query cache for this entry first
+      queryClient.removeQueries({queryKey: ['entries', id]});
+      
+      // Update UI optimistically
+      setEntries(prev => prev.filter(entry => entry.id !== id));
+      
+      // Perform the actual delete operation with explicit RPC call
+      const { error: deleteError } = await supabase.rpc('secure_delete_entry', { entry_id: id });
+      
+      if (deleteError) {
+        console.error("[AdminPage] Supabase RPC delete error:", deleteError);
+        throw deleteError;
+      }
+      
+      console.log("[AdminPage] Entry successfully deleted from database, ID:", id);
+      
+      // Update the cache to reflect the deletion
       await queryClient.invalidateQueries({queryKey: ['entries']});
       
       toast({
         title: "Entry deleted",
         description: "The entry has been successfully deleted from the database.",
       });
-    } catch (error) {
-      console.error("Error deleting entry:", error);
       
-      // If delete fails, perform a full refetch to restore the correct state
+      // Manually refetch to verify deletion
+      const { data: verifyData } = await supabase
+        .from('entries')
+        .select('id')
+        .eq('id', id);
+        
+      if (verifyData && verifyData.length > 0) {
+        console.error("[AdminPage] Entry still exists after deletion:", id);
+        throw new Error("Entry still exists after deletion");
+      } else {
+        console.log("[AdminPage] Verified entry no longer exists in database");
+      }
+      
+    } catch (error) {
+      console.error("[AdminPage] Error in delete process:", error);
+      
+      // Revert optimistic UI update and refresh data from server
       await refetch();
       
       toast({
