@@ -26,17 +26,22 @@ async function sendReferralNotificationEmail(referrerData: any) {
   try {
     console.log('Sending referral notification email to:', referrerData.email);
     
+    // Transform snake_case field names to camelCase for the notification function
+    const payload = {
+      email: referrerData.email,
+      firstName: referrerData.first_name, // Convert from snake_case to camelCase
+      totalEntries: referrerData.total_entries || 0, // Convert from snake_case to camelCase
+      referralCode: referrerData.referral_code
+    };
+    
+    console.log('Transformed notification payload:', payload);
+    
     const response = await fetch(`${SUPABASE_URL}/functions/v1/send-referral-notification`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        email: referrerData.email,
-        firstName: referrerData.first_name,
-        totalEntries: referrerData.total_entries || 0,
-        referralCode: referrerData.referral_code
-      })
+      body: JSON.stringify(payload)
     });
     
     if (!response.ok) {
