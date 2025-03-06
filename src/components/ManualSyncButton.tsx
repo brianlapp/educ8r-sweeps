@@ -189,8 +189,12 @@ export const ManualSyncButton = () => {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Never';
+    
     const date = new Date(dateString);
-    return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+    // Check if date is close to epoch (indicating a reset or never synced)
+    if (date.getFullYear() < 1971) return 'Never';
+    
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
   const extractProjectId = (errorMessage: string) => {
@@ -198,23 +202,27 @@ export const ManualSyncButton = () => {
     return match ? match[1] : "452914012806"; // Default to the ID from the error if not found
   };
 
-  return (
-    <div className="flex items-center gap-4">
-      <div className="text-sm text-gray-600 flex items-center">
-        <div className="flex items-center gap-2 mr-3">
+  // Determine compact display text for last sync
+  const getSyncInfoDisplay = () => {
+    const syncTime = formatDate(lastSyncInfo.time);
+    const syncType = lastSyncInfo.type || '';
+    const entriesText = lastSyncInfo.entries !== null ? `(${lastSyncInfo.entries})` : '';
+    
+    return (
+      <div className="flex items-center text-sm text-gray-600">
+        <div className="flex items-center gap-1.5">
           <Clock className="h-3.5 w-3.5 text-gray-400" />
-          <span>Last {lastSyncInfo.type || ''} sync: {formatDate(lastSyncInfo.time)}</span>
-          {lastSyncInfo.entries !== null && (
-            <span className="text-gray-500">
-              ({lastSyncInfo.entries} {lastSyncInfo.entries === 1 ? 'entry' : 'entries'})
-            </span>
-          )}
+          <span>Last {syncType} sync: <span className="font-medium">{syncTime}</span> {entriesText}</span>
         </div>
-        <span className="text-gray-400 hidden md:inline">|</span>
-        <span className="hidden md:block text-xs text-gray-500 ml-3">
-          Automated sync at midnight UTC
-        </span>
+        <span className="mx-2 text-gray-300">•</span>
+        <span className="text-gray-500">Auto-sync: midnight UTC</span>
       </div>
+    );
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-4">
+      {getSyncInfoDisplay()}
       
       <div className="flex gap-2">
         <Button 
