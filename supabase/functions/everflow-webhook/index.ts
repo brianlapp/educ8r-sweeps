@@ -249,7 +249,8 @@ async function updateBeehiivTotalEntries(userData) {
       console.log(`Attempt ${attempt} of ${MAX_RETRIES} to update subscriber ${subscriberId} custom fields with total_entries: ${userData.total_entries}`);
       
       try {
-        // Log the exact request details
+        // CRITICAL FIX: Use the correct endpoint for updating subscribers
+        // Change from .../custom_fields to the main subscriber endpoint
         const customFieldsRequestBody = {
           custom_fields: [
             {
@@ -260,8 +261,9 @@ async function updateBeehiivTotalEntries(userData) {
         };
         console.log(`BeehiiV custom fields update request body:`, JSON.stringify(customFieldsRequestBody, null, 2));
         
+        // UPDATED ENDPOINT: Using the main subscriber endpoint instead of the /custom_fields endpoint
         const customFieldsResponse = await fetch(
-          `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}/custom_fields`,
+          `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}`,
           {
             method: 'PATCH',
             headers: {
