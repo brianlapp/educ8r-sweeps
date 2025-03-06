@@ -94,20 +94,20 @@ const Admin = () => {
         <title>Admin Dashboard | Educ8r Sweepstakes</title>
       </Helmet>
       <div className="container mx-auto py-12">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <div className="space-x-4 flex">
-            <Link to="/admin/webhooks">
-              <Button variant="outline">Webhook Status</Button>
-            </Link>
-            <ManualSyncButton />
-          </div>
-        </div>
+        <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
 
         <div className="mb-8">
           <div className="bg-white p-4 rounded-md shadow">
-            <h2 className="text-xl font-semibold mb-2">User Entries</h2>
-            <p className="text-muted-foreground mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-xl font-semibold">User Entries</h2>
+              <div className="flex space-x-3">
+                <Link to="/admin/webhooks">
+                  <Button variant="outline">Webhook Status</Button>
+                </Link>
+                <ManualSyncButton />
+              </div>
+            </div>
+            <p className="text-muted-foreground mb-2">
               Total entries: {entries.length}
             </p>
           </div>
