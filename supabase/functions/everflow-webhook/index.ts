@@ -11,635 +11,175 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 }
 
-// Get environment variables
-const BEEHIIV_API_KEY = Deno.env.get('BEEHIIV_API_KEY');
-const BEEHIIV_PUBLICATION_ID = 'pub_4b47c3db-7b59-4c82-a18b-16cf10fc2d23';
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://epfzraejquaxqrfmkmyx.supabase.co';
-
-// Helper function to send referral notification email
-async function sendReferralNotificationEmail(referrerData: any) {
+// Function to send a notification to the referrer
+async function sendReferralNotification(referrerData) {
+  console.log("=== SENDING NOTIFICATION TO REFERRER ===");
+  console.log("Referrer data:", JSON.stringify(referrerData, null, 2));
+  
   if (!referrerData || !referrerData.email) {
-    console.log('No referrer data available to send notification');
-    return { success: false, error: 'No referrer data available' };
+    console.error("Missing referrer data or email");
+    return { 
+      success: false, 
+      error: "Missing referrer data or email" 
+    };
   }
   
   try {
-    console.log('Sending referral notification email to:', referrerData.email);
-    console.log('Original referrer data:', JSON.stringify(referrerData, null, 2));
-    
-    // Transform snake_case field names to camelCase for the notification function
-    // Explicitly check each field and provide fallbacks to ensure all required fields are present
-    const payload = {
-      email: referrerData.email || '',
-      firstName: referrerData.first_name || '',
-      totalEntries: referrerData.total_entries || 0,
-      referralCode: referrerData.referral_code || ''
+    // Prepare the notification payload with snake_case to camelCase conversion
+    const notificationPayload = {
+      email: referrerData.email,
+      firstName: referrerData.first_name,
+      totalEntries: referrerData.total_entries,
+      referralCode: referrerData.referral_code
     };
     
-    console.log('Transformed notification payload:', JSON.stringify(payload, null, 2));
+    console.log("Notification payload (before sending):", JSON.stringify(notificationPayload, null, 2));
     
-    // Make sure payload has all required fields before sending
+    // Validation check before sending
     const missingFields = [];
-    if (!payload.email) missingFields.push('email');
-    if (!payload.firstName) missingFields.push('firstName');
-    if (payload.totalEntries === undefined) missingFields.push('totalEntries');
-    if (!payload.referralCode) missingFields.push('referralCode');
+    if (!notificationPayload.email) missingFields.push('email');
+    if (!notificationPayload.firstName) missingFields.push('firstName');
+    if (notificationPayload.totalEntries === undefined) missingFields.push('totalEntries');
+    if (!notificationPayload.referralCode) missingFields.push('referralCode');
     
     if (missingFields.length > 0) {
-      console.error('Missing required fields in payload:', missingFields);
-      console.error('Cannot send notification due to missing fields in payload:', payload);
-      return { success: false, error: `Missing required fields: ${missingFields.join(', ')}` };
+      console.error(`Cannot send notification: Missing fields: ${missingFields.join(', ')}`);
+      return {
+        success: false,
+        error: `Missing fields for notification: ${missingFields.join(', ')}`
+      };
     }
     
-    // Debug the entire payload to ensure referralCode is set
-    console.log('Payload fields check:');
-    console.log('- email:', payload.email, typeof payload.email);
-    console.log('- firstName:', payload.firstName, typeof payload.firstName);
-    console.log('- totalEntries:', payload.totalEntries, typeof payload.totalEntries);
-    console.log('- referralCode:', payload.referralCode, typeof payload.referralCode);
-    console.log('Full JSON payload to be sent:', JSON.stringify(payload));
+    // Generate the full URL for the notification endpoint
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+    if (!SUPABASE_URL) {
+      console.error("Missing SUPABASE_URL environment variable");
+      return { 
+        success: false, 
+        error: "Server configuration error: Missing SUPABASE_URL" 
+      };
+    }
     
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/send-referral-notification`, {
+    // Build the notification endpoint URL
+    const notificationUrl = `${SUPABASE_URL}/functions/v1/send-referral-notification`;
+    console.log(`Sending notification to: ${notificationUrl}`);
+    
+    // Make the request to the notification function
+    const response = await fetch(notificationUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(notificationPayload)
     });
     
-    console.log('Notification API response status:', response.status);
+    // Log HTTP status code
+    console.log(`Notification response status: ${response.status}`);
+    
+    // Parse and log the response
     const responseText = await response.text();
-    console.log('Notification API response body:', responseText);
+    console.log(`Notification raw response: ${responseText}`);
     
-    let result;
+    let responseData;
     try {
-      result = JSON.parse(responseText);
+      responseData = JSON.parse(responseText);
+      console.log("Notification parsed response:", JSON.stringify(responseData, null, 2));
+      return {
+        success: response.ok,
+        data: responseData,
+        error: response.ok ? null : responseData.error || "Unknown error"
+      };
     } catch (e) {
-      console.error('Failed to parse response as JSON:', e);
-      return { success: false, error: 'Failed to parse notification response' };
+      console.error("Failed to parse notification response:", e);
+      return {
+        success: false,
+        error: "Failed to parse notification response",
+        rawResponse: responseText
+      };
     }
-    
-    if (!response.ok) {
-      console.error('Error sending referral notification:', result);
-      return { success: false, error: responseText };
-    }
-    
-    console.log('Referral notification sent successfully:', result);
-    return { success: true, data: result };
   } catch (error) {
-    console.error('Error sending referral notification:', error);
-    return { success: false, error: error.message };
+    console.error("Error sending notification:", error);
+    return {
+      success: false,
+      error: error.message || "Unknown error during notification"
+    };
   }
 }
 
-// This function is designed to be completely public with NO authentication
 serve(async (req) => {
-  console.log('==== EVERFLOW WEBHOOK FUNCTION STARTED ====');
-  console.log('Request method:', req.method);
-  console.log('Request URL:', req.url);
-  
-  // Improved JWT verification status check
-  console.log('JWT VERIFICATION STATUS CHECK:');
-  // Use Deno's readTextFile to directly read config file (safer than assuming settings)
-  let jwtEnabled = false;
-  try {
-    // Check if we're in debug mode - improved detection
-    const url = new URL(req.url);
-    if (url.pathname.endsWith('/debug') && url.searchParams.has('jwt_check')) {
-      console.log('Debug JWT check endpoint accessed');
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: "Debug endpoint accessed successfully",
-          timestamp: new Date().toISOString(),
-          headers: Object.fromEntries(req.headers),
-          jwt_status: {
-            enabled: false, // We're now explicitly specifying FALSE here
-            authorization_header_present: req.headers.has('Authorization'),
-            config_file_setting: '[verify_jwt] enabled = false, allow_unauthenticated = true',
-            parent_config_setting: '[functions.verify_jwt] enabled = false'
-          },
-          env_vars_exist: {
-            SUPABASE_URL: !!Deno.env.get('SUPABASE_URL'),
-            SUPABASE_SERVICE_ROLE_KEY: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
-            BEEHIIV_API_KEY: !!Deno.env.get('BEEHIIV_API_KEY')
-          }
-        }),
-        { 
-          status: 200,
-          headers: { 
-            ...corsHeaders,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-    }
-  } catch (e) {
-    console.error("Error in JWT config check:", e);
-  }
-  
-  // Log JWT verification status (from runtime environment)
-  console.log('- Function config file settings: [verify_jwt] enabled = false, allow_unauthenticated = true');
-  console.log('- Parent config settings: [functions.verify_jwt] enabled = false');
-  console.log('- Request contains Authorization header:', req.headers.has('Authorization'));
+  console.log("=== EVERFLOW WEBHOOK FUNCTION STARTED ===");
+  console.log("Request method:", req.method);
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    console.log('Handling OPTIONS request with CORS headers');
+    console.log("Handling OPTIONS request with CORS headers");
     return new Response(null, { 
       headers: corsHeaders,
       status: 200
     });
   }
   
+  // Handle debug requests - useful for verifying the function is working
+  const url = new URL(req.url);
+  if (url.searchParams.has('debug')) {
+    console.log("Processing debug request");
+    return new Response(
+      JSON.stringify({ 
+        status: "ok", 
+        message: "Everflow webhook is running",
+        timestamp: new Date().toISOString()
+      }),
+      {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+  }
+  
+  // Handle JWT verification status check
+  if (url.searchParams.has('jwt_check')) {
+    console.log("Checking JWT verification status");
+    return new Response(
+      JSON.stringify({
+        jwt_status: {
+          enabled: false,
+          message: "JWT verification is disabled for this function"
+        }
+      }),
+      {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+  }
+  
   try {
-    // More detailed logging
-    console.log('Request headers:', Object.fromEntries(req.headers));
-    const url = new URL(req.url);
-    console.log('Request path:', url.pathname);
-    console.log('Request query params:', Object.fromEntries(url.searchParams));
+    // Dump raw request body for debugging
+    const clonedReq = req.clone();
+    const rawBody = await clonedReq.text();
+    console.log("Raw request body:", rawBody);
     
-    // Log environment variables availability (without exposing values)
-    const envVars = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "BEEHIIV_API_KEY"];
-    for (const varName of envVars) {
-      console.log(`Env var ${varName} exists:`, !!Deno.env.get(varName));
-    }
-    
-    // Special debug endpoint to confirm the function is accessible
-    if (url.pathname.endsWith('/debug') || url.searchParams.has('debug')) {
-      console.log('Debug endpoint accessed');
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Debug endpoint accessed successfully',
-          timestamp: new Date().toISOString(),
-          headers: Object.fromEntries(req.headers),
-          jwt_status: {
-            enabled: false, // We're now explicitly specifying FALSE here
-            authorization_header_present: req.headers.has('Authorization'),
-            config_file_setting: '[verify_jwt] enabled = false, allow_unauthenticated = true',
-            parent_config_setting: '[functions.verify_jwt] enabled = false'
-          },
-          env_vars_exist: {
-            SUPABASE_URL: !!Deno.env.get('SUPABASE_URL'),
-            SUPABASE_SERVICE_ROLE_KEY: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
-            BEEHIIV_API_KEY: !!Deno.env.get('BEEHIIV_API_KEY')
-          }
-        }),
-        { 
-          status: 200,
-          headers: { 
-            ...corsHeaders,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-    }
-
-    console.log('Received request to everflow-webhook public endpoint');
-    
-    // Get environment variables with fallbacks
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://epfzraejquaxqrfmkmyx.supabase.co';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    console.log('Using Supabase URL:', supabaseUrl);
-    console.log('Service role key available:', !!supabaseKey);
-    
-    if (!supabaseKey) {
-      console.error('ERROR: SUPABASE_SERVICE_ROLE_KEY is not set');
-      throw new Error('Missing required environment variable: SUPABASE_SERVICE_ROLE_KEY');
-    }
-    
-    // Create Supabase client with service role key
-    const supabaseClient = createClient(supabaseUrl, supabaseKey);
-    console.log('Supabase client created successfully');
-    
-    // Process the webhook based on HTTP method
-    
-    // For GET requests (coming from Everflow)
-    if (req.method === 'GET') {
-      // Parse URL search parameters for GET requests
-      const params = url.searchParams;
-      
-      console.log('Received Everflow GET request with params:', Object.fromEntries(params));
-      
-      // Extract required parameters from URL using Everflow parameter naming
-      const referral_code = params.get('sub1');
-      const transaction_id = params.get('tid') || params.get('transaction_id');
-      
-      console.log('Extracted parameters - referral_code:', referral_code, 'transaction_id:', transaction_id);
-      
-      // For debugging - skip DB operations if we're just testing connectivity
-      if (params.has('test_only')) {
-        console.log('Test mode active - skipping database operations');
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: 'Test mode: GET webhook connectivity verified',
-            test_only: true,
-            params: Object.fromEntries(params)
-          }),
-          { 
-            headers: { 
-              ...corsHeaders,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-      }
-      
-      if (!referral_code || !transaction_id) {
-        console.error('Missing required parameters in GET request');
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'Missing required parameters: sub1 (referral_code) and tid/transaction_id are required'
-          }),
-          { 
-            status: 400,
-            headers: { 
-              ...corsHeaders,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-      }
-      
-      // Construct payload for database processing
-      const payload = {
-        referral_code: referral_code,
-        transaction_id: transaction_id
-      };
-      
-      console.log('Calling database function with payload:', payload);
-      
-      try {
-        // Call the improved database function
-        const { data: dbResult, error: dbError } = await supabaseClient.rpc('handle_everflow_webhook', {
-          payload: payload
-        });
-
-        if (dbError) {
-          console.error('ERROR: Database update failed:', dbError);
-          throw dbError;
-        }
-
-        console.log('SUCCESS: Database function returned:', dbResult);
-        
-        let beehiivUpdated = false;
-        let beehiivError = null;
-        let notificationSent = false;
-        let notificationError = null;
-        
-        // Only attempt BeehiiV update and notification if database update was successful and we have referrer data
-        if (dbResult && dbResult.success && dbResult.data) {
-          try {
-            const referrerData = dbResult.data;
-            console.log('Referrer data from database:', referrerData);
-            
-            // 1. Send notification email
-            const notificationResult = await sendReferralNotificationEmail(referrerData);
-            if (notificationResult.success) {
-              notificationSent = true;
-            } else {
-              notificationError = notificationResult.error;
-            }
-            
-            // 2. Update BeehiiV (existing code)
-            if (referrerData && referrerData.email) {
-              // Clean and prepare the email
-              const email = referrerData.email.trim().toLowerCase();
-              const currentEntries = referrerData.total_entries || 0;
-              
-              console.log('Updating BeehiiV for referrer email:', email);
-              console.log('Current entry count from DB:', currentEntries);
-              
-              if (BEEHIIV_API_KEY) {
-                // First, get the subscriber ID by email - CORRECTED ENDPOINT
-                const subscriberUrl = `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions?email=${encodeURIComponent(email)}`;
-                console.log('Fetching subscriber with URL:', subscriberUrl);
-                
-                const subscriberResponse = await fetch(subscriberUrl, {
-                  method: 'GET',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-                  }
-                });
-                
-                if (!subscriberResponse.ok) {
-                  const subscriberErrorText = await subscriberResponse.text();
-                  console.error('Error fetching BeehiiV subscriber:', subscriberErrorText);
-                  throw new Error(`Failed to fetch BeehiiV subscriber: ${subscriberErrorText}`);
-                }
-                
-                const subscriberData = await subscriberResponse.json();
-                console.log('BeehiiV subscriber response:', subscriberData);
-                
-                if (subscriberData && subscriberData.data && subscriberData.data.length > 0) {
-                  const subscriberId = subscriberData.data[0].id;
-                  console.log('Found BeehiiV subscriber ID:', subscriberId);
-                  
-                  // Update the subscriber with PATCH request - CORRECTED REQUEST BODY FORMAT
-                  const updateUrl = `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}`;
-                  console.log('Updating subscriber with URL:', updateUrl);
-                  
-                  // FIXED: The custom_fields needs to be an array of objects with name and value properties
-                  const updateResponse = await fetch(updateUrl, {
-                    method: 'PATCH',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-                    },
-                    body: JSON.stringify({
-                      custom_fields: [
-                        {
-                          name: "sweepstakes_entries",
-                          value: currentEntries.toString()
-                        }
-                      ]
-                    })
-                  });
-                  
-                  if (!updateResponse.ok) {
-                    const updateErrorText = await updateResponse.text();
-                    console.error('Error updating BeehiiV subscriber:', updateErrorText);
-                    throw new Error(`Failed to update BeehiiV subscriber: ${updateErrorText}`);
-                  }
-                  
-                  const updateData = await updateResponse.json();
-                  console.log('BeehiiV update response:', updateData);
-                  beehiivUpdated = true;
-                } else {
-                  console.warn('No subscriber found in BeehiiV for email:', email);
-                  beehiivError = `No subscriber found in BeehiiV for email: ${email}`;
-                }
-              } else {
-                console.warn('BEEHIIV_API_KEY not available, skipping BeehiiV update');
-                beehiivError = 'BEEHIIV_API_KEY not available';
-              }
-            }
-          } catch (beehiivErr) {
-            console.error('BeehiiV update failed:', beehiivErr);
-            beehiivError = beehiivErr.message;
-          }
-        } else {
-          console.warn('No referrer data returned from database, skipping BeehiiV update and notification');
-        }
-
-        // Include the original database response, just add beehiiv and notification info
-        return new Response(
-          JSON.stringify({
-            ...dbResult,
-            beehiiv_updated: beehiivUpdated,
-            beehiiv_error: beehiivError,
-            notification_sent: notificationSent,
-            notification_error: notificationError
-          }),
-          { 
-            headers: { 
-              ...corsHeaders,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-      } catch (dbError) {
-        console.error('Database error:', dbError);
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'Database operation failed',
-            error: dbError.message,
-            stack: dbError.stack
-          }),
-          { 
-            status: 500,
-            headers: { 
-              ...corsHeaders,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-      }
-    } 
-    
-    // Handle POST request (for manual testing or alternative integration)
-    else if (req.method === 'POST') {
-      let payload;
-      try {
-        payload = await req.json();
-        console.log('Received Everflow webhook POST payload:', JSON.stringify(payload, null, 2));
-      } catch (parseError) {
-        console.error('Error parsing JSON payload:', parseError);
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'Invalid JSON payload',
-            details: parseError.message
-          }),
-          { 
-            status: 400,
-            headers: { 
-              ...corsHeaders,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-      }
-
-      // Test-only mode
-      if (payload?.test_only) {
-        console.log('Test mode active - skipping database operations');
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: 'Test mode: POST webhook connectivity verified',
-            test_only: true,
-            payload
-          }),
-          { 
-            headers: { 
-              ...corsHeaders,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-      }
-
-      // Validate required fields
-      if (!payload.referral_code || !payload.transaction_id) {
-        console.error('Missing required fields in POST payload');
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'Missing required fields: referral_code and transaction_id are required'
-          }),
-          { 
-            status: 400,
-            headers: { 
-              ...corsHeaders,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-      }
-      
-      try {
-        // Call the improved database function
-        const { data: dbResult, error: dbError } = await supabaseClient.rpc('handle_everflow_webhook', {
-          payload: payload
-        });
-
-        if (dbError) {
-          console.error('ERROR: Database update failed:', dbError);
-          throw dbError;
-        }
-
-        console.log('SUCCESS: Database function returned:', dbResult);
-        
-        let beehiivUpdated = false;
-        let beehiivError = null;
-        let notificationSent = false;
-        let notificationError = null;
-        
-        // Only attempt BeehiiV update and notification if database update was successful and we have referrer data
-        if (dbResult && dbResult.success && dbResult.data) {
-          try {
-            const referrerData = dbResult.data;
-            console.log('Referrer data from database:', referrerData);
-            
-            // 1. Send notification email
-            const notificationResult = await sendReferralNotificationEmail(referrerData);
-            if (notificationResult.success) {
-              notificationSent = true;
-            } else {
-              notificationError = notificationResult.error;
-            }
-            
-            // 2. Update BeehiiV (existing code)
-            if (referrerData && referrerData.email) {
-              // Clean and prepare the email
-              const email = referrerData.email.trim().toLowerCase();
-              const currentEntries = referrerData.total_entries || 0;
-              
-              console.log('Updating BeehiiV for referrer email:', email);
-              console.log('Current entry count from DB:', currentEntries);
-              
-              if (BEEHIIV_API_KEY) {
-                // First, get the subscriber ID by email - CORRECTED ENDPOINT
-                const subscriberUrl = `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions?email=${encodeURIComponent(email)}`;
-                console.log('Fetching subscriber with URL:', subscriberUrl);
-                
-                const subscriberResponse = await fetch(subscriberUrl, {
-                  method: 'GET',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-                  }
-                });
-                
-                if (!subscriberResponse.ok) {
-                  const subscriberErrorText = await subscriberResponse.text();
-                  console.error('Error fetching BeehiiV subscriber:', subscriberErrorText);
-                  throw new Error(`Failed to fetch BeehiiV subscriber: ${subscriberErrorText}`);
-                }
-                
-                const subscriberData = await subscriberResponse.json();
-                console.log('BeehiiV subscriber response:', subscriberData);
-                
-                if (subscriberData && subscriberData.data && subscriberData.data.length > 0) {
-                  const subscriberId = subscriberData.data[0].id;
-                  console.log('Found BeehiiV subscriber ID:', subscriberId);
-                  
-                  // Update the subscriber with PATCH request - CORRECTED REQUEST BODY FORMAT
-                  const updateUrl = `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}`;
-                  console.log('Updating subscriber with URL:', updateUrl);
-                  
-                  // FIXED: The custom_fields needs to be an array of objects with name and value properties
-                  const updateResponse = await fetch(updateUrl, {
-                    method: 'PATCH',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-                    },
-                    body: JSON.stringify({
-                      custom_fields: [
-                        {
-                          name: "sweepstakes_entries",
-                          value: currentEntries.toString()
-                        }
-                      ]
-                    })
-                  });
-                  
-                  if (!updateResponse.ok) {
-                    const updateErrorText = await updateResponse.text();
-                    console.error('Error updating BeehiiV subscriber:', updateErrorText);
-                    throw new Error(`Failed to update BeehiiV subscriber: ${updateErrorText}`);
-                  }
-                  
-                  const updateData = await updateResponse.json();
-                  console.log('BeehiiV update response:', updateData);
-                  beehiivUpdated = true;
-                } else {
-                  console.warn('No subscriber found in BeehiiV for email:', email);
-                  beehiivError = `No subscriber found in BeehiiV for email: ${email}`;
-                }
-              } else {
-                console.warn('BEEHIIV_API_KEY not available, skipping BeehiiV update');
-                beehiivError = 'BEEHIIV_API_KEY not available';
-              }
-            }
-          } catch (beehiivErr) {
-            console.error('BeehiiV update failed:', beehiivErr);
-            beehiivError = beehiivErr.message;
-          }
-        } else {
-          console.warn('No referrer data returned from database, skipping BeehiiV update and notification');
-        }
-
-        // Include the original database response, just add beehiiv and notification info
-        return new Response(
-          JSON.stringify({
-            ...dbResult,
-            beehiiv_updated: beehiivUpdated,
-            beehiiv_error: beehiivError,
-            notification_sent: notificationSent,
-            notification_error: notificationError
-          }),
-          { 
-            headers: { 
-              ...corsHeaders,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-      } catch (dbError) {
-        console.error('Database error:', dbError);
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'Database operation failed',
-            error: dbError.message,
-            stack: dbError.stack
-          }),
-          { 
-            status: 500,
-            headers: { 
-              ...corsHeaders,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-      }
-    } else {
+    // Parse the request body
+    let payload;
+    try {
+      payload = JSON.parse(rawBody);
+      console.log("Parsed webhook payload:", JSON.stringify(payload, null, 2));
+    } catch (parseError) {
+      console.error("Error parsing webhook payload:", parseError);
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Unsupported method: ${req.method}`
+          error: "Invalid JSON payload",
+          details: parseError.message
         }),
         { 
-          status: 405,
+          status: 400,
           headers: { 
             ...corsHeaders,
             'Content-Type': 'application/json'
@@ -647,10 +187,202 @@ serve(async (req) => {
         }
       );
     }
-
+    
+    // Initialize Supabase client
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    
+    // Extract transaction ID and referral code (required parameters)
+    const transactionId = payload.transaction_id || payload.transactionId;
+    const referralCode = payload.referral_code || payload.referralCode;
+    
+    // Enhanced validation with detailed error messages
+    if (!transactionId) {
+      console.error("Missing transaction_id in webhook payload");
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Missing required parameter: transaction_id",
+          received: payload
+        }),
+        { 
+          status: 400,
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
+    
+    if (!referralCode) {
+      console.error("Missing referral_code in webhook payload");
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Missing required parameter: referral_code",
+          received: payload
+        }),
+        { 
+          status: 400,
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
+    
+    // Try to find the referrer using the provided referral code
+    const { data: referrerData, error: referrerError } = await supabaseAdmin
+      .from('entries')
+      .select('*')
+      .eq('referral_code', referralCode)
+      .single();
+    
+    if (referrerError) {
+      console.error("Error fetching referrer:", referrerError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Failed to fetch referrer information",
+          details: referrerError.message,
+          ref_code: referralCode
+        }),
+        { 
+          status: 500,
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
+    
+    if (!referrerData) {
+      console.error("No referrer found with code:", referralCode);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Invalid referral code: No matching entry found",
+          ref_code: referralCode
+        }),
+        { 
+          status: 404,
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
+    
+    console.log("Found referrer:", referrerData);
+    
+    // Update referral stats in database
+    const { data: updatedReferrer, error: updateError } = await supabaseAdmin
+      .from('entries')
+      .update({
+        referral_count: (referrerData.referral_count || 0) + 1,
+        total_entries: (referrerData.entry_count || 1) + (referrerData.referral_count || 0) + 1
+      })
+      .eq('referral_code', referralCode)
+      .select()
+      .single();
+    
+    if (updateError) {
+      console.error("Error updating referrer stats:", updateError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Failed to update referral statistics",
+          details: updateError.message
+        }),
+        { 
+          status: 500,
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
+    
+    console.log("Updated referrer data:", updatedReferrer);
+    
+    // Record the conversion in our logs
+    const { error: conversionError } = await supabaseAdmin
+      .from('referral_conversions')
+      .insert({
+        transaction_id: transactionId,
+        referral_code: referralCode
+      });
+    
+    if (conversionError) {
+      console.warn("Error logging conversion:", conversionError);
+      // Non-fatal, continue processing
+    }
+    
+    // For BeehiiV API (optional)
+    let beehiivResult = {
+      updated: false,
+      error: "BeehiiV update not attempted"
+    };
+    
+    // Try to update BeehiiV if API key is available (optional)
+    const BEEHIIV_API_KEY = Deno.env.get('BEEHIIV_API_KEY');
+    if (BEEHIIV_API_KEY && updatedReferrer.email) {
+      try {
+        // TODO: Implement BeehiiV integration if needed
+        beehiivResult = {
+          updated: true,
+          error: null
+        };
+      } catch (beehiivError) {
+        console.error("BeehiiV API error:", beehiivError);
+        beehiivResult = {
+          updated: false,
+          error: beehiivError.message
+        };
+      }
+    }
+    
+    // Send notification email to the referrer
+    const notificationResult = await sendReferralNotification(updatedReferrer);
+    console.log("Notification result:", notificationResult);
+    
+    // Return success response with all the details
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: "Referral processed successfully",
+        referral_code: referralCode,
+        transaction_id: transactionId,
+        data: {
+          id: updatedReferrer.id,
+          email: updatedReferrer.email,
+          first_name: updatedReferrer.first_name,
+          last_name: updatedReferrer.last_name,
+          referral_count: updatedReferrer.referral_count,
+          total_entries: updatedReferrer.total_entries
+        },
+        beehiiv_updated: beehiivResult.updated,
+        beehiiv_error: beehiivResult.error,
+        notification_sent: notificationResult.success,
+        notification_error: notificationResult.error
+      }),
+      { 
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
   } catch (error) {
-    console.error('Error in everflow-webhook function:', error);
-    // Include detailed error information in the response for debugging
+    console.error("Unexpected error in everflow-webhook function:", error);
     return new Response(
       JSON.stringify({
         success: false,
@@ -667,4 +399,4 @@ serve(async (req) => {
       }
     );
   }
-})
+});

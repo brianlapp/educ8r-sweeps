@@ -40,25 +40,29 @@ serve(async (req) => {
     const rawBody = await clonedReq.text();
     console.log('Raw request body:', rawBody);
     
-    // Parse the request body
-    let payload: ReferralNotificationRequest;
+    // First check to see if we received a valid JSON payload
+    if (!rawBody || rawBody.trim() === '') {
+      console.error('Error: Empty request body');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Empty request body'
+        }),
+        { 
+          status: 400,
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
+    
+    // Attempt to parse the JSON body with additional safeguards
+    let payload;
     try {
-      payload = await req.json();
+      payload = JSON.parse(rawBody);
       console.log('Parsed JSON payload:', JSON.stringify(payload, null, 2));
-      
-      // Log each field individually to check for undefined/null values
-      console.log('email:', payload.email, typeof payload.email);
-      console.log('firstName:', payload.firstName, typeof payload.firstName);
-      console.log('totalEntries:', payload.totalEntries, typeof payload.totalEntries);
-      console.log('referralCode:', payload.referralCode, typeof payload.referralCode);
-      
-      // Ensure string fields are strings and number fields are numbers
-      if (payload.email && typeof payload.email !== 'string') payload.email = String(payload.email);
-      if (payload.firstName && typeof payload.firstName !== 'string') payload.firstName = String(payload.firstName);
-      if (payload.referralCode && typeof payload.referralCode !== 'string') payload.referralCode = String(payload.referralCode);
-      if (payload.totalEntries !== undefined && typeof payload.totalEntries !== 'number') {
-        payload.totalEntries = Number(payload.totalEntries);
-      }
     } catch (parseError) {
       console.error('Error parsing JSON payload:', parseError);
       return new Response(
@@ -77,12 +81,42 @@ serve(async (req) => {
       );
     }
     
-    // Validate the payload
+    // Log all top-level keys in the payload for debugging
+    console.log('Available keys in payload:', Object.keys(payload));
+    
+    // Check if data is nested in a "data" object (common pattern)
+    let notificationData = payload;
+    if (payload.data && typeof payload.data === 'object') {
+      console.log('Found nested data object, checking its contents...');
+      notificationData = payload.data;
+      console.log('Keys in data object:', Object.keys(notificationData));
+    }
+    
+    // Try to extract the needed fields with max flexibility
+    const email = notificationData.email || payload.email;
+    const firstName = notificationData.firstName || notificationData.first_name || payload.firstName || payload.first_name;
+    // For total entries, look in multiple possible locations and formats
+    const totalEntries = notificationData.totalEntries || notificationData.total_entries || 
+                         payload.totalEntries || payload.total_entries ||
+                         notificationData.entryCount || notificationData.entry_count ||
+                         payload.entryCount || payload.entry_count;
+    // For referral code, check multiple possible formats
+    const referralCode = notificationData.referralCode || notificationData.referral_code || 
+                        payload.referralCode || payload.referral_code ||
+                        payload.ref || notificationData.ref;
+    
+    // Detailed logging of what was extracted
+    console.log('Extracted email:', email, typeof email);
+    console.log('Extracted firstName:', firstName, typeof firstName);
+    console.log('Extracted totalEntries:', totalEntries, typeof totalEntries);
+    console.log('Extracted referralCode:', referralCode, typeof referralCode);
+    
+    // Validate that we have all required fields
     const missingFields = [];
-    if (!payload.email) missingFields.push('email');
-    if (!payload.firstName) missingFields.push('firstName');
-    if (payload.totalEntries === undefined) missingFields.push('totalEntries');
-    if (!payload.referralCode) missingFields.push('referralCode');
+    if (!email) missingFields.push('email');
+    if (!firstName) missingFields.push('firstName');
+    if (totalEntries === undefined) missingFields.push('totalEntries');
+    if (!referralCode) missingFields.push('referralCode');
     
     if (missingFields.length > 0) {
       console.error('Missing required fields:', missingFields);
@@ -91,7 +125,7 @@ serve(async (req) => {
         JSON.stringify({
           success: false,
           error: 'Missing required fields',
-          details: `${missingFields.join(', ')} are required`,
+          details: `Missing required fields: ${missingFields.join(', ')}`,
           receivedPayload: payload
         }),
         { 
@@ -105,21 +139,21 @@ serve(async (req) => {
     }
 
     // Create the referral link using the referral code
-    const referralLink = `https://dmlearninglab.com/homesc/?utm_source=sweeps&oid=1987&sub1=${payload.referralCode}`;
+    const referralLink = `https://dmlearninglab.com/homesc/?utm_source=sweeps&oid=1987&sub1=${referralCode}`;
     
     // Send the email notification
-    console.log('Sending email to:', payload.email);
+    console.log('Sending email to:', email);
     console.log('Email payload:', {
-      email: payload.email,
-      firstName: payload.firstName,
-      totalEntries: payload.totalEntries,
-      referralCode: payload.referralCode,
+      email: email,
+      firstName: firstName,
+      totalEntries: totalEntries,
+      referralCode: referralCode,
       referralLink
     });
     
     const emailResult = await resend.emails.send({
       from: 'Educ8r Sweepstakes <noreply@educ8r.freeparentsearch.com>',
-      to: payload.email,
+      to: email,
       subject: 'Congratulations! You earned a Sweepstakes entry!',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
@@ -127,12 +161,12 @@ serve(async (req) => {
             <img src="https://educ8r.freeparentsearch.com/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" alt="FPS Logo" style="max-width: 180px;">
           </div>
           
-          <h1 style="color: #2C3E50; text-align: center; margin-bottom: 20px;">Congratulations, ${payload.firstName}!</h1>
+          <h1 style="color: #2C3E50; text-align: center; margin-bottom: 20px;">Congratulations, ${firstName}!</h1>
           
           <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #3b82f6;">
             <h2 style="color: #3b82f6; margin-top: 0;">You just earned an extra Sweepstakes entry!</h2>
             <p style="font-size: 16px; line-height: 1.5;">
-              Great news! One of your referrals just tried Comprendi™, and you now have <strong>${payload.totalEntries} entries</strong> in the $1,000 Classroom Sweepstakes!
+              Great news! One of your referrals just tried Comprendi™, and you now have <strong>${totalEntries} entries</strong> in the $1,000 Classroom Sweepstakes!
             </p>
           </div>
           
