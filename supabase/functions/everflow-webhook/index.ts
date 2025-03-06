@@ -107,7 +107,7 @@ async function sendReferralNotification(referrerData) {
   }
 }
 
-// NEW: Function to update BeehiiV with the latest total entries
+// Function to update BeehiiV with the latest total entries
 async function updateBeehiivTotalEntries(userData) {
   console.log("=== UPDATING BEEHIIV TOTAL ENTRIES ===");
   console.log("User data for BeehiiV update:", JSON.stringify(userData, null, 2));
@@ -137,14 +137,19 @@ async function updateBeehiivTotalEntries(userData) {
       }
     );
     
+    // Log the complete response including headers for debugging
+    console.log(`BeehiiV get subscriber status: ${getSubscriberResponse.status}`);
+    console.log(`BeehiiV get subscriber headers:`, Object.fromEntries(getSubscriberResponse.headers.entries()));
+    
     const subscriberResponseText = await getSubscriberResponse.text();
-    console.log(`BeehiiV get subscriber response (${getSubscriberResponse.status}):`, subscriberResponseText);
+    console.log(`BeehiiV get subscriber raw response:`, subscriberResponseText);
     
     if (!getSubscriberResponse.ok) {
-      console.error(`BeehiiV get subscriber error:`, subscriberResponseText);
+      console.error(`BeehiiV get subscriber error (${getSubscriberResponse.status}):`, subscriberResponseText);
       return {
         success: false,
-        error: `Failed to check if subscriber exists: ${getSubscriberResponse.status}`
+        error: `Failed to check if subscriber exists: ${getSubscriberResponse.status}`,
+        details: subscriberResponseText
       };
     }
     
@@ -154,7 +159,7 @@ async function updateBeehiivTotalEntries(userData) {
       console.log('BeehiiV subscriber data:', JSON.stringify(subscriberData, null, 2));
       
       if (!subscriberData.data || subscriberData.data.length === 0) {
-        console.error('No subscriber found with email:', userData.email);
+        console.log('No subscriber found with email:', userData.email);
         
         // Create the subscriber if they don't exist
         console.log("Creating new subscriber in BeehiiV");
@@ -200,16 +205,25 @@ async function updateBeehiivTotalEntries(userData) {
           }
         );
         
+        console.log(`BeehiiV create subscriber status: ${createSubscriberResponse.status}`);
+        console.log(`BeehiiV create subscriber headers:`, Object.fromEntries(createSubscriberResponse.headers.entries()));
+        
         const createResponseText = await createSubscriberResponse.text();
-        console.log(`BeehiiV create subscriber response (${createSubscriberResponse.status}):`, createResponseText);
+        console.log(`BeehiiV create subscriber raw response:`, createResponseText);
         
         if (!createSubscriberResponse.ok) {
-          console.error(`BeehiiV create subscriber error:`, createResponseText);
+          console.error(`BeehiiV create subscriber error (${createSubscriberResponse.status}):`, createResponseText);
           return {
             success: false,
-            error: `Failed to create subscriber: ${createSubscriberResponse.status}`
+            error: `Failed to create subscriber: ${createSubscriberResponse.status}`,
+            details: createResponseText
           };
         }
+        
+        // Wait a moment for the creation to propagate before trying to get the ID
+        // This helps prevent the 404 errors when trying to update a just-created subscriber
+        console.log("Waiting 2 seconds for subscriber creation to propagate...");
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
         // Try to get the subscriber ID again
         return await updateBeehiivTotalEntries(userData);
@@ -225,86 +239,156 @@ async function updateBeehiivTotalEntries(userData) {
       };
     }
     
-    // Step 2: Update the subscriber's custom fields
-    console.log(`Updating subscriber ${subscriberId} custom fields with total_entries: ${userData.total_entries}`);
+    // Step 2: Implement retry logic for updating custom fields
+    const MAX_RETRIES = 3;
+    let attempt = 0;
+    let lastError = null;
     
-    const customFieldsResponse = await fetch(
-      `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}/custom_fields`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-        },
-        body: JSON.stringify({
+    while (attempt < MAX_RETRIES) {
+      attempt++;
+      console.log(`Attempt ${attempt} of ${MAX_RETRIES} to update subscriber ${subscriberId} custom fields with total_entries: ${userData.total_entries}`);
+      
+      try {
+        // Log the exact request details
+        const customFieldsRequestBody = {
           custom_fields: [
             {
               name: 'sweepstakes_entries',
               value: userData.total_entries.toString() // Convert to string and use actual total entries
             }
           ]
-        })
+        };
+        console.log(`BeehiiV custom fields update request body:`, JSON.stringify(customFieldsRequestBody, null, 2));
+        
+        const customFieldsResponse = await fetch(
+          `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}/custom_fields`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+            },
+            body: JSON.stringify(customFieldsRequestBody)
+          }
+        );
+        
+        // Log complete response details
+        console.log(`BeehiiV update custom fields status: ${customFieldsResponse.status}`);
+        console.log(`BeehiiV update custom fields headers:`, Object.fromEntries(customFieldsResponse.headers.entries()));
+        
+        const customFieldsResponseText = await customFieldsResponse.text();
+        console.log(`BeehiiV update custom fields raw response:`, customFieldsResponseText);
+        
+        if (customFieldsResponse.ok) {
+          console.log(`Custom fields updated successfully on attempt ${attempt}`);
+          
+          let responseData;
+          try {
+            responseData = JSON.parse(customFieldsResponseText);
+            console.log("BeehiiV custom fields update parsed response:", JSON.stringify(responseData, null, 2));
+          } catch (e) {
+            console.log('Could not parse BeehiiV response as JSON, but operation succeeded');
+            responseData = { success: true, rawResponse: customFieldsResponseText };
+          }
+          
+          // Step 3: Add the appropriate tags
+          console.log(`Adding tags to subscriber ID: ${subscriberId}`);
+          const updateTagsResponse = await fetch(
+            `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}/tags`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+              },
+              body: JSON.stringify({ 
+                tags: ['comprendi', 'sweeps', 'referral'] // Added referral tag for tracking
+              })
+            }
+          );
+          
+          console.log(`BeehiiV tag update status: ${updateTagsResponse.status}`);
+          const tagsResponseText = await updateTagsResponse.text();
+          console.log(`BeehiiV tag update raw response:`, tagsResponseText);
+          
+          if (!updateTagsResponse.ok) {
+            console.error(`BeehiiV tag update error (${updateTagsResponse.status}):`, tagsResponseText);
+            return {
+              success: true, // Still consider it a success since the custom fields were updated
+              subscriberId: subscriberId,
+              entriesUpdated: userData.total_entries,
+              tagUpdateError: `Failed to update tags: ${updateTagsResponse.status}`
+            };
+          }
+          
+          return {
+            success: true,
+            subscriberId: subscriberId,
+            entriesUpdated: userData.total_entries
+          };
+        } else {
+          lastError = `HTTP ${customFieldsResponse.status}: ${customFieldsResponseText}`;
+          console.error(`BeehiiV update custom fields error on attempt ${attempt}:`, lastError);
+          
+          // If we get a 404, try getting the subscriber ID again, as it might have changed
+          if (customFieldsResponse.status === 404 && attempt < MAX_RETRIES) {
+            console.log("Got 404 error. Refreshing subscriber ID and trying again...");
+            
+            // Get subscriber ID again
+            const refreshSubscriberResponse = await fetch(
+              `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions?email=${encodeURIComponent(userData.email)}`,
+              {
+                method: 'GET',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+                }
+              }
+            );
+            
+            if (refreshSubscriberResponse.ok) {
+              const refreshData = await refreshSubscriberResponse.json();
+              if (refreshData.data && refreshData.data.length > 0) {
+                subscriberId = refreshData.data[0].id;
+                console.log(`Refreshed subscriber ID: ${subscriberId}`);
+              } else {
+                console.log("No subscriber found during refresh attempt");
+              }
+            }
+          }
+          
+          // Simple exponential backoff
+          if (attempt < MAX_RETRIES) {
+            const backoffTime = Math.pow(2, attempt) * 500; // 1s, 2s, 4s
+            console.log(`Retrying after ${backoffTime}ms...`);
+            await new Promise(resolve => setTimeout(resolve, backoffTime));
+          }
+        }
+      } catch (error) {
+        lastError = error.message || "Unknown error";
+        console.error(`Exception during custom fields update attempt ${attempt}:`, error);
+        
+        if (attempt < MAX_RETRIES) {
+          const backoffTime = Math.pow(2, attempt) * 500;
+          console.log(`Retrying after error in ${backoffTime}ms...`);
+          await new Promise(resolve => setTimeout(resolve, backoffTime));
+        }
       }
-    );
-    
-    const customFieldsResponseText = await customFieldsResponse.text();
-    console.log(`BeehiiV update custom fields response (${customFieldsResponse.status}):`, customFieldsResponseText);
-    
-    if (!customFieldsResponse.ok) {
-      console.error(`BeehiiV update custom fields error:`, customFieldsResponseText);
-      return {
-        success: false,
-        error: `Failed to update custom fields: ${customFieldsResponse.status}`
-      };
     }
     
-    let responseData;
-    try {
-      responseData = JSON.parse(customFieldsResponseText);
-      console.log("BeehiiV custom fields update response:", JSON.stringify(responseData, null, 2));
-    } catch (e) {
-      console.log('Could not parse BeehiiV response as JSON, but operation succeeded');
-      responseData = { success: true, rawResponse: customFieldsResponseText };
-    }
-    
-    // Step 3: Add the appropriate tags
-    console.log(`Adding tags to subscriber ID: ${subscriberId}`);
-    const updateTagsResponse = await fetch(
-      `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}/tags`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-        },
-        body: JSON.stringify({ 
-          tags: ['comprendi', 'sweeps', 'referral'] // Added referral tag for tracking
-        })
-      }
-    );
-    
-    const tagsResponseText = await updateTagsResponse.text();
-    console.log(`BeehiiV tag update response (${updateTagsResponse.status}):`, tagsResponseText);
-    
-    if (!updateTagsResponse.ok) {
-      console.error(`BeehiiV tag update error:`, tagsResponseText);
-      return {
-        success: false,
-        error: `Failed to update tags: ${updateTagsResponse.status}`
-      };
-    }
-    
+    // If we've exhausted all retries
     return {
-      success: true,
-      subscriberId: subscriberId,
-      entriesUpdated: userData.total_entries
+      success: false,
+      error: `Failed to update custom fields after ${MAX_RETRIES} attempts`,
+      lastError: lastError
     };
     
   } catch (error) {
     console.error("Error updating BeehiiV:", error);
     return {
       success: false,
-      error: error.message || "Unknown error during BeehiiV update"
+      error: error.message || "Unknown error during BeehiiV update",
+      stack: error.stack
     };
   }
 }
@@ -610,11 +694,11 @@ serve(async (req) => {
     
     // For BeehiiV API integration
     let beehiivResult = {
-      updated: false,
+      success: false,
       error: "BeehiiV update not attempted"
     };
     
-    // Try to update BeehiiV if API key is available
+    // Try to update BeehiiV with improved error handling and retry logic
     const BEEHIIV_API_KEY = Deno.env.get('BEEHIIV_API_KEY');
     if (BEEHIIV_API_KEY && updatedReferrer.email) {
       try {
@@ -624,8 +708,9 @@ serve(async (req) => {
       } catch (beehiivError) {
         console.error("BeehiiV API error:", beehiivError);
         beehiivResult = {
-          updated: false,
-          error: beehiivError.message || "Unknown BeehiiV error"
+          success: false,
+          error: beehiivError.message || "Unknown BeehiiV error",
+          stack: beehiivError.stack
         };
       }
     }
@@ -649,7 +734,7 @@ serve(async (req) => {
           referral_count: updatedReferrer.referral_count,
           total_entries: updatedReferrer.total_entries
         },
-        beehiiv_updated: beehiivResult.updated,
+        beehiiv_updated: beehiivResult.success,
         beehiiv_error: beehiivResult.error,
         notification_sent: notificationResult.success,
         notification_error: notificationResult.error

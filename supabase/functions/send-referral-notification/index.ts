@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { Resend } from "npm:resend@2.0.0"
 
@@ -195,6 +196,26 @@ serve(async (req) => {
         </div>
       `
     });
+    
+    console.log('Email sent response:', JSON.stringify(emailResult, null, 2));
+    
+    if (emailResult.error) {
+      console.error('Error sending email:', emailResult.error);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Email sending failed',
+          details: emailResult.error
+        }),
+        { 
+          status: 500,
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
     
     console.log('Email sent successfully:', emailResult);
     
