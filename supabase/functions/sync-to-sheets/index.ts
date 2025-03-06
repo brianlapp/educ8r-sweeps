@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -268,6 +267,45 @@ serve(async (req) => {
           }
         );
         console.log('Added headers to new sheet');
+        
+        // Hide the "Referred By" column (column E) by setting its width to 0
+        const hideColumnRequest = await fetch(
+          `${GOOGLE_SHEETS_API_URL}${SPREADSHEET_ID}:batchUpdate`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              requests: [
+                {
+                  updateDimensionProperties: {
+                    range: {
+                      sheetId: sheetId,
+                      dimension: "COLUMNS",
+                      startIndex: 4,  // 0-based index, 4 = column E
+                      endIndex: 5     // 5 = column F (exclusive)
+                    },
+                    properties: {
+                      hiddenByUser: true  // This will hide the column
+                    },
+                    fields: "hiddenByUser"
+                  }
+                }
+              ]
+            })
+          }
+        );
+        
+        if (!hideColumnRequest.ok) {
+          const errorText = await hideColumnRequest.text();
+          console.error('Error hiding column:', errorText);
+          // Don't throw error here - we still want sync to work even if hiding column fails
+          console.log('Will continue with sync despite error hiding column');
+        } else {
+          console.log('Successfully hid the "Referred By" column');
+        }
       }
     } catch (error) {
       console.error('Error checking/creating sheet:', error);
