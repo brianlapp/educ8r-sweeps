@@ -100,16 +100,16 @@ const Admin = () => {
 
         <Card className="mb-8">
           <CardHeader className="pb-2">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <div className="flex justify-between items-center">
               <div>
                 <CardTitle className="text-xl">User Entries</CardTitle>
                 <CardDescription>
                   Total entries: {entries.length}
                 </CardDescription>
               </div>
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex items-center space-x-3">
                 <Link to="/admin/webhooks">
-                  <Button variant="outline" className="w-full sm:w-auto flex items-center gap-2">
+                  <Button variant="outline" className="flex items-center gap-2">
                     <ExternalLink size={16} />
                     Webhook Status
                   </Button>
