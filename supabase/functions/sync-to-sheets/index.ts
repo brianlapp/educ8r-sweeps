@@ -144,7 +144,7 @@ serve(async (req) => {
       entry.last_name,
       entry.email,
       entry.referral_code,
-      entry.referred_by,
+      "", // Empty string for "Referred By" column (Option B implementation)
       entry.entry_count,
       entry.referral_count,
       entry.total_entries,
