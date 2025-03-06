@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -85,7 +86,7 @@ serve(async (req) => {
       // Continue with default lastSyncTime
     }
 
-    // Determine what entries need to be synced
+    // Determine what entries need to be synced - only get entries created AFTER the last sync
     const { data: entries, error } = await supabaseClient
       .from('entries')
       .select('*')
@@ -293,9 +294,82 @@ serve(async (req) => {
     const nextRow = (rangeData.values?.length || 0) + 1;
     console.log(`Next empty row is ${nextRow}`);
 
-    // Append the data to the sheet
+    // Get existing email addresses from the sheet to avoid duplicates
+    const emailsResponse = await fetch(
+      `${GOOGLE_SHEETS_API_URL}${SPREADSHEET_ID}/values/${SHEET_NAME}!C:C`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      }
+    );
+
+    if (!emailsResponse.ok) {
+      const errorText = await emailsResponse.text();
+      console.error('Error getting email data:', errorText);
+      throw new Error(`Failed to get email data: ${errorText}`);
+    }
+
+    const emailsData = await emailsResponse.json();
+    // Convert to lowercase for case-insensitive comparison and skip header
+    const existingEmails = new Set(
+      (emailsData.values || [])
+        .slice(1) // Skip header row
+        .map((row: any) => row[0]?.toLowerCase())
+        .filter(Boolean)
+    );
+    
+    console.log(`Found ${existingEmails.size} existing emails in the sheet`);
+
+    // Filter out entries that already exist in the sheet
+    const newRows = rows.filter(row => {
+      const email = row[2]?.toLowerCase(); // Email is at index 2
+      return !existingEmails.has(email);
+    });
+
+    console.log(`After filtering duplicates, will sync ${newRows.length} new entries`);
+
+    if (newRows.length === 0) {
+      // No new entries to add after filtering duplicates
+      const now = new Date();
+      try {
+        const { error: syncUpdateError } = await supabaseClient
+          .from(SYNC_METADATA_TABLE)
+          .upsert(
+            { 
+              id: 'google_sheets_sync', 
+              last_sync_time: now.toISOString(),
+              entries_synced: 0,
+              total_entries_synced: syncMetadataRecord?.total_entries_synced || 0,
+              is_automated: isAutomated,
+              last_sync_type: isAutomated ? 'automated' : 'manual'
+            },
+            { onConflict: 'id' }
+          );
+
+        if (syncUpdateError) {
+          console.error('Error updating sync metadata:', syncUpdateError);
+        } else {
+          console.log('Successfully updated sync metadata (no new entries after duplicate check)');
+        }
+      } catch (error) {
+        console.error('Error handling sync metadata:', error);
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'No new entries to sync (all entries already exist in sheet)',
+          sheet_url: `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit#gid=${sheetId}`,
+          is_automated: isAutomated
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Append only new entries to the sheet
     const appendResponse = await fetch(
-      `${GOOGLE_SHEETS_API_URL}${SPREADSHEET_ID}/values/${SHEET_NAME}!A${nextRow}:I${nextRow + rows.length - 1}?valueInputOption=RAW`,
+      `${GOOGLE_SHEETS_API_URL}${SPREADSHEET_ID}/values/${SHEET_NAME}!A${nextRow}:I${nextRow + newRows.length - 1}?valueInputOption=RAW`,
       {
         method: 'PUT',
         headers: {
@@ -303,7 +377,7 @@ serve(async (req) => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          values: rows
+          values: newRows
         })
       }
     );
@@ -314,12 +388,12 @@ serve(async (req) => {
       throw new Error(`Failed to append data: ${errorText}`);
     }
 
-    console.log(`Successfully appended ${rows.length} rows to the sheet`);
+    console.log(`Successfully appended ${newRows.length} rows to the sheet`);
 
     // Update the sync metadata with the latest timestamp
     const now = new Date();
     try {
-      const totalEntriesSynced = (syncMetadataRecord?.total_entries_synced || 0) + rows.length;
+      const totalEntriesSynced = (syncMetadataRecord?.total_entries_synced || 0) + newRows.length;
       
       // First, make sure the table exists by calling the function
       console.log('Making sure sheets_sync_metadata table exists');
@@ -335,7 +409,7 @@ serve(async (req) => {
       console.log('Updating sync metadata with:', {
         id: 'google_sheets_sync', 
         last_sync_time: now.toISOString(),
-        entries_synced: rows.length,
+        entries_synced: newRows.length,
         total_entries_synced: totalEntriesSynced,
         last_sync_type: isAutomated ? 'automated' : 'manual'
       });
@@ -346,7 +420,7 @@ serve(async (req) => {
           { 
             id: 'google_sheets_sync', 
             last_sync_time: now.toISOString(),
-            entries_synced: rows.length,
+            entries_synced: newRows.length,
             total_entries_synced: totalEntriesSynced,
             is_automated: isAutomated,
             last_sync_type: isAutomated ? 'automated' : 'manual'
@@ -372,7 +446,7 @@ serve(async (req) => {
           .insert({ 
             job_name: 'daily-sheets-sync', 
             status: 'completed', 
-            message: `Successfully synced ${rows.length} entries to Google Sheets` 
+            message: `Successfully synced ${newRows.length} entries to Google Sheets` 
           });
         
         if (logError) {
@@ -388,7 +462,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Successfully synced ${rows.length} entries to Google Sheets`,
+        message: `Successfully synced ${newRows.length} entries to Google Sheets`,
         sheet_url: `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit#gid=${sheetId}`,
         is_automated: isAutomated
       }),
