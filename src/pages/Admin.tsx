@@ -56,24 +56,35 @@ const Admin = () => {
       setEntries(prev => prev.filter(entry => entry.id !== id));
       
       // Then perform the actual delete operation
-      const { error } = await supabase
+      const { error, data, status } = await supabase
         .from('entries')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select();
         
+      console.log("Delete operation result:", { status, data, error });
+      
       if (error) {
         console.error("Supabase delete error:", error);
-        // If delete fails, restore the entry in the state
+        // If delete fails, restore the entry in the state by refetching
         refetch();
         throw error;
+      }
+      
+      if (status !== 204 && status !== 200) {
+        console.error("Delete operation returned unexpected status:", status);
+        refetch();
+        throw new Error(`Delete operation failed with status ${status}`);
       }
             
       toast({
         title: "Entry deleted",
-        description: "The entry has been successfully deleted.",
+        description: "The entry has been successfully deleted from the database.",
       });
     } catch (error) {
       console.error("Error deleting entry:", error);
+      // Refetch entries to restore correct state
+      refetch();
       toast({
         title: "Error",
         description: "Failed to delete entry. Please try again.",
