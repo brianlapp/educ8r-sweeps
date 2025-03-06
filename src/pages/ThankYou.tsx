@@ -20,6 +20,9 @@ const ThankYou = () => {
   // Keep jwtStatus for debugging, but don't display it to users
   const [jwtStatus, setJwtStatus] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  // Meta description for better sharing from thank you page
+  const metaDescription = "Help your students succeed while increasing your chances to win $1,000 for your classroom! Share with other teachers and parents to earn bonus entries.";
 
   useEffect(() => {
     // Check JWT status of the everflow-webhook endpoint (for debugging only)
@@ -92,7 +95,26 @@ const ThankYou = () => {
   return <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
       <Helmet>
         <title>Thank You - Share & Win More | Educ8r Sweepstakes</title>
+        <meta name="description" content={metaDescription} />
+        
+        {/* Open Graph tags for Facebook, LinkedIn, etc */}
+        <meta property="og:title" content="Share & Get More Chances to Win $1,000 for Your Classroom!" />
+        <meta property="og:description" content={metaDescription} />
+        <meta property="og:image" content="/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png" />
+        <meta property="og:url" content="https://sweepstakes.educ8r.com/thank-you" />
+        <meta property="og:type" content="website" />
+        
+        {/* Twitter Card tags */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Share & Get More Chances to Win $1,000 for Your Classroom!" />
+        <meta name="twitter:description" content={metaDescription} />
+        <meta name="twitter:image" content="/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png" />
+        
+        {/* Additional SEO tags */}
+        <link rel="canonical" href="https://sweepstakes.educ8r.com/thank-you" />
+        <meta name="keywords" content="classroom sweepstakes, teacher referral, win classroom supplies, education contest, free school supplies" />
       </Helmet>
+
       <header className="w-full bg-[#f3f3f3] py-4 border-b border-gray-200">
         <div className="container mx-auto px-4">
           <div className="flex justify-center items-center">

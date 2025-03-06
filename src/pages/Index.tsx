@@ -1,4 +1,3 @@
-
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Helmet } from 'react-helmet-async';
@@ -7,11 +6,33 @@ import { Link } from "react-router-dom";
 const Index = () => {
   // Setting the countdown target date to August 15, 2025
   const targetDate = new Date("August 15, 2025");
+  
+  // Meta description for better SEO and social sharing
+  const metaDescription = "Enter now to win $1,000 for your classroom supplies! Free entry for educators. Support your students with everything they need for a successful school year.";
 
   return <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
       <Helmet>
         <title>Win $1,000 for Your Classroom - Educ8r Sweepstakes</title>
+        <meta name="description" content={metaDescription} />
+        
+        {/* Open Graph tags for Facebook, LinkedIn, etc */}
+        <meta property="og:title" content="Win $1,000 for Your Classroom Supplies!" />
+        <meta property="og:description" content={metaDescription} />
+        <meta property="og:image" content="/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png" />
+        <meta property="og:url" content="https://sweepstakes.educ8r.com" />
+        <meta property="og:type" content="website" />
+        
+        {/* Twitter Card tags */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Win $1,000 for Your Classroom Supplies!" />
+        <meta name="twitter:description" content={metaDescription} />
+        <meta name="twitter:image" content="/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png" />
+        
+        {/* Additional SEO tags */}
+        <link rel="canonical" href="https://sweepstakes.educ8r.com" />
+        <meta name="keywords" content="teacher sweepstakes, classroom supplies, $1000 giveaway, education sweepstakes, free classroom supplies" />
       </Helmet>
+      
       <header className="w-full bg-[#f3f3f3] py-1 border-b border-gray-200">
         <div className="container mx-auto px-4">
           <div className="flex justify-center items-center">

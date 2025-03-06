@@ -115,6 +115,48 @@ export type Database = {
           },
         ]
       }
+      entries_backup: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          entry_count: number | null
+          first_name: string | null
+          id: string | null
+          last_name: string | null
+          referral_code: string | null
+          referral_count: number | null
+          referred_by: string | null
+          total_entries: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          entry_count?: number | null
+          first_name?: string | null
+          id?: string | null
+          last_name?: string | null
+          referral_code?: string | null
+          referral_count?: number | null
+          referred_by?: string | null
+          total_entries?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          entry_count?: number | null
+          first_name?: string | null
+          id?: string | null
+          last_name?: string | null
+          referral_code?: string | null
+          referral_count?: number | null
+          referred_by?: string | null
+          total_entries?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       referral_conversions: {
         Row: {
           created_at: string | null
@@ -157,6 +199,27 @@ export type Database = {
             referencedColumns: ["referral_code"]
           },
         ]
+      }
+      referral_conversions_backup: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          referral_code: string | null
+          transaction_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          referral_code?: string | null
+          transaction_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          referral_code?: string | null
+          transaction_id?: string | null
+        }
+        Relationships: []
       }
       sheets_sync_metadata: {
         Row: {
