@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { Resend } from "npm:resend@2.0.0"
+import { initJwtBypass, getJwtVerificationState } from "../_shared/jwt-cache.ts"
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"))
 
@@ -25,6 +26,10 @@ serve(async (req) => {
   console.log('Request method:', req.method);
   console.log('Request headers:', Object.fromEntries(req.headers));
   
+  // Initialize JWT bypass at the start of the function
+  const jwtBypassResult = initJwtBypass();
+  console.log("JWT bypass result:", JSON.stringify(jwtBypassResult));
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     console.log('Handling OPTIONS request with CORS headers');
@@ -32,6 +37,34 @@ serve(async (req) => {
       headers: corsHeaders,
       status: 200
     });
+  }
+  
+  // Add health check endpoint
+  const url = new URL(req.url);
+  if (url.searchParams.has('health_check')) {
+    console.log("Health check requested");
+    const jwtState = getJwtVerificationState();
+    
+    return new Response(
+      JSON.stringify({
+        status: "ok",
+        message: "Email notification service is running",
+        timestamp: new Date().toISOString(),
+        jwt_status: {
+          enabled: jwtState.jwtVerificationEnabled,
+          source: jwtState.jwtConfigSource,
+          bypass_active: !jwtState.jwtVerificationEnabled,
+          bypass_result: jwtBypassResult
+        }
+      }),
+      {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
   }
   
   try {

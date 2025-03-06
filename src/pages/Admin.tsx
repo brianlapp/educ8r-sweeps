@@ -1,3 +1,4 @@
+
 import { Helmet } from 'react-helmet-async';
 import { useQuery } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -6,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { Tables } from "@/integrations/supabase/types";
 import { ManualSyncButton } from "@/components/ManualSyncButton";
+import { WebhookStatus } from "@/components/WebhookStatus";
 
 const Admin = () => {
   const [entries, setEntries] = useState<Tables<'entries'>[]>([]);
@@ -95,6 +97,12 @@ const Admin = () => {
           <h1 className="text-3xl font-bold text-center">Admin Dashboard</h1>
           <ManualSyncButton />
         </div>
+
+        {/* New Webhook Status Section */}
+        <div className="mb-8">
+          <WebhookStatus />
+        </div>
+
         {entries && entries.length > 0 ? (
           <div className="rounded-md border">
             <Table>

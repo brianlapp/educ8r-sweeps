@@ -1,6 +1,6 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { initJwtBypass, getJwtVerificationState } from "../_shared/jwt-cache.ts"
 
 // Enhanced CORS headers for maximum compatibility
 const corsHeaders = {
@@ -399,6 +399,10 @@ serve(async (req) => {
   console.log("=== EVERFLOW WEBHOOK FUNCTION STARTED ===");
   console.log("Request method:", req.method);
   
+  // Initialize JWT bypass at the start of the function
+  const jwtBypassResult = initJwtBypass();
+  console.log("JWT bypass result:", JSON.stringify(jwtBypassResult));
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     console.log("Handling OPTIONS request with CORS headers");
@@ -428,15 +432,24 @@ serve(async (req) => {
     );
   }
   
-  // Handle JWT verification status check
+  // Handle JWT verification status check with enhanced details
   if (url.searchParams.has('jwt_check')) {
     console.log("Checking JWT verification status");
+    const jwtState = getJwtVerificationState();
+    
     return new Response(
       JSON.stringify({
         jwt_status: {
-          enabled: false,
-          message: "JWT verification is disabled for this function"
-        }
+          enabled: jwtState.jwtVerificationEnabled,
+          source: jwtState.jwtConfigSource,
+          bypass_active: !jwtState.jwtVerificationEnabled,
+          message: jwtState.jwtVerificationEnabled ? 
+            "WARNING: JWT verification is ENABLED - webhook may not work" : 
+            "JWT verification is DISABLED - webhook should work correctly",
+          bypass_result: jwtBypassResult
+        },
+        function_health: "ok",
+        timestamp: new Date().toISOString()
       }),
       {
         status: 200,
@@ -448,6 +461,7 @@ serve(async (req) => {
     );
   }
   
+  // The rest of the function remains unchanged
   try {
     // Extract parameters from either URL query parameters or body based on the method
     let referralCode = null;
