@@ -2,6 +2,7 @@ import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Helmet } from 'react-helmet-async';
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
 
 const Index = () => {
   // Setting the countdown target date to August 15, 2025
@@ -9,27 +10,86 @@ const Index = () => {
   
   // Meta description for better SEO and social sharing
   const metaDescription = "Enter now to win $1,000 for your classroom supplies! Free entry for educators. Support your students with everything they need for a successful school year.";
+  const metaTitle = "Win $1,000 for Your Classroom - Educ8r Sweepstakes";
+  const metaImage = "https://educ8r.freeparentsearch.com/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png";
+  const metaUrl = "https://educ8r.freeparentsearch.com";
+
+  // Add direct meta tags to the document head for better crawler detection
+  useEffect(() => {
+    // Set basic meta tags directly in the document head
+    document.title = metaTitle;
+    
+    // Update or create meta description
+    let metaDescEl = document.querySelector('meta[name="description"]');
+    if (!metaDescEl) {
+      metaDescEl = document.createElement('meta');
+      metaDescEl.setAttribute('name', 'description');
+      document.head.appendChild(metaDescEl);
+    }
+    metaDescEl.setAttribute('content', metaDescription);
+    
+    // Update or create Open Graph tags
+    const ogTags = {
+      'og:title': metaTitle,
+      'og:description': metaDescription,
+      'og:image': metaImage,
+      'og:url': metaUrl,
+      'og:type': 'website'
+    };
+    
+    Object.entries(ogTags).forEach(([property, content]) => {
+      let ogTag = document.querySelector(`meta[property="${property}"]`);
+      if (!ogTag) {
+        ogTag = document.createElement('meta');
+        ogTag.setAttribute('property', property);
+        document.head.appendChild(ogTag);
+      }
+      ogTag.setAttribute('content', content);
+    });
+    
+    // Update or create Twitter Card tags
+    const twitterTags = {
+      'twitter:card': 'summary_large_image',
+      'twitter:title': metaTitle,
+      'twitter:description': metaDescription,
+      'twitter:image': metaImage
+    };
+    
+    Object.entries(twitterTags).forEach(([name, content]) => {
+      let twitterTag = document.querySelector(`meta[name="${name}"]`);
+      if (!twitterTag) {
+        twitterTag = document.createElement('meta');
+        twitterTag.setAttribute('name', name);
+        document.head.appendChild(twitterTag);
+      }
+      twitterTag.setAttribute('content', content);
+    });
+    
+    return () => {
+      // Cleanup not necessary as we want to keep the meta tags
+    };
+  }, []);
 
   return <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
       <Helmet>
-        <title>Win $1,000 for Your Classroom - Educ8r Sweepstakes</title>
+        <title>{metaTitle}</title>
         <meta name="description" content={metaDescription} />
         
         {/* Open Graph tags for Facebook, LinkedIn, etc */}
-        <meta property="og:title" content="Win $1,000 for Your Classroom Supplies!" />
+        <meta property="og:title" content={metaTitle} />
         <meta property="og:description" content={metaDescription} />
-        <meta property="og:image" content="/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png" />
-        <meta property="og:url" content="https://sweepstakes.educ8r.com" />
+        <meta property="og:image" content={metaImage} />
+        <meta property="og:url" content={metaUrl} />
         <meta property="og:type" content="website" />
         
         {/* Twitter Card tags */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Win $1,000 for Your Classroom Supplies!" />
+        <meta name="twitter:title" content={metaTitle} />
         <meta name="twitter:description" content={metaDescription} />
-        <meta name="twitter:image" content="/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png" />
+        <meta name="twitter:image" content={metaImage} />
         
         {/* Additional SEO tags */}
-        <link rel="canonical" href="https://sweepstakes.educ8r.com" />
+        <link rel="canonical" href={metaUrl} />
         <meta name="keywords" content="teacher sweepstakes, classroom supplies, $1000 giveaway, education sweepstakes, free classroom supplies" />
       </Helmet>
       
