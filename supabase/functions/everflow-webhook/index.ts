@@ -107,6 +107,208 @@ async function sendReferralNotification(referrerData) {
   }
 }
 
+// NEW: Function to update BeehiiV with the latest total entries
+async function updateBeehiivTotalEntries(userData) {
+  console.log("=== UPDATING BEEHIIV TOTAL ENTRIES ===");
+  console.log("User data for BeehiiV update:", JSON.stringify(userData, null, 2));
+  
+  const BEEHIIV_API_KEY = Deno.env.get('BEEHIIV_API_KEY');
+  if (!BEEHIIV_API_KEY) {
+    console.error("Missing BEEHIIV_API_KEY environment variable");
+    return {
+      success: false,
+      error: "Missing BeehiiV API key"
+    };
+  }
+
+  try {
+    const BEEHIIV_PUBLICATION_ID = 'pub_4b47c3db-7b59-4c82-a18b-16cf10fc2d23';
+    
+    // Step 1: First check if the subscriber exists
+    console.log(`Checking if subscriber exists: ${userData.email}`);
+    const getSubscriberResponse = await fetch(
+      `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions?email=${encodeURIComponent(userData.email)}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+        }
+      }
+    );
+    
+    const subscriberResponseText = await getSubscriberResponse.text();
+    console.log(`BeehiiV get subscriber response (${getSubscriberResponse.status}):`, subscriberResponseText);
+    
+    if (!getSubscriberResponse.ok) {
+      console.error(`BeehiiV get subscriber error:`, subscriberResponseText);
+      return {
+        success: false,
+        error: `Failed to check if subscriber exists: ${getSubscriberResponse.status}`
+      };
+    }
+    
+    let subscriberId;
+    try {
+      const subscriberData = JSON.parse(subscriberResponseText);
+      console.log('BeehiiV subscriber data:', JSON.stringify(subscriberData, null, 2));
+      
+      if (!subscriberData.data || subscriberData.data.length === 0) {
+        console.error('No subscriber found with email:', userData.email);
+        
+        // Create the subscriber if they don't exist
+        console.log("Creating new subscriber in BeehiiV");
+        const subscriberData = {
+          email: userData.email,
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          utm_source: 'sweepstakes',
+          utm_medium: 'referral', // Marking as referral
+          utm_campaign: 'comprendi',
+          reactivate: true,
+          custom_fields: [
+            {
+              name: 'First Name',
+              value: userData.first_name
+            },
+            {
+              name: 'Last Name',
+              value: userData.last_name
+            },
+            {
+              name: 'referral_code',
+              value: userData.referral_code
+            },
+            {
+              name: 'sweepstakes_entries',
+              value: userData.total_entries.toString() // Convert to string and use actual total entries
+            }
+          ]
+        };
+        
+        console.log('Creating subscriber with data:', JSON.stringify(subscriberData, null, 2));
+        
+        const createSubscriberResponse = await fetch(
+          `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+            },
+            body: JSON.stringify(subscriberData)
+          }
+        );
+        
+        const createResponseText = await createSubscriberResponse.text();
+        console.log(`BeehiiV create subscriber response (${createSubscriberResponse.status}):`, createResponseText);
+        
+        if (!createSubscriberResponse.ok) {
+          console.error(`BeehiiV create subscriber error:`, createResponseText);
+          return {
+            success: false,
+            error: `Failed to create subscriber: ${createSubscriberResponse.status}`
+          };
+        }
+        
+        // Try to get the subscriber ID again
+        return await updateBeehiivTotalEntries(userData);
+      }
+      
+      subscriberId = subscriberData.data[0].id;
+      console.log(`Found subscriber ID: ${subscriberId}`);
+    } catch (parseError) {
+      console.error('Error parsing BeehiiV subscriber data:', parseError);
+      return {
+        success: false,
+        error: `Failed to parse subscriber data: ${parseError.message}`
+      };
+    }
+    
+    // Step 2: Update the subscriber's custom fields
+    console.log(`Updating subscriber ${subscriberId} custom fields with total_entries: ${userData.total_entries}`);
+    
+    const customFieldsResponse = await fetch(
+      `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}/custom_fields`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+        },
+        body: JSON.stringify({
+          custom_fields: [
+            {
+              name: 'sweepstakes_entries',
+              value: userData.total_entries.toString() // Convert to string and use actual total entries
+            }
+          ]
+        })
+      }
+    );
+    
+    const customFieldsResponseText = await customFieldsResponse.text();
+    console.log(`BeehiiV update custom fields response (${customFieldsResponse.status}):`, customFieldsResponseText);
+    
+    if (!customFieldsResponse.ok) {
+      console.error(`BeehiiV update custom fields error:`, customFieldsResponseText);
+      return {
+        success: false,
+        error: `Failed to update custom fields: ${customFieldsResponse.status}`
+      };
+    }
+    
+    let responseData;
+    try {
+      responseData = JSON.parse(customFieldsResponseText);
+      console.log("BeehiiV custom fields update response:", JSON.stringify(responseData, null, 2));
+    } catch (e) {
+      console.log('Could not parse BeehiiV response as JSON, but operation succeeded');
+      responseData = { success: true, rawResponse: customFieldsResponseText };
+    }
+    
+    // Step 3: Add the appropriate tags
+    console.log(`Adding tags to subscriber ID: ${subscriberId}`);
+    const updateTagsResponse = await fetch(
+      `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}/tags`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+        },
+        body: JSON.stringify({ 
+          tags: ['comprendi', 'sweeps', 'referral'] // Added referral tag for tracking
+        })
+      }
+    );
+    
+    const tagsResponseText = await updateTagsResponse.text();
+    console.log(`BeehiiV tag update response (${updateTagsResponse.status}):`, tagsResponseText);
+    
+    if (!updateTagsResponse.ok) {
+      console.error(`BeehiiV tag update error:`, tagsResponseText);
+      return {
+        success: false,
+        error: `Failed to update tags: ${updateTagsResponse.status}`
+      };
+    }
+    
+    return {
+      success: true,
+      subscriberId: subscriberId,
+      entriesUpdated: userData.total_entries
+    };
+    
+  } catch (error) {
+    console.error("Error updating BeehiiV:", error);
+    return {
+      success: false,
+      error: error.message || "Unknown error during BeehiiV update"
+    };
+  }
+}
+
 serve(async (req) => {
   console.log("=== EVERFLOW WEBHOOK FUNCTION STARTED ===");
   console.log("Request method:", req.method);
@@ -350,7 +552,7 @@ serve(async (req) => {
       );
     }
     
-    console.log("Found referrer:", referrerData);
+    console.log("Found referrer:", JSON.stringify(referrerData, null, 2));
     
     // Update referral stats in database
     const { data: updatedReferrer, error: updateError } = await supabaseAdmin
@@ -381,7 +583,7 @@ serve(async (req) => {
       );
     }
     
-    console.log("Updated referrer data:", updatedReferrer);
+    console.log("Updated referrer data:", JSON.stringify(updatedReferrer, null, 2));
     
     // Record the conversion in our logs - handle potential duplicate gracefully
     try {
@@ -406,33 +608,31 @@ serve(async (req) => {
       // Non-fatal, continue processing
     }
     
-    // For BeehiiV API (optional)
+    // For BeehiiV API integration
     let beehiivResult = {
       updated: false,
       error: "BeehiiV update not attempted"
     };
     
-    // Try to update BeehiiV if API key is available (optional)
+    // Try to update BeehiiV if API key is available
     const BEEHIIV_API_KEY = Deno.env.get('BEEHIIV_API_KEY');
     if (BEEHIIV_API_KEY && updatedReferrer.email) {
       try {
-        // TODO: Implement BeehiiV integration if needed
-        beehiivResult = {
-          updated: true,
-          error: null
-        };
+        console.log("Updating BeehiiV with new total_entries:", updatedReferrer.total_entries);
+        beehiivResult = await updateBeehiivTotalEntries(updatedReferrer);
+        console.log("BeehiiV update result:", JSON.stringify(beehiivResult, null, 2));
       } catch (beehiivError) {
         console.error("BeehiiV API error:", beehiivError);
         beehiivResult = {
           updated: false,
-          error: beehiivError.message
+          error: beehiivError.message || "Unknown BeehiiV error"
         };
       }
     }
     
     // Send notification email to the referrer
     const notificationResult = await sendReferralNotification(updatedReferrer);
-    console.log("Notification result:", notificationResult);
+    console.log("Notification result:", JSON.stringify(notificationResult, null, 2));
     
     // Return success response with all the details
     return new Response(
