@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, CheckCircle, AlertCircle, ExternalLink, Clock, Trash } from "lucide-react";
@@ -200,20 +199,21 @@ export const ManualSyncButton = () => {
   };
 
   return (
-    <div className="flex flex-col space-y-2">
-      <div className="mb-2 text-sm text-gray-600">
-        <div className="flex items-center gap-1">
-          <Clock className="h-3 w-3" />
+    <div className="flex items-center gap-4">
+      <div className="text-sm text-gray-600 flex items-center">
+        <div className="flex items-center gap-2 mr-3">
+          <Clock className="h-3.5 w-3.5 text-gray-400" />
           <span>Last {lastSyncInfo.type || ''} sync: {formatDate(lastSyncInfo.time)}</span>
+          {lastSyncInfo.entries !== null && (
+            <span className="text-gray-500">
+              ({lastSyncInfo.entries} {lastSyncInfo.entries === 1 ? 'entry' : 'entries'})
+            </span>
+          )}
         </div>
-        {lastSyncInfo.entries !== null && (
-          <div className="ml-4 text-xs text-gray-500">
-            {lastSyncInfo.entries} {lastSyncInfo.entries === 1 ? 'entry' : 'entries'} synced
-          </div>
-        )}
-        <div className="ml-4 text-xs text-gray-500">
-          Automated sync scheduled daily at midnight UTC
-        </div>
+        <span className="text-gray-400 hidden md:inline">|</span>
+        <span className="hidden md:block text-xs text-gray-500 ml-3">
+          Automated sync at midnight UTC
+        </span>
       </div>
       
       <div className="flex gap-2">
@@ -221,7 +221,8 @@ export const ManualSyncButton = () => {
           onClick={handleSync} 
           disabled={isLoading || resetInProgress}
           variant="outline"
-          className="gap-2"
+          size="sm"
+          className="gap-2 whitespace-nowrap"
         >
           {isLoading ? (
             <>
@@ -251,7 +252,7 @@ export const ManualSyncButton = () => {
           disabled={isLoading || resetInProgress}
           variant="outline"
           size="icon"
-          className="aspect-square"
+          className="aspect-square h-8 w-8"
           title="Reset Sync Metadata"
         >
           <Trash className="h-4 w-4 text-red-500" />
@@ -278,7 +279,7 @@ export const ManualSyncButton = () => {
           className="text-sm text-blue-500 flex items-center gap-1 hover:underline"
         >
           <ExternalLink className="h-3 w-3" />
-          View Google Sheet
+          View Sheet
         </a>
       )}
 

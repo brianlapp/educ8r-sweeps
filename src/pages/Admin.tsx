@@ -1,4 +1,3 @@
-
 import { Helmet } from 'react-helmet-async';
 import { useQuery } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,7 +8,7 @@ import { useEffect, useState } from "react";
 import { Tables } from "@/integrations/supabase/types";
 import { ManualSyncButton } from "@/components/ManualSyncButton";
 import { Link } from 'react-router-dom';
-import { ExternalLink, Clock, Users, Trash } from "lucide-react";
+import { ExternalLink, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 const Admin = () => {
@@ -96,11 +95,17 @@ const Admin = () => {
         <title>Admin Dashboard | Educ8r Sweepstakes</title>
       </Helmet>
       <div className="container mx-auto py-12">
-        <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <Link to="/admin/webhooks" className="text-sm flex items-center text-blue-500 hover:text-blue-700">
+            <ExternalLink size={14} className="mr-1.5" />
+            Webhook Status
+          </Link>
+        </div>
 
         <Card className="mb-8 overflow-hidden border border-gray-100">
           <CardHeader className="bg-white py-4 px-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="bg-blue-50 p-2 rounded-full">
                   <Users className="h-5 w-5 text-blue-500" />
@@ -113,20 +118,7 @@ const Admin = () => {
                 </div>
               </div>
               
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Clock className="h-3.5 w-3.5 text-gray-400" />
-                <span>Last sync: {new Date().toLocaleDateString()}</span>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <Link to="/admin/webhooks">
-                  <Button variant="outline" size="sm" className="h-9 px-4 border-gray-200 hover:bg-gray-50 hover:text-gray-700 text-gray-600">
-                    <ExternalLink size={15} className="mr-1.5" />
-                    Webhook Status
-                  </Button>
-                </Link>
-                <ManualSyncButton />
-              </div>
+              <ManualSyncButton />
             </div>
           </CardHeader>
         </Card>
