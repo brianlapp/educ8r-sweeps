@@ -139,6 +139,18 @@ Our system supports direct GET requests from Everflow's postback system. The web
 https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook?sub1=REFERRAL_CODE&tid=TRANSACTION_ID
 ```
 
+### 8. Email Notifications
+
+Our system now includes automatic email notifications for referrals:
+- When a referral is successfully processed, the referrer will receive an email notification
+- The email will include:
+  - Congratulatory message
+  - Updated number of entries in the sweepstakes
+  - Their referral link for easy sharing
+  - Encouragement to continue sharing
+- This helps keep users engaged and informed about their sweepstakes entries
+- No additional integration is required - this feature works automatically with the webhook
+
 ## Testing Your Implementation
 
 ### Test Checklist

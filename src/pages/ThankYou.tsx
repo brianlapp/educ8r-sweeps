@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -233,6 +234,12 @@ const ThankYou = () => {
                   <span className="inline-block mr-2 text-blue-600">•</span>
                   <div>
                     <span className="font-medium">A Team Effort:</span> Working together, we can support kids in building confidence and comprehension.
+                  </div>
+                </li>
+                <li className="flex items-start">
+                  <span className="inline-block mr-2 text-blue-600">•</span>
+                  <div>
+                    <span className="font-medium">Email Notifications:</span> You'll receive an email notification whenever someone uses your link, keeping you updated on your entries!
                   </div>
                 </li>
               </ul>

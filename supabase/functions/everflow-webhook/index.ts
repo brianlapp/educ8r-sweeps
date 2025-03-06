@@ -14,6 +14,45 @@ const corsHeaders = {
 // Get environment variables
 const BEEHIIV_API_KEY = Deno.env.get('BEEHIIV_API_KEY');
 const BEEHIIV_PUBLICATION_ID = 'pub_4b47c3db-7b59-4c82-a18b-16cf10fc2d23';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://epfzraejquaxqrfmkmyx.supabase.co';
+
+// Helper function to send referral notification email
+async function sendReferralNotificationEmail(referrerData: any) {
+  if (!referrerData || !referrerData.email) {
+    console.log('No referrer data available to send notification');
+    return { success: false, error: 'No referrer data available' };
+  }
+  
+  try {
+    console.log('Sending referral notification email to:', referrerData.email);
+    
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/send-referral-notification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email: referrerData.email,
+        firstName: referrerData.first_name,
+        totalEntries: referrerData.total_entries || 0,
+        referralCode: referrerData.referral_code
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error sending referral notification:', errorText);
+      return { success: false, error: errorText };
+    }
+    
+    const result = await response.json();
+    console.log('Referral notification sent successfully:', result);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('Error sending referral notification:', error);
+    return { success: false, error: error.message };
+  }
+}
 
 // This function is designed to be completely public with NO authentication
 serve(async (req) => {
@@ -211,13 +250,24 @@ serve(async (req) => {
         
         let beehiivUpdated = false;
         let beehiivError = null;
+        let notificationSent = false;
+        let notificationError = null;
         
-        // Only attempt BeehiiV update if database update was successful and we have referrer data
+        // Only attempt BeehiiV update and notification if database update was successful and we have referrer data
         if (dbResult && dbResult.success && dbResult.data) {
           try {
             const referrerData = dbResult.data;
             console.log('Referrer data from database:', referrerData);
             
+            // 1. Send notification email
+            const notificationResult = await sendReferralNotificationEmail(referrerData);
+            if (notificationResult.success) {
+              notificationSent = true;
+            } else {
+              notificationError = notificationResult.error;
+            }
+            
+            // 2. Update BeehiiV (existing code)
             if (referrerData && referrerData.email) {
               // Clean and prepare the email
               const email = referrerData.email.trim().toLowerCase();
@@ -296,15 +346,17 @@ serve(async (req) => {
             beehiivError = beehiivErr.message;
           }
         } else {
-          console.warn('No referrer data returned from database, skipping BeehiiV update');
+          console.warn('No referrer data returned from database, skipping BeehiiV update and notification');
         }
 
-        // Include the original database response, just add beehiiv info
+        // Include the original database response, just add beehiiv and notification info
         return new Response(
           JSON.stringify({
             ...dbResult,
             beehiiv_updated: beehiivUpdated,
-            beehiiv_error: beehiivError
+            beehiiv_error: beehiivError,
+            notification_sent: notificationSent,
+            notification_error: notificationError
           }),
           { 
             headers: { 
@@ -409,13 +461,24 @@ serve(async (req) => {
         
         let beehiivUpdated = false;
         let beehiivError = null;
+        let notificationSent = false;
+        let notificationError = null;
         
-        // Only attempt BeehiiV update if database update was successful and we have referrer data
+        // Only attempt BeehiiV update and notification if database update was successful and we have referrer data
         if (dbResult && dbResult.success && dbResult.data) {
           try {
             const referrerData = dbResult.data;
             console.log('Referrer data from database:', referrerData);
             
+            // 1. Send notification email
+            const notificationResult = await sendReferralNotificationEmail(referrerData);
+            if (notificationResult.success) {
+              notificationSent = true;
+            } else {
+              notificationError = notificationResult.error;
+            }
+            
+            // 2. Update BeehiiV (existing code)
             if (referrerData && referrerData.email) {
               // Clean and prepare the email
               const email = referrerData.email.trim().toLowerCase();
@@ -494,15 +557,17 @@ serve(async (req) => {
             beehiivError = beehiivErr.message;
           }
         } else {
-          console.warn('No referrer data returned from database, skipping BeehiiV update');
+          console.warn('No referrer data returned from database, skipping BeehiiV update and notification');
         }
 
-        // Include the original database response, just add beehiiv info
+        // Include the original database response, just add beehiiv and notification info
         return new Response(
           JSON.stringify({
             ...dbResult,
             beehiiv_updated: beehiivUpdated,
-            beehiiv_error: beehiivError
+            beehiiv_error: beehiivError,
+            notification_sent: notificationSent,
+            notification_error: notificationError
           }),
           { 
             headers: { 
