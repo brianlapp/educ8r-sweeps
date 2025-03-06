@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -138,17 +139,30 @@ serve(async (req) => {
 
     // Format the data for Google Sheets
     // First row is headers if the sheet is empty
-    const rows = entries.map(entry => [
-      entry.first_name,
-      entry.last_name,
-      entry.email,
-      entry.referral_code,
-      "", // Empty string for "Referred By" column (Option B implementation)
-      entry.entry_count,
-      entry.referral_count,
-      entry.total_entries,
-      new Date(entry.created_at).toISOString(),
-    ]);
+    const rows = entries.map(entry => {
+      // Format the date in a more readable format: MM/DD/YYYY HH:MM AM/PM
+      const createdDate = new Date(entry.created_at);
+      const formattedDate = createdDate.toLocaleString('en-US', { 
+        month: '2-digit',
+        day: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      
+      return [
+        entry.first_name,
+        entry.last_name,
+        entry.email,
+        entry.referral_code,
+        "", // Empty string for "Referred By" column (Option B implementation)
+        entry.entry_count,
+        entry.referral_count,
+        entry.total_entries,
+        formattedDate,
+      ];
+    });
 
     // Generate JWT token for authentication
     const jwt = await generateJWT(serviceAccountCreds);
