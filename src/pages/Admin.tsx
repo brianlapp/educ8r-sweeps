@@ -1,3 +1,4 @@
+
 import { Helmet } from 'react-helmet-async';
 import { useQuery } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,14 +9,15 @@ import { useEffect, useState } from "react";
 import { Tables } from "@/integrations/supabase/types";
 import { ManualSyncButton } from "@/components/ManualSyncButton";
 import { Link } from 'react-router-dom';
-import { ExternalLink, Users } from "lucide-react";
+import { ExternalLink, Trash2, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const Admin = () => {
   const [entries, setEntries] = useState<Tables<'entries'>[]>([]);
   const { toast } = useToast();
 
-  const { isLoading, error } = useQuery({
+  const { isLoading, error, refetch } = useQuery({
     queryKey: ['entries'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -45,6 +47,34 @@ const Admin = () => {
       });
     }
   }, [error, toast]);
+
+  const handleDeleteEntry = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('entries')
+        .delete()
+        .eq('id', id);
+        
+      if (error) {
+        throw error;
+      }
+      
+      toast({
+        title: "Entry deleted",
+        description: "The entry has been successfully deleted.",
+      });
+      
+      // Refresh the data
+      refetch();
+    } catch (error) {
+      console.error("Error deleting entry:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete entry. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
@@ -86,6 +116,36 @@ const Admin = () => {
         const date = new Date(row.getValue("created_at"));
         return date.toLocaleDateString() + " " + date.toLocaleTimeString();
       },
+    },
+    {
+      header: "Actions",
+      accessorKey: "actions",
+      cell: ({ row }) => (
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50">
+              <Trash2 size={16} />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Entry</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this entry? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => handleDeleteEntry(row.original.id)}
+                className="bg-red-500 hover:bg-red-600"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ),
     },
   ];
 
@@ -140,8 +200,10 @@ const Admin = () => {
                   <TableRow key={entry.id}>
                     {columns.map((column) => (
                       <TableCell key={`${entry.id}-${column.accessorKey}`}>
-                        {column.cell
-                          ? column.cell({ row: { getValue: () => entry[column.accessorKey] } })
+                        {column.cell && column.accessorKey !== "actions"
+                          ? column.cell({ row: { getValue: () => entry[column.accessorKey], original: entry } })
+                          : column.accessorKey === "actions"
+                          ? column.cell({ row: { original: entry } })
                           : entry[column.accessorKey]}
                       </TableCell>
                     ))}
