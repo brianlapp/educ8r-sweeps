@@ -1,5 +1,6 @@
+
 import { Helmet } from 'react-helmet-async';
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -14,11 +15,14 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 const Admin = () => {
   const [entries, setEntries] = useState<Tables<'entries'>[]>([]);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { isLoading, error, refetch } = useQuery({
     queryKey: ['entries'],
     queryFn: async () => {
+      console.log("Fetching entries from Supabase...");
       const { data, error } = await supabase
         .from('entries')
         .select('*')
@@ -30,6 +34,7 @@ const Admin = () => {
       }
 
       if (data) {
+        console.log(`Retrieved ${data.length} entries from Supabase`);
         setEntries(data);
       }
       
@@ -50,24 +55,26 @@ const Admin = () => {
   const handleDeleteEntry = async (id: string) => {
     try {
       console.log("Deleting entry with ID:", id);
+      setIsDeleting(id);
       
       // First immediately update local state to provide instant feedback
       setEntries(prev => prev.filter(entry => entry.id !== id));
       
-      // Then perform the actual delete operation - DON'T use .select() with delete
+      // Perform the delete operation
       const { error } = await supabase
         .from('entries')
         .delete()
         .eq('id', id);
-        
+      
       console.log("Delete operation completed, error:", error);
       
       if (error) {
         console.error("Supabase delete error:", error);
-        // If delete fails, restore the entry in the state by refetching
-        await refetch();
         throw error;
       }
+      
+      // After successful deletion, invalidate and refetch the query
+      await queryClient.invalidateQueries({queryKey: ['entries']});
       
       toast({
         title: "Entry deleted",
@@ -75,13 +82,17 @@ const Admin = () => {
       });
     } catch (error) {
       console.error("Error deleting entry:", error);
-      // Refetch entries to restore correct state
+      
+      // If delete fails, perform a full refetch to restore the correct state
       await refetch();
+      
       toast({
         title: "Error",
         description: "Failed to delete entry. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsDeleting(null);
     }
   };
 
