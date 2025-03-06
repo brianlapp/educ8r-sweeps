@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -26,10 +25,11 @@ async function sendReferralNotification(referrerData) {
   
   try {
     // Prepare the notification payload with snake_case to camelCase conversion
+    // Make sure to include the actual total_entries value
     const notificationPayload = {
       email: referrerData.email,
       firstName: referrerData.first_name,
-      totalEntries: referrerData.total_entries,
+      totalEntries: referrerData.total_entries, // Using the updated total_entries value
       referralCode: referrerData.referral_code
     };
     
@@ -233,8 +233,8 @@ serve(async (req) => {
                   ...corsHeaders,
                   'Content-Type': 'application/json'
                 }
-              }
-            );
+              );
+            }
           }
         }
       } catch (error) {
@@ -382,16 +382,26 @@ serve(async (req) => {
     
     console.log("Updated referrer data:", updatedReferrer);
     
-    // Record the conversion in our logs
-    const { error: conversionError } = await supabaseAdmin
-      .from('referral_conversions')
-      .insert({
-        transaction_id: transactionId,
-        referral_code: referralCode
-      });
-    
-    if (conversionError) {
-      console.warn("Error logging conversion:", conversionError);
+    // Record the conversion in our logs - handle potential duplicate gracefully
+    try {
+      const { error: conversionError } = await supabaseAdmin
+        .from('referral_conversions')
+        .insert({
+          transaction_id: transactionId,
+          referral_code: referralCode
+        });
+      
+      if (conversionError) {
+        // If it's a duplicate key error, log it but continue processing
+        if (conversionError.code === '23505') {
+          console.warn("Duplicate transaction_id detected:", transactionId, "- This is not a critical error, continuing...");
+        } else {
+          console.warn("Error logging conversion:", conversionError);
+        }
+        // Non-fatal, continue processing
+      }
+    } catch (conversionInsertError) {
+      console.warn("Error during conversion insert:", conversionInsertError);
       // Non-fatal, continue processing
     }
     
