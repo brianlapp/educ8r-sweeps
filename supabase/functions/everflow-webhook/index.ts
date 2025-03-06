@@ -1,4 +1,4 @@
-
+<lov-codelov-code>
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -28,11 +28,12 @@ async function sendReferralNotificationEmail(referrerData: any) {
     console.log('Original referrer data:', JSON.stringify(referrerData, null, 2));
     
     // Transform snake_case field names to camelCase for the notification function
+    // Explicitly check each field and provide fallbacks to ensure all required fields are present
     const payload = {
-      email: referrerData.email,
-      firstName: referrerData.first_name, // Convert from snake_case to camelCase
-      totalEntries: referrerData.total_entries || 0, // Convert from snake_case to camelCase
-      referralCode: referrerData.referral_code
+      email: referrerData.email || '',
+      firstName: referrerData.first_name || '',
+      totalEntries: referrerData.total_entries || 0,
+      referralCode: referrerData.referral_code || ''
     };
     
     console.log('Transformed notification payload:', JSON.stringify(payload, null, 2));
@@ -49,6 +50,14 @@ async function sendReferralNotificationEmail(referrerData: any) {
       console.error('Cannot send notification due to missing fields in payload:', payload);
       return { success: false, error: `Missing required fields: ${missingFields.join(', ')}` };
     }
+    
+    // Debug the entire payload to ensure referralCode is set
+    console.log('Payload fields check:');
+    console.log('- email:', payload.email, typeof payload.email);
+    console.log('- firstName:', payload.firstName, typeof payload.firstName);
+    console.log('- totalEntries:', payload.totalEntries, typeof payload.totalEntries);
+    console.log('- referralCode:', payload.referralCode, typeof payload.referralCode);
+    console.log('Full JSON payload to be sent:', JSON.stringify(payload));
     
     const response = await fetch(`${SUPABASE_URL}/functions/v1/send-referral-notification`, {
       method: 'POST',
@@ -659,3 +668,4 @@ serve(async (req) => {
     );
   }
 })
+</lov-code>

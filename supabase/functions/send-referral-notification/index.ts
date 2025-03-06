@@ -47,10 +47,18 @@ serve(async (req) => {
       console.log('Parsed JSON payload:', JSON.stringify(payload, null, 2));
       
       // Log each field individually to check for undefined/null values
-      console.log('email:', payload.email);
-      console.log('firstName:', payload.firstName);
-      console.log('totalEntries:', payload.totalEntries);
-      console.log('referralCode:', payload.referralCode);
+      console.log('email:', payload.email, typeof payload.email);
+      console.log('firstName:', payload.firstName, typeof payload.firstName);
+      console.log('totalEntries:', payload.totalEntries, typeof payload.totalEntries);
+      console.log('referralCode:', payload.referralCode, typeof payload.referralCode);
+      
+      // Ensure string fields are strings and number fields are numbers
+      if (payload.email && typeof payload.email !== 'string') payload.email = String(payload.email);
+      if (payload.firstName && typeof payload.firstName !== 'string') payload.firstName = String(payload.firstName);
+      if (payload.referralCode && typeof payload.referralCode !== 'string') payload.referralCode = String(payload.referralCode);
+      if (payload.totalEntries !== undefined && typeof payload.totalEntries !== 'number') {
+        payload.totalEntries = Number(payload.totalEntries);
+      }
     } catch (parseError) {
       console.error('Error parsing JSON payload:', parseError);
       return new Response(
@@ -101,6 +109,14 @@ serve(async (req) => {
     
     // Send the email notification
     console.log('Sending email to:', payload.email);
+    console.log('Email payload:', {
+      email: payload.email,
+      firstName: payload.firstName,
+      totalEntries: payload.totalEntries,
+      referralCode: payload.referralCode,
+      referralLink
+    });
+    
     const emailResult = await resend.emails.send({
       from: 'Educ8r Sweepstakes <noreply@educ8r.freeparentsearch.com>',
       to: payload.email,
