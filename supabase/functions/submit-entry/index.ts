@@ -81,7 +81,10 @@ serve(async (req) => {
           ]
         }
 
-        console.log('Updating existing user in BeehiiV with data:', subscriberData)
+        console.log('Updating existing user in BeehiiV with data:', JSON.stringify(subscriberData))
+        
+        console.log(`[BeehiiV] Making subscription update API request for existing user: ${email}`)
+        const beehiivRequestStartTime = Date.now()
         
         const subscribeResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`, {
           method: 'POST',
@@ -92,16 +95,26 @@ serve(async (req) => {
           body: JSON.stringify(subscriberData)
         })
 
+        console.log(`[BeehiiV] API request completed in ${Date.now() - beehiivRequestStartTime}ms`)
+        console.log(`[BeehiiV] Status code: ${subscribeResponse.status}`)
+        
         const subscribeResponseText = await subscribeResponse.text()
-        console.log(`BeehiiV subscription update response (${subscribeResponse.status}):`, subscribeResponseText)
+        console.log(`[BeehiiV] subscription update response body:`, subscribeResponseText)
 
         if (!subscribeResponse.ok) {
-          console.error('BeehiiV subscription update error:', subscribeResponseText)
+          console.error('[BeehiiV] subscription update ERROR:', subscribeResponseText)
         } else {
-          console.log('Successfully updated BeehiiV subscription for existing user')
+          console.log('[BeehiiV] Successfully updated BeehiiV subscription for existing user')
+          
+          try {
+            const responseData = JSON.parse(subscribeResponseText)
+            console.log('[BeehiiV] Parsed response data:', JSON.stringify(responseData))
+          } catch (parseError) {
+            console.error('[BeehiiV] Could not parse response as JSON:', parseError)
+          }
         }
       } catch (beehiivError) {
-        console.error('Error processing BeehiiV actions for existing user:', beehiivError)
+        console.error('[BeehiiV] Error processing BeehiiV actions for existing user:', beehiivError)
       }
       
       // Return existing entry with a clear message
@@ -195,7 +208,10 @@ serve(async (req) => {
       custom_fields: customFields
     }
 
-    console.log('Sending subscription data to BeehiiV:', subscriberData)
+    console.log('[BeehiiV] Sending subscription data to BeehiiV:', JSON.stringify(subscriberData))
+    console.log(`[BeehiiV] Making subscription API request for new user: ${email}`)
+    
+    const beehiivSubscribeStartTime = Date.now()
     
     // Create/update subscriber
     const subscribeResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`, {
@@ -207,18 +223,30 @@ serve(async (req) => {
       body: JSON.stringify(subscriberData)
     })
 
+    console.log(`[BeehiiV] API subscription request completed in ${Date.now() - beehiivSubscribeStartTime}ms`)
+    console.log(`[BeehiiV] Subscription API status code: ${subscribeResponse.status}`)
+    
     const subscribeResponseText = await subscribeResponse.text()
-    console.log(`BeehiiV subscription response (${subscribeResponse.status}):`, subscribeResponseText)
+    console.log(`[BeehiiV] subscription response body:`, subscribeResponseText)
 
     if (!subscribeResponse.ok) {
-      console.error('BeehiiV subscription error:', subscribeResponseText)
+      console.error('[BeehiiV] subscription ERROR:', subscribeResponseText)
       throw new Error('Failed to subscribe to newsletter')
+    } else {
+      try {
+        const responseData = JSON.parse(subscribeResponseText)
+        console.log('[BeehiiV] Parsed subscription response data:', JSON.stringify(responseData))
+      } catch (parseError) {
+        console.error('[BeehiiV] Could not parse subscription response as JSON:', parseError)
+      }
     }
 
     // Add tags to the subscriber
     try {
       // Get subscriber ID first (needed for tag update)
-      console.log(`Retrieving subscriber ID for: ${email}`)
+      console.log(`[BeehiiV] Retrieving subscriber ID for: ${email}`)
+      const getSubscriberStartTime = Date.now()
+      
       const getSubscriberResponse = await fetch(
         `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions?email=${encodeURIComponent(email)}`,
         {
@@ -230,24 +258,29 @@ serve(async (req) => {
         }
       )
       
+      console.log(`[BeehiiV] Get subscriber API request completed in ${Date.now() - getSubscriberStartTime}ms`)
+      console.log(`[BeehiiV] Get subscriber API status code: ${getSubscriberResponse.status}`)
+      
       const subscriberResponseText = await getSubscriberResponse.text()
-      console.log(`BeehiiV get subscriber response (${getSubscriberResponse.status}):`, subscriberResponseText)
+      console.log(`[BeehiiV] get subscriber response body:`, subscriberResponseText)
       
       if (!getSubscriberResponse.ok) {
-        console.error(`BeehiiV get subscriber error:`, subscriberResponseText)
+        console.error(`[BeehiiV] get subscriber ERROR:`, subscriberResponseText)
       } else {
         try {
           const subscriberData = JSON.parse(subscriberResponseText)
-          console.log('BeehiiV subscriber data:', subscriberData)
+          console.log('[BeehiiV] Parsed subscriber data:', JSON.stringify(subscriberData))
           
           if (!subscriberData.data || subscriberData.data.length === 0) {
-            console.error('No subscriber found with email:', email)
+            console.error('[BeehiiV] No subscriber found with email:', email)
           } else {
             const subscriberId = subscriberData.data[0].id
-            console.log(`Found subscriber ID: ${subscriberId}`)
+            console.log(`[BeehiiV] Found subscriber ID: ${subscriberId}`)
             
             // Now add the comprendi tag - this is critical for the automation to work
-            console.log(`Adding tags to subscriber ID: ${subscriberId}`)
+            console.log(`[BeehiiV] Adding tags to subscriber ID: ${subscriberId}`)
+            const tagUpdateStartTime = Date.now()
+            
             const updateTagsResponse = await fetch(
               `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}/tags`,
               {
@@ -262,21 +295,30 @@ serve(async (req) => {
               }
             )
             
+            console.log(`[BeehiiV] Tag update API request completed in ${Date.now() - tagUpdateStartTime}ms`)
+            console.log(`[BeehiiV] Tag update API status code: ${updateTagsResponse.status}`)
+            
             const tagsResponseText = await updateTagsResponse.text()
-            console.log(`BeehiiV tag update response (${updateTagsResponse.status}):`, tagsResponseText)
+            console.log(`[BeehiiV] tag update response body:`, tagsResponseText)
             
             if (!updateTagsResponse.ok) {
-              console.error(`BeehiiV tag update error:`, tagsResponseText)
+              console.error(`[BeehiiV] tag update ERROR:`, tagsResponseText)
             } else {
-              console.log('Successfully added tags to BeehiiV subscriber')
+              console.log('[BeehiiV] Successfully added tags to BeehiiV subscriber')
+              try {
+                const tagsData = JSON.parse(tagsResponseText)
+                console.log('[BeehiiV] Parsed tags response data:', JSON.stringify(tagsData))
+              } catch (parseError) {
+                console.error('[BeehiiV] Could not parse tags response as JSON:', parseError)
+              }
             }
           }
         } catch (parseError) {
-          console.error('Error parsing BeehiiV subscriber data:', parseError)
+          console.error('[BeehiiV] Error parsing BeehiiV subscriber data:', parseError)
         }
       }
     } catch (tagError) {
-      console.error('Error adding tags:', tagError)
+      console.error('[BeehiiV] Error adding tags:', tagError)
     }
 
     // Add debug entry for referral tracking
