@@ -152,7 +152,7 @@ serve(async (req) => {
     });
     
     const emailResult = await resend.emails.send({
-      from: 'Educ8r Sweepstakes <noreply@educ8r.freeparentsearch.com>',
+      from: 'School Supplies Sweepstakes <noreply@educ8r.freeparentsearch.com>',
       to: email,
       subject: 'Congratulations! You earned a Sweepstakes entry!',
       html: `
