@@ -86,12 +86,14 @@ const Admin = () => {
       // Update UI optimistically
       setEntries(prev => prev.filter(entry => entry.id !== id));
       
-      // Perform the actual delete operation with explicit RPC call
-      const { error: deleteError } = await supabase.rpc('secure_delete_entry', { entry_id: id });
+      // Call the secure-delete-entry Edge Function directly instead of using RPC
+      const response = await supabase.functions.invoke('secure-delete-entry', {
+        body: { id }
+      });
       
-      if (deleteError) {
-        console.error("[AdminPage] Supabase RPC delete error:", deleteError);
-        throw deleteError;
+      if (response.error) {
+        console.error("[AdminPage] Edge function delete error:", response.error);
+        throw new Error(response.error.message || "Error deleting entry");
       }
       
       console.log("[AdminPage] Entry successfully deleted from database, ID:", id);
