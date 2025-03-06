@@ -1,0 +1,160 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Educ8r Sweepstakes Email Template Preview</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #f5f5f5;
+    }
+    .preview-container {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin-bottom: 30px;
+    }
+    h1 {
+      color: #2C3E50;
+      text-align: center;
+    }
+    .controls {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .controls label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    .controls input, .controls textarea {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .controls button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .controls button:hover {
+      background-color: #45a049;
+    }
+    .template-code {
+      background-color: #f8f8f8;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 15px;
+      margin-top: 20px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 12px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Email Template Preview</h1>
+  
+  <div class="preview-container">
+    <div id="email-preview">
+      <!-- Email template will be inserted here -->
+    </div>
+  </div>
+  
+  <div class="controls">
+    <h2>Edit Template Values</h2>
+    <label for="firstName">Recipient's First Name:</label>
+    <input type="text" id="firstName" value="Brian">
+    
+    <label for="totalEntries">Total Entries Count:</label>
+    <input type="number" id="totalEntries" value="10">
+    
+    <label for="referralCode">Referral Code:</label>
+    <input type="text" id="referralCode" value="KWH29VX9">
+    
+    <button onclick="updatePreview()">Update Preview</button>
+    
+    <h3>HTML Template Code</h3>
+    <div class="template-code" id="template-code"></div>
+  </div>
+
+  <script>
+    // The email template function
+    function generateEmailTemplate(firstName, totalEntries, referralCode) {
+      // Generate the referral link using the code
+      const referralLink = `https://dmlearninglab.com/homesc/?utm_source=sweeps&oid=1987&sub1=${referralCode}`;
+      
+      // Return the HTML template
+      return `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <img src="https://educ8r.freeparentsearch.com/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" alt="FPS Logo" style="max-width: 180px;">
+          </div>
+          
+          <h1 style="color: #2C3E50; text-align: center; margin-bottom: 20px;">Congratulations, ${firstName}!</h1>
+          
+          <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #3b82f6;">
+            <h2 style="color: #3b82f6; margin-top: 0;">You just earned an extra Sweepstakes entry!</h2>
+            <p style="font-size: 16px; line-height: 1.5;">
+              Great news! One of your referrals just tried Comprendi™, and you now have <strong>${totalEntries} entries</strong> in the $1,000 Classroom Sweepstakes!
+            </p>
+          </div>
+          
+          <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+            Keep the momentum going! Share your referral link with more parents to increase your chances of winning:
+          </p>
+          
+          <div style="background-color: #f0f9ff; border-radius: 8px; padding: 15px; margin-bottom: 25px; word-break: break-all; font-family: monospace; font-size: 14px;">
+            ${referralLink}
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${referralLink}" style="display: inline-block; background-color: #16a34a; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; font-size: 16px;">Share Your Link</a>
+          </div>
+          
+          <p style="font-size: 16px; line-height: 1.5;">
+            Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!
+          </p>
+          
+          <p style="font-size: 16px; line-height: 1.5; margin-top: 30px;">
+            Thank you for spreading the word about Comprendi™ and helping more students succeed!
+          </p>
+          
+          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 14px;">
+            <p>© 2024 Free Parent Search. All rights reserved.</p>
+          </div>
+        </div>
+      `;
+    }
+
+    // Function to update the preview
+    function updatePreview() {
+      const firstName = document.getElementById('firstName').value;
+      const totalEntries = document.getElementById('totalEntries').value;
+      const referralCode = document.getElementById('referralCode').value;
+      
+      const emailHTML = generateEmailTemplate(firstName, totalEntries, referralCode);
+      document.getElementById('email-preview').innerHTML = emailHTML;
+      document.getElementById('template-code').textContent = emailHTML;
+    }
+    
+    // Initialize the preview
+    updatePreview();
+  </script>
+</body>
+</html>
