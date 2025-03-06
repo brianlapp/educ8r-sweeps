@@ -9,7 +9,7 @@ export const CleanupTestDataButton = () => {
   const { toast } = useToast();
 
   const handleCleanup = async () => {
-    if (!confirm("This will remove all test entries with first_name='brian', except for brian@freebies.com. Continue?")) {
+    if (!confirm("This will remove all test entries with first_name='brian' AND last_name='lapp', except for brian@freebies.com. Continue?")) {
       return;
     }
 

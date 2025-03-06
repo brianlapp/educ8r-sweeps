@@ -20,12 +20,13 @@ export const handler = async (req: Request) => {
 
     console.log('Starting test data cleanup')
 
-    // Delete all entries with first_name='brian', except for brian@freebies.com
-    const { data, error } = await supabase
+    // Delete entries with first_name='brian' AND last_name='lapp', except for brian@freebies.com
+    const { data, error, count } = await supabase
       .from('entries')
-      .delete()
-      .match({ first_name: 'brian' })
+      .delete({ count: 'exact' })
+      .match({ first_name: 'brian', last_name: 'lapp' })
       .neq('email', 'brian@freebies.com')
+      .select()
 
     if (error) {
       console.error('Error during cleanup:', error)
@@ -41,12 +42,13 @@ export const handler = async (req: Request) => {
       )
     }
 
-    console.log(`Successfully removed test data. Affected rows: ${data?.length || 'unknown'}`)
+    const removedCount = count || 0
+    console.log(`Successfully removed test data. Removed ${removedCount} entries.`)
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Successfully removed test data with first_name='brian', excluding brian@freebies.com`
+        message: `Successfully removed ${removedCount} test entries with first_name='brian' AND last_name='lapp', excluding brian@freebies.com`
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
