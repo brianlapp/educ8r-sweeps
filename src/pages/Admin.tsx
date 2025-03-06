@@ -1,4 +1,3 @@
-
 import { Helmet } from 'react-helmet-async';
 import { useQuery } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -55,28 +54,21 @@ const Admin = () => {
       // First immediately update local state to provide instant feedback
       setEntries(prev => prev.filter(entry => entry.id !== id));
       
-      // Then perform the actual delete operation
-      const { error, data, status } = await supabase
+      // Then perform the actual delete operation - DON'T use .select() with delete
+      const { error } = await supabase
         .from('entries')
         .delete()
-        .eq('id', id)
-        .select();
+        .eq('id', id);
         
-      console.log("Delete operation result:", { status, data, error });
+      console.log("Delete operation completed, error:", error);
       
       if (error) {
         console.error("Supabase delete error:", error);
         // If delete fails, restore the entry in the state by refetching
-        refetch();
+        await refetch();
         throw error;
       }
       
-      if (status !== 204 && status !== 200) {
-        console.error("Delete operation returned unexpected status:", status);
-        refetch();
-        throw new Error(`Delete operation failed with status ${status}`);
-      }
-            
       toast({
         title: "Entry deleted",
         description: "The entry has been successfully deleted from the database.",
@@ -84,7 +76,7 @@ const Admin = () => {
     } catch (error) {
       console.error("Error deleting entry:", error);
       // Refetch entries to restore correct state
-      refetch();
+      await refetch();
       toast({
         title: "Error",
         description: "Failed to delete entry. Please try again.",
