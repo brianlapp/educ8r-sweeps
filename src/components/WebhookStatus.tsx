@@ -64,13 +64,13 @@ export const WebhookStatus = () => {
     if (isEnabled === undefined) return <Badge variant="outline">Unknown</Badge>;
     return isEnabled ? 
       <Badge variant="destructive">Enabled</Badge> : 
-      <Badge variant="success" className="bg-green-500">Disabled</Badge>;
+      <Badge variant="success">Disabled</Badge>;
   };
 
   const renderHealthBadge = (status: string | undefined) => {
     if (!status) return <Badge variant="outline">Unknown</Badge>;
     return status === "ok" ? 
-      <Badge variant="success" className="bg-green-500">Healthy</Badge> : 
+      <Badge variant="success">Healthy</Badge> : 
       <Badge variant="destructive">Unhealthy</Badge>;
   };
 
