@@ -9,6 +9,8 @@ import { useEffect, useState } from "react";
 import { Tables } from "@/integrations/supabase/types";
 import { ManualSyncButton } from "@/components/ManualSyncButton";
 import { Link } from 'react-router-dom';
+import { ExternalLink } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 const Admin = () => {
   const [entries, setEntries] = useState<Tables<'entries'>[]>([]);
@@ -96,22 +98,27 @@ const Admin = () => {
       <div className="container mx-auto py-12">
         <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
 
-        <div className="mb-8">
-          <div className="bg-white p-4 rounded-md shadow">
-            <div className="flex justify-between items-center mb-2">
-              <h2 className="text-xl font-semibold">User Entries</h2>
-              <div className="flex space-x-3">
+        <Card className="mb-8">
+          <CardHeader className="pb-2">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+              <div>
+                <CardTitle className="text-xl">User Entries</CardTitle>
+                <CardDescription>
+                  Total entries: {entries.length}
+                </CardDescription>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Link to="/admin/webhooks">
-                  <Button variant="outline">Webhook Status</Button>
+                  <Button variant="outline" className="w-full sm:w-auto flex items-center gap-2">
+                    <ExternalLink size={16} />
+                    Webhook Status
+                  </Button>
                 </Link>
                 <ManualSyncButton />
               </div>
             </div>
-            <p className="text-muted-foreground mb-2">
-              Total entries: {entries.length}
-            </p>
-          </div>
-        </div>
+          </CardHeader>
+        </Card>
 
         {entries && entries.length > 0 ? (
           <div className="rounded-md border bg-white shadow">
