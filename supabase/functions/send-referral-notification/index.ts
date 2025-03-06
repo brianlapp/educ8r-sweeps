@@ -22,6 +22,8 @@ interface ReferralNotificationRequest {
 
 serve(async (req) => {
   console.log('==== REFERRAL NOTIFICATION FUNCTION STARTED ====');
+  console.log('Request method:', req.method);
+  console.log('Request headers:', Object.fromEntries(req.headers));
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -33,11 +35,22 @@ serve(async (req) => {
   }
   
   try {
+    // Dump raw request body for debugging
+    const clonedReq = req.clone();
+    const rawBody = await clonedReq.text();
+    console.log('Raw request body:', rawBody);
+    
     // Parse the request body
     let payload: ReferralNotificationRequest;
     try {
       payload = await req.json();
-      console.log('Received referral notification request:', payload);
+      console.log('Parsed JSON payload:', JSON.stringify(payload, null, 2));
+      
+      // Log each field individually to check for undefined/null values
+      console.log('email:', payload.email);
+      console.log('firstName:', payload.firstName);
+      console.log('totalEntries:', payload.totalEntries);
+      console.log('referralCode:', payload.referralCode);
     } catch (parseError) {
       console.error('Error parsing JSON payload:', parseError);
       return new Response(
@@ -57,13 +70,21 @@ serve(async (req) => {
     }
     
     // Validate the payload
-    if (!payload.email || !payload.firstName || payload.totalEntries === undefined || !payload.referralCode) {
-      console.error('Missing required fields in payload:', payload);
+    const missingFields = [];
+    if (!payload.email) missingFields.push('email');
+    if (!payload.firstName) missingFields.push('firstName');
+    if (payload.totalEntries === undefined) missingFields.push('totalEntries');
+    if (!payload.referralCode) missingFields.push('referralCode');
+    
+    if (missingFields.length > 0) {
+      console.error('Missing required fields:', missingFields);
+      console.error('Full payload received:', payload);
       return new Response(
         JSON.stringify({
           success: false,
           error: 'Missing required fields',
-          details: 'email, firstName, totalEntries, and referralCode are required'
+          details: `${missingFields.join(', ')} are required`,
+          receivedPayload: payload
         }),
         { 
           status: 400,

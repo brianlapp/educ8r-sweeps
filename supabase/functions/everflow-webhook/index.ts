@@ -25,6 +25,7 @@ async function sendReferralNotificationEmail(referrerData: any) {
   
   try {
     console.log('Sending referral notification email to:', referrerData.email);
+    console.log('Original referrer data:', JSON.stringify(referrerData, null, 2));
     
     // Transform snake_case field names to camelCase for the notification function
     const payload = {
@@ -34,7 +35,20 @@ async function sendReferralNotificationEmail(referrerData: any) {
       referralCode: referrerData.referral_code
     };
     
-    console.log('Transformed notification payload:', payload);
+    console.log('Transformed notification payload:', JSON.stringify(payload, null, 2));
+    
+    // Make sure payload has all required fields before sending
+    const missingFields = [];
+    if (!payload.email) missingFields.push('email');
+    if (!payload.firstName) missingFields.push('firstName');
+    if (payload.totalEntries === undefined) missingFields.push('totalEntries');
+    if (!payload.referralCode) missingFields.push('referralCode');
+    
+    if (missingFields.length > 0) {
+      console.error('Missing required fields in payload:', missingFields);
+      console.error('Cannot send notification due to missing fields in payload:', payload);
+      return { success: false, error: `Missing required fields: ${missingFields.join(', ')}` };
+    }
     
     const response = await fetch(`${SUPABASE_URL}/functions/v1/send-referral-notification`, {
       method: 'POST',
@@ -44,13 +58,23 @@ async function sendReferralNotificationEmail(referrerData: any) {
       body: JSON.stringify(payload)
     });
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error sending referral notification:', errorText);
-      return { success: false, error: errorText };
+    console.log('Notification API response status:', response.status);
+    const responseText = await response.text();
+    console.log('Notification API response body:', responseText);
+    
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (e) {
+      console.error('Failed to parse response as JSON:', e);
+      return { success: false, error: 'Failed to parse notification response' };
     }
     
-    const result = await response.json();
+    if (!response.ok) {
+      console.error('Error sending referral notification:', result);
+      return { success: false, error: responseText };
+    }
+    
     console.log('Referral notification sent successfully:', result);
     return { success: true, data: result };
   } catch (error) {
