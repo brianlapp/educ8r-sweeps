@@ -160,43 +160,113 @@ serve(async (req) => {
   }
   
   try {
-    // Dump raw request body for debugging
-    const clonedReq = req.clone();
-    const rawBody = await clonedReq.text();
-    console.log("Raw request body:", rawBody);
+    // Extract parameters from either URL query parameters or body based on the method
+    let referralCode = null;
+    let transactionId = null;
+    let payload = {};
     
-    // Parse the request body
-    let payload;
-    try {
-      payload = JSON.parse(rawBody);
-      console.log("Parsed webhook payload:", JSON.stringify(payload, null, 2));
-    } catch (parseError) {
-      console.error("Error parsing webhook payload:", parseError);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Invalid JSON payload",
-          details: parseError.message
-        }),
-        { 
-          status: 400,
-          headers: { 
-            ...corsHeaders,
-            'Content-Type': 'application/json'
+    // For GET requests, extract from query parameters (for direct postback URL)
+    if (req.method === 'GET') {
+      console.log("Processing GET request with search params:", Object.fromEntries(url.searchParams));
+      
+      // Extract parameters from query params (supporting various parameter names)
+      referralCode = url.searchParams.get('sub1') || url.searchParams.get('referral_code') || url.searchParams.get('referralCode');
+      transactionId = url.searchParams.get('tid') || url.searchParams.get('transaction_id') || url.searchParams.get('transactionId');
+      
+      // Build a payload object from all query parameters
+      payload = Object.fromEntries(url.searchParams);
+      console.log("Constructed payload from GET params:", payload);
+    } 
+    // For POST requests, extract from body
+    else if (req.method === 'POST') {
+      // Dump raw request body for debugging
+      try {
+        const clonedReq = req.clone();
+        const rawBody = await clonedReq.text();
+        console.log("Raw request body:", rawBody);
+        
+        // Try to parse JSON body, but handle empty or invalid JSON gracefully
+        if (rawBody && rawBody.trim()) {
+          try {
+            payload = JSON.parse(rawBody);
+            console.log("Parsed webhook payload:", JSON.stringify(payload, null, 2));
+          } catch (parseError) {
+            console.error("Error parsing webhook payload:", parseError);
+            // If parsing fails, check if we have URL parameters as fallback
+            if (url.searchParams.has('sub1') || url.searchParams.has('tid')) {
+              console.log("Using URL params as fallback after JSON parse error");
+              payload = Object.fromEntries(url.searchParams);
+            } else {
+              // If no fallback is available, return an error
+              return new Response(
+                JSON.stringify({
+                  success: false,
+                  error: "Invalid JSON payload",
+                  details: parseError.message
+                }),
+                { 
+                  status: 400,
+                  headers: { 
+                    ...corsHeaders,
+                    'Content-Type': 'application/json'
+                  }
+                }
+              );
+            }
+          }
+        } else {
+          console.log("Empty request body, checking URL parameters");
+          // If body is empty, check if we have URL parameters
+          if (url.searchParams.has('sub1') || url.searchParams.has('tid')) {
+            console.log("Using URL params instead of empty body");
+            payload = Object.fromEntries(url.searchParams);
+          } else {
+            console.error("No parameters found in request");
+            return new Response(
+              JSON.stringify({
+                success: false,
+                error: "No parameters found in request"
+              }),
+              { 
+                status: 400,
+                headers: { 
+                  ...corsHeaders,
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
           }
         }
-      );
+      } catch (error) {
+        console.error("Error processing request body:", error);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Error processing request",
+            details: error.message
+          }),
+          { 
+            status: 400,
+            headers: { 
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      }
+      
+      // Extract parameters from the payload
+      referralCode = payload.sub1 || payload.referral_code || payload.referralCode;
+      transactionId = payload.tid || payload.transaction_id || payload.transactionId;
     }
+    
+    console.log("Extracted parameters - referralCode:", referralCode, "transactionId:", transactionId);
     
     // Initialize Supabase client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
-    
-    // Extract transaction ID and referral code (required parameters)
-    const transactionId = payload.transaction_id || payload.transactionId;
-    const referralCode = payload.referral_code || payload.referralCode;
     
     // Enhanced validation with detailed error messages
     if (!transactionId) {
