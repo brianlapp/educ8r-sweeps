@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -54,6 +55,7 @@ serve(async (req) => {
           utm_medium: 'comprendi',
           utm_campaign: 'comprendi',
           reactivate: true,
+          trigger_automation: true, // Add flag to trigger automations on subscription
           // Removed send_welcome_email flag - we don't want the standard welcome email
           custom_fields: [
             {
@@ -156,8 +158,14 @@ serve(async (req) => {
                 console.log('Successfully added tags to BeehiiV subscriber')
               }
 
-              // 4. Add to automation explicitly - this should ensure the automation runs
-              await addToBeehiivAutomation(email)
+              // 4. Try both automation endpoints to ensure one works
+              try {
+                await addToBeehiivAutomation(email)
+              } catch (automationError) {
+                console.error('Error with /subscribers endpoint, trying /journeys:', automationError)
+                // Fallback to previous endpoint if the new one fails
+                await addToBeehiivAutomationJourneys(email)
+              }
             }
           } catch (parseError) {
             console.error('Error parsing BeehiiV subscriber data:', parseError)
@@ -245,7 +253,7 @@ serve(async (req) => {
       }
     ]
 
-    // Step 2: Create/Update BeehiiV subscription with custom fields - removed send_welcome_email flag
+    // Step 2: Create/Update BeehiiV subscription with custom fields and trigger automation flag
     const subscriberData = {
       email: email,
       first_name: firstName,
@@ -254,6 +262,7 @@ serve(async (req) => {
       utm_medium: 'comprendi',
       utm_campaign: 'comprendi',
       reactivate: true,
+      trigger_automation: true, // Add flag to trigger automations on subscription creation
       custom_fields: customFields
     }
 
@@ -348,11 +357,14 @@ serve(async (req) => {
       console.error('Error adding tags:', tagError)
     }
 
-    // Add to BeehiiV automation explicitly
+    // Try both automation endpoints to ensure one works
     try {
+      // First try the new endpoint
       await addToBeehiivAutomation(email)
     } catch (automationError) {
-      console.error('Error adding user to BeehiiV automation:', automationError)
+      console.error('Error with new endpoint, trying legacy endpoint:', automationError)
+      // Fallback to legacy endpoint if the new one fails
+      await addToBeehiivAutomationJourneys(email)
     }
 
     // Step 4: Add debug entry for referral tracking
@@ -407,15 +419,14 @@ serve(async (req) => {
 })
 
 /**
- * Helper function to add a subscriber to a BeehiiV automation flow
+ * Helper function to add a subscriber to a BeehiiV automation flow using the new subscribers endpoint
  * This function handles the API call and provides detailed logging
  */
 async function addToBeehiivAutomation(email: string) {
-  console.log(`Adding email ${email} to BeehiiV automation: ${BEEHIIV_AUTOMATION_ID}`)
+  console.log(`Adding email ${email} to BeehiiV automation via /subscribers endpoint: ${BEEHIIV_AUTOMATION_ID}`)
   
   try {
-    // Updated to use the correct endpoint for "Add by API" trigger
-    // Changed from /automations/{id}/journeys to /automations/{id}/subscribers
+    // Use the newer /subscribers endpoint
     const response = await fetch(
       `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/automations/${BEEHIIV_AUTOMATION_ID}/subscribers`,
       {
@@ -432,23 +443,69 @@ async function addToBeehiivAutomation(email: string) {
     )
 
     const responseText = await response.text()
-    console.log(`BeehiiV automation response (${response.status}):`, responseText)
+    console.log(`BeehiiV automation /subscribers response (${response.status}):`, responseText)
     
     if (!response.ok) {
-      console.error(`BeehiiV automation error (${response.status}):`, responseText)
+      console.error(`BeehiiV automation /subscribers error (${response.status}):`, responseText)
       throw new Error(`Failed to add to automation: ${response.status} - ${responseText}`)
     }
 
     try {
       const data = JSON.parse(responseText)
-      console.log('Successfully added to automation:', data)
+      console.log('Successfully added to automation via /subscribers:', data)
       return data
     } catch (parseError) {
       console.log('Successfully added to automation but response is not JSON:', responseText)
       return { success: true, responseText }
     }
   } catch (error) {
-    console.error('Error in addToBeehiivAutomation:', error)
+    console.error('Error in addToBeehiivAutomation with /subscribers endpoint:', error)
+    throw error
+  }
+}
+
+/**
+ * Helper function to add a subscriber to a BeehiiV automation flow using the legacy journeys endpoint
+ * This function is included as a fallback to the newer subscribers endpoint
+ */
+async function addToBeehiivAutomationJourneys(email: string) {
+  console.log(`Adding email ${email} to BeehiiV automation via /journeys endpoint: ${BEEHIIV_AUTOMATION_ID}`)
+  
+  try {
+    // Use the legacy /journeys endpoint as a fallback
+    const response = await fetch(
+      `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/automations/${BEEHIIV_AUTOMATION_ID}/journeys`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+        },
+        body: JSON.stringify({
+          email: email,
+          double_opt_override: "on"
+        })
+      }
+    )
+
+    const responseText = await response.text()
+    console.log(`BeehiiV automation /journeys response (${response.status}):`, responseText)
+    
+    if (!response.ok) {
+      console.error(`BeehiiV automation /journeys error (${response.status}):`, responseText)
+      throw new Error(`Failed to add to automation: ${response.status} - ${responseText}`)
+    }
+
+    try {
+      const data = JSON.parse(responseText)
+      console.log('Successfully added to automation via /journeys:', data)
+      return data
+    } catch (parseError) {
+      console.log('Successfully added to automation via /journeys but response is not JSON:', responseText)
+      return { success: true, responseText }
+    }
+  } catch (error) {
+    console.error('Error in addToBeehiivAutomationJourneys with /journeys endpoint:', error)
     throw error
   }
 }
