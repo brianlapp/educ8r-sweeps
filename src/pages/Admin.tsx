@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { Tables } from "@/integrations/supabase/types";
 import { ManualSyncButton } from "@/components/ManualSyncButton";
 import { Link } from 'react-router-dom';
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 const Admin = () => {
@@ -101,11 +101,17 @@ const Admin = () => {
         <Card className="mb-8">
           <CardHeader className="pb-2">
             <div className="flex justify-between items-center">
-              <div>
-                <CardTitle className="text-xl">User Entries</CardTitle>
-                <CardDescription>
-                  Total entries: {entries.length}
-                </CardDescription>
+              <div className="flex items-center gap-8">
+                <div>
+                  <CardTitle className="text-xl">User Entries</CardTitle>
+                  <CardDescription>
+                    Total entries: {entries.length}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center text-sm text-gray-600">
+                  <Clock className="h-3.5 w-3.5 mr-1.5" />
+                  <span>Last sync: {new Date().toLocaleDateString()}</span>
+                </div>
               </div>
               <div className="flex items-center space-x-3">
                 <Link to="/admin/webhooks">
