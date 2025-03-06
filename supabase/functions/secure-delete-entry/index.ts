@@ -24,7 +24,36 @@ serve(async (req) => {
     
     console.log(`[secure-delete-entry] Deleting entry with ID: ${id}`)
     
-    // Use direct SQL execution for guaranteed deletion
+    // First, check if there are any referral_conversions records linked to this entry
+    const { data: entryData, error: entryError } = await supabaseClient
+      .from('entries')
+      .select('referral_code')
+      .eq('id', id)
+      .single()
+    
+    if (entryError) {
+      console.error(`[secure-delete-entry] Error fetching entry: ${entryError.message}`)
+      throw entryError
+    }
+    
+    if (entryData?.referral_code) {
+      console.log(`[secure-delete-entry] Checking for referral_conversions with code: ${entryData.referral_code}`)
+      
+      // First delete any referral_conversions that reference this entry's referral_code
+      const { error: deleteConversionsError } = await supabaseClient
+        .from('referral_conversions')
+        .delete()
+        .eq('referral_code', entryData.referral_code)
+      
+      if (deleteConversionsError) {
+        console.error(`[secure-delete-entry] Error deleting referral_conversions: ${deleteConversionsError.message}`)
+        throw deleteConversionsError
+      }
+      
+      console.log(`[secure-delete-entry] Successfully removed referral_conversions for code: ${entryData.referral_code}`)
+    }
+    
+    // Now delete the entry itself
     const { error } = await supabaseClient
       .from('entries')
       .delete()
