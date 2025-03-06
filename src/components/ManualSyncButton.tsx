@@ -1,9 +1,19 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, CheckCircle, AlertCircle, ExternalLink, Clock } from "lucide-react";
+import { RefreshCw, CheckCircle, AlertCircle, ExternalLink, Clock, Trash } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const ManualSyncButton = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -15,6 +25,8 @@ export const ManualSyncButton = () => {
     entries: number | null;
     type: 'manual' | 'automated' | null;
   }>({ time: null, entries: null, type: null });
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [resetInProgress, setResetInProgress] = useState(false);
   const { toast } = useToast();
 
   // Fetch last sync information on component mount
@@ -114,6 +126,68 @@ export const ManualSyncButton = () => {
     }
   };
 
+  const handleResetSyncMetadata = async () => {
+    setResetInProgress(true);
+
+    try {
+      // Reset the sync metadata by deleting and recreating it
+      const { error } = await supabase
+        .from('sheets_sync_metadata')
+        .delete()
+        .eq('id', 'google_sheets_sync');
+
+      if (error) {
+        console.error("Error resetting sync metadata:", error);
+        toast({
+          title: "Reset Failed",
+          description: "Failed to reset sync metadata",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create a new clean metadata record
+      const { error: insertError } = await supabase
+        .from('sheets_sync_metadata')
+        .insert({
+          id: 'google_sheets_sync',
+          last_sync_time: new Date(0).toISOString(), // Set to epoch time to force full sync
+          entries_synced: 0,
+          total_entries_synced: 0,
+          last_sync_type: 'manual'
+        });
+
+      if (insertError) {
+        console.error("Error creating new sync metadata:", insertError);
+        toast({
+          title: "Reset Failed",
+          description: "Failed to create new sync metadata",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Reset Complete",
+        description: "Sync metadata has been reset. You can now perform a full sync.",
+      });
+
+      // Refresh the sync info
+      fetchLastSyncInfo();
+
+    } catch (error) {
+      console.error("Exception during reset:", error);
+      toast({
+        title: "Reset Failed",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setResetInProgress(false);
+      setShowResetDialog(false);
+    }
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Never';
     const date = new Date(dateString);
@@ -142,34 +216,47 @@ export const ManualSyncButton = () => {
         </div>
       </div>
       
-      <Button 
-        onClick={handleSync} 
-        disabled={isLoading}
-        variant="outline"
-        className="gap-2"
-      >
-        {isLoading ? (
-          <>
-            <RefreshCw className="h-4 w-4 animate-spin" />
-            Syncing...
-          </>
-        ) : syncStatus === 'success' ? (
-          <>
-            <CheckCircle className="h-4 w-4 text-green-500" />
-            Sync to Sheets
-          </>
-        ) : syncStatus === 'error' ? (
-          <>
-            <AlertCircle className="h-4 w-4 text-red-500" />
-            Sync to Sheets
-          </>
-        ) : (
-          <>
-            <RefreshCw className="h-4 w-4" />
-            Sync to Sheets
-          </>
-        )}
-      </Button>
+      <div className="flex gap-2">
+        <Button 
+          onClick={handleSync} 
+          disabled={isLoading || resetInProgress}
+          variant="outline"
+          className="gap-2"
+        >
+          {isLoading ? (
+            <>
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              Syncing...
+            </>
+          ) : syncStatus === 'success' ? (
+            <>
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              Sync to Sheets
+            </>
+          ) : syncStatus === 'error' ? (
+            <>
+              <AlertCircle className="h-4 w-4 text-red-500" />
+              Sync to Sheets
+            </>
+          ) : (
+            <>
+              <RefreshCw className="h-4 w-4" />
+              Sync to Sheets
+            </>
+          )}
+        </Button>
+        
+        <Button
+          onClick={() => setShowResetDialog(true)}
+          disabled={isLoading || resetInProgress}
+          variant="outline"
+          size="icon"
+          className="aspect-square"
+          title="Reset Sync Metadata"
+        >
+          <Trash className="h-4 w-4 text-red-500" />
+        </Button>
+      </div>
 
       {sheetsApiError && (
         <a 
@@ -194,6 +281,33 @@ export const ManualSyncButton = () => {
           View Google Sheet
         </a>
       )}
+
+      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset Sync Metadata</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will reset the sync metadata, forcing a full re-sync of all entries the next time you sync. 
+              <br /><br />
+              <strong>Important:</strong> You should manually delete all entries in the Google Sheet first, 
+              then reset the metadata, and finally perform a new sync.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={resetInProgress}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleResetSyncMetadata();
+              }}
+              disabled={resetInProgress}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {resetInProgress ? "Resetting..." : "Reset"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
