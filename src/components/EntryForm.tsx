@@ -40,7 +40,11 @@ export const EntryForm = () => {
     });
     
     try {
-      // Start the form submission but don't await it yet
+      // Set processing state in localStorage
+      localStorage.setItem('referralCode', 'PROCESSING');
+      localStorage.setItem('isReturningUser', 'false');
+      
+      // Start the form submission
       const submissionPromise = supabase.functions.invoke('submit-entry', {
         body: {
           ...formData,
@@ -48,35 +52,54 @@ export const EntryForm = () => {
         }
       });
       
-      // Set a timeout to redirect user after a short delay regardless of backend completion
-      // This provides a better user experience by not making them wait for all API calls
-      setTimeout(() => {
-        // Store temporary placeholder data in localStorage until the real response comes back
-        const tempReferralCode = localStorage.getItem('referralCode') || "PROCESSING";
-        localStorage.setItem('referralCode', tempReferralCode);
-        localStorage.setItem('isReturningUser', 'false');
-        
-        // Redirect to thank you page quickly
-        navigate('/thank-you');
-      }, 2000);
+      // Set a timeout for waiting
+      const timeoutPromise = new Promise((resolve) => {
+        setTimeout(() => resolve({ timedOut: true }), 3000);
+      });
       
-      // Now await the full response (this will happen in the background after redirect)
-      const { data: response, error } = await submissionPromise;
+      // Race between API response and timeout
+      const result = await Promise.race([
+        submissionPromise,
+        timeoutPromise
+      ]);
       
-      if (error) throw error;
-
-      // Once we have the real response, update localStorage with the correct values
-      if (response && response.data && response.data.referral_code) {
-        const referralCode = response.data.referral_code;
-        console.log('Got referral code from response:', referralCode);
+      // If we got a real response (not timeout)
+      if ('data' in result && !('timedOut' in result)) {
+        const response = result.data;
         
-        // Save the referral code to localStorage
-        localStorage.setItem('referralCode', referralCode);
-        
-        // Set flag for returning user status
-        localStorage.setItem('isReturningUser', response.isExisting ? 'true' : 'false');
-      } else {
-        console.error('Missing referral code in response:', response);
+        if (response && response.data && response.data.referral_code) {
+          const referralCode = response.data.referral_code;
+          console.log('Got referral code from response:', referralCode);
+          
+          // Save the referral code to localStorage
+          localStorage.setItem('referralCode', referralCode);
+          
+          // Set flag for returning user status
+          localStorage.setItem('isReturningUser', response.isExisting ? 'true' : 'false');
+        } else {
+          console.error('Missing referral code in response:', response);
+        }
+      }
+      
+      // Navigate to thank you page (after max 3s or when we get the response)
+      navigate('/thank-you');
+      
+      // If we redirected before getting response, still finish processing in background
+      if (!('data' in result) || ('timedOut' in result)) {
+        submissionPromise.then(({ data: response, error }) => {
+          if (error) throw error;
+          
+          if (response && response.data && response.data.referral_code) {
+            const referralCode = response.data.referral_code;
+            console.log('Got referral code from response (after redirect):', referralCode);
+            
+            // Update the referral code in localStorage
+            localStorage.setItem('referralCode', referralCode);
+            localStorage.setItem('isReturningUser', response.isExisting ? 'true' : 'false');
+          }
+        }).catch(err => {
+          console.error('Error processing submission in background:', err);
+        });
       }
     } catch (error) {
       console.error('Error submitting entry:', error);

@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +17,7 @@ declare global {
 const ThankYou = () => {
   const [referralCode, setReferralCode] = useState<string>("");
   const [isReturningUser, setIsReturningUser] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   // Keep jwtStatus for debugging, but don't display it to users
   const [jwtStatus, setJwtStatus] = useState<string | null>(null);
   const { toast } = useToast();
@@ -111,28 +111,68 @@ const ThankYou = () => {
     checkJwtStatus();
     
     // Get the unique referral code that was saved during signup
-    const code = localStorage.getItem("referralCode");
-    console.log('Retrieved referral code from localStorage:', code);
+    const checkForReferralCode = () => {
+      const code = localStorage.getItem("referralCode");
+      console.log('Retrieved referral code from localStorage:', code);
+      
+      // Check if user is returning from localStorage flag
+      const returningUserFlag = localStorage.getItem("isReturningUser");
+      setIsReturningUser(returningUserFlag === "true");
+      
+      // Handle different states of the referral code
+      if (!code) {
+        console.error("No referral code found in localStorage");
+        toast({
+          title: "Error",
+          description: "Could not retrieve your referral code. Please try signing up again.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // If the code is still processing, show loading state and poll
+      if (code === "PROCESSING") {
+        setIsLoading(true);
+        return;
+      }
+      
+      // We have a valid code, set it and stop loading
+      setReferralCode(code);
+      setIsLoading(false);
+    };
     
-    // Check if user is returning from localStorage flag
-    const returningUserFlag = localStorage.getItem("isReturningUser");
-    setIsReturningUser(returningUserFlag === "true");
+    // Initial check
+    checkForReferralCode();
     
-    if (!code) {
-      console.error("No referral code found in localStorage");
-      toast({
-        title: "Error",
-        description: "Could not retrieve your referral code. Please try signing up again.",
-        variant: "destructive"
-      });
-      return;
+    // If in processing state, poll for updates
+    let pollInterval: number | null = null;
+    if (isLoading) {
+      pollInterval = window.setInterval(() => {
+        const updatedCode = localStorage.getItem("referralCode");
+        if (updatedCode && updatedCode !== "PROCESSING") {
+          console.log("Referral code updated:", updatedCode);
+          setReferralCode(updatedCode);
+          setIsLoading(false);
+          
+          // Update returning user status
+          const returningUserFlag = localStorage.getItem("isReturningUser");
+          setIsReturningUser(returningUserFlag === "true");
+          
+          // Clear interval once we have the code
+          if (pollInterval) {
+            clearInterval(pollInterval);
+          }
+        }
+      }, 500); // Check every 500ms
     }
-    setReferralCode(code);
-    // Only remove the code after we've successfully set it in state
-    // NOTE: We're no longer removing the code to make it persistent 
-    // across sessions for returning users
-    // localStorage.removeItem("referralCode");
-  }, [toast]);
+    
+    // Cleanup
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [toast, isLoading]);
 
   // Updated to use the production partner URL
   const referralLink = `https://dmlearninglab.com/homesc/?utm_source=sweeps&oid=1987&sub1=${referralCode}`;
@@ -193,8 +233,6 @@ const ThankYou = () => {
             )}
           </h1>
 
-          {/* Removed the JWT status warning box that was here previously */}
-
           {isReturningUser && (
             <div className="bg-blue-50 p-4 rounded-lg mb-6 border-l-4 border-blue-500">
               <p className="text-blue-800 font-medium">
@@ -214,11 +252,26 @@ const ThankYou = () => {
             
             <div className="bg-gray-50 p-3 md:p-4 rounded-lg mb-5 md:mb-6">
               <p className="text-sm text-gray-500 mb-2">🔗 Your Referral Link:</p>
-              <p className="text-primary font-medium break-all text-sm md:text-base">{referralLink}</p>
+              {isLoading ? (
+                <div className="flex items-center justify-center p-2">
+                  <div className="animate-pulse flex space-x-2">
+                    <div className="h-4 w-4 bg-gray-300 rounded-full"></div>
+                    <div className="h-4 w-4 bg-gray-300 rounded-full"></div>
+                    <div className="h-4 w-4 bg-gray-300 rounded-full"></div>
+                  </div>
+                  <p className="ml-2 text-gray-500">Getting your referral code...</p>
+                </div>
+              ) : (
+                <p className="text-primary font-medium break-all text-sm md:text-base">{referralLink}</p>
+              )}
             </div>
 
-            <Button onClick={copyReferralLink} className="w-full text-base py-6 mb-5 md:mb-6 text-neutral-50 bg-green-600 hover:bg-green-500">
-              Copy Referral Link
+            <Button 
+              onClick={copyReferralLink} 
+              className="w-full text-base py-6 mb-5 md:mb-6 text-neutral-50 bg-green-600 hover:bg-green-500"
+              disabled={isLoading}
+            >
+              {isLoading ? "Preparing your link..." : "Copy Referral Link"}
             </Button>
             
             <div className="p-4 md:p-5 rounded-lg border-l-4 border-blue-500 bg-blue-50">
