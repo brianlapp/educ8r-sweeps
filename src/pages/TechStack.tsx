@@ -1,7 +1,6 @@
-
 import React from "react";
 import { Helmet } from "react-helmet-async";
-import { ArrowLeft, Database, Globe, ExternalLink, GitBranch, Code, Zap, Mail, Share2, PieChart } from "lucide-react";
+import { ArrowLeft, Database, Globe, ExternalLink, GitBranch, Code, Zap, Mail, Share2, PieChart, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,7 +49,72 @@ const TechStack = () => {
 
         <Separator />
 
-        {/* Core Technologies */}
+        {/* Development Timeline */}
+        <section>
+          <h2 className="text-2xl font-semibold mb-6">Development Timeline</h2>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center mb-4">
+                <Clock className="mr-2 h-5 w-5 text-primary" />
+                <h3 className="text-lg font-medium">Approximate Development Hours</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Initial Setup & Architecture</span>
+                    <Badge variant="outline">12 hours</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Database & Backend</span>
+                    <Badge variant="outline">15 hours</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Frontend Components</span>
+                    <Badge variant="outline">24 hours</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Referral System</span>
+                    <Badge variant="outline">18 hours</Badge>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">API Integrations</span>
+                    <Badge variant="outline">20 hours</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Testing & QA</span>
+                    <Badge variant="outline">16 hours</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Admin Dashboard</span>
+                    <Badge variant="outline">14 hours</Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Documentation</span>
+                    <Badge variant="outline">8 hours</Badge>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 p-4 bg-muted/30 rounded-lg border">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-lg">Total Development Time</span>
+                  <Badge className="text-base py-1">127 hours</Badge>
+                </div>
+                <p className="text-muted-foreground mt-2 text-sm">
+                  Approximately 3 weeks of development with a small team of developers working on different components simultaneously.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Core Technologies - keep existing section */}
+        <Separator />
+        
         <section>
           <h2 className="text-2xl font-semibold mb-6">Core Technologies</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -174,7 +238,7 @@ const TechStack = () => {
 
         <Separator />
 
-        {/* Key Integrations */}
+        {/* Key Integrations - keep existing section */}
         <section>
           <h2 className="text-2xl font-semibold mb-6">Key Integrations</h2>
           <div className="grid grid-cols-1 gap-4">
@@ -254,7 +318,7 @@ const TechStack = () => {
 
         <Separator />
 
-        {/* Architecture & Features */}
+        {/* Architecture & Features - keep existing section */}
         <section>
           <h2 className="text-2xl font-semibold mb-6">Architecture & Features</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -354,7 +418,7 @@ const TechStack = () => {
 
         <Separator />
 
-        {/* Technical Documentation & Resources */}
+        {/* Technical Documentation & Resources - keep existing section */}
         <section className="mb-12">
           <h2 className="text-2xl font-semibold mb-6">Developer Resources</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
