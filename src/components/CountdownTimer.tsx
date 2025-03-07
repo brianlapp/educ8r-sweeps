@@ -80,8 +80,8 @@ export const CountdownTimer = ({
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-500">Prize Value</p>
-                  <p className="font-bold text-3xl text-primary">$1,000</p>
-                  <p className="text-xs text-gray-600 mt-1">For your classroom supplies</p>
+                  <p className="font-bold text-4xl md:text-5xl text-primary leading-tight">$1,000</p>
+                  <p className="text-sm text-gray-600 mt-1 font-medium">For your classroom supplies</p>
                 </div>
               </CardContent>
             </Card>
@@ -89,11 +89,11 @@ export const CountdownTimer = ({
             <Card className="bg-white border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md hover:border-blue-300 relative overflow-hidden group">
               <CardContent className="p-4 flex justify-between items-center">
                 <div className="flex flex-col">
-                  <p className="font-medium text-gray-700 mb-1">
-                    <span className="text-primary font-bold text-lg">Enter Now</span>
+                  <p className="font-bold text-2xl md:text-3xl text-primary leading-tight">
+                    Enter Now
                   </p>
-                  <p className="text-sm text-gray-600">Before Spots Fill Up!</p>
-                  <ArrowRight className="h-5 w-5 mt-2 text-primary group-hover:translate-x-1 transition-transform" />
+                  <p className="text-base md:text-lg font-medium text-gray-600 mt-1">Before Spots Fill Up!</p>
+                  <ArrowRight className="h-6 w-6 mt-2 text-primary group-hover:translate-x-2 transition-transform" />
                 </div>
                 <div className="flex justify-center items-center relative w-28 h-28">
                   <div className="absolute animate-[float_3s_ease-in-out_infinite]">
