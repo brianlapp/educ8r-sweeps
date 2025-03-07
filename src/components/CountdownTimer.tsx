@@ -95,17 +95,12 @@ export const CountdownTimer = ({
                   <p className="text-sm text-gray-600">Before Spots Fill Up!</p>
                   <ArrowRight className="h-5 w-5 mt-2 text-primary group-hover:translate-x-1 transition-transform" />
                 </div>
-                <div className="bg-blue-50/80 rounded-full p-2 relative">
-                  <div className="absolute -top-2 -right-2 z-10">
-                    <Badge variant="success" className="animate-pulse h-6 w-6 flex items-center justify-center p-0">
-                      <Star className="h-3 w-3" />
-                    </Badge>
-                  </div>
-                  <div className="relative h-20 w-20 overflow-hidden rounded-full bg-gradient-to-b from-blue-50 to-indigo-50 border-2 border-blue-100 shadow-sm">
+                <div className="flex justify-center items-center relative w-28 h-28">
+                  <div className="absolute animate-[float_3s_ease-in-out_infinite]">
                     <img 
-                      src="/lovable-uploads/399cdf8e-d7b2-47fa-b4d6-8106630d1e5e.png" 
-                      alt="Teacher avatar" 
-                      className="object-contain transform scale-110 translate-y-2" 
+                      src="/lovable-uploads/9700676e-3f8d-41ad-8693-7aa3a1f3e97c.png" 
+                      alt="Teacher with book" 
+                      className="h-28 object-contain" 
                     />
                   </div>
                 </div>
