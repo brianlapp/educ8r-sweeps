@@ -74,13 +74,14 @@ export const CountdownTimer = ({
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card className="bg-white border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md hover:border-blue-300">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="bg-blue-50 p-3 rounded-full">
+              <CardContent className="p-4 flex items-center">
+                <div className="bg-blue-50 p-3 rounded-full mr-4">
                   <Gift className="text-primary h-6 w-6" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="text-sm font-medium text-gray-500">Prize Value</p>
-                  <p className="font-bold text-2xl text-primary">$1,000</p>
+                  <p className="font-bold text-3xl text-primary">$1,000</p>
+                  <p className="text-xs text-gray-600 mt-1">For your classroom supplies</p>
                 </div>
               </CardContent>
             </Card>
@@ -102,7 +103,7 @@ export const CountdownTimer = ({
                   </div>
                   <div className="relative h-20 w-20 overflow-hidden rounded-full bg-gradient-to-b from-blue-50 to-indigo-50 border-2 border-blue-100 shadow-sm">
                     <img 
-                      src="/lovable-uploads/f5195a11-06c5-427c-9cd7-246be0569877.png" 
+                      src="/lovable-uploads/399cdf8e-d7b2-47fa-b4d6-8106630d1e5e.png" 
                       alt="Teacher avatar" 
                       className="object-contain transform scale-110 translate-y-2" 
                     />
