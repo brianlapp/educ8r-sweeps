@@ -71,8 +71,8 @@ export const CountdownTimer = ({
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="bg-white border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md hover:border-blue-300">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+            <Card className="bg-white border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md hover:border-blue-300 max-w-md">
               <CardContent className="p-4 flex items-center">
                 <div className="bg-blue-50 p-3 rounded-full mr-4">
                   <Gift className="text-primary h-6 w-6" />
@@ -85,7 +85,7 @@ export const CountdownTimer = ({
               </CardContent>
             </Card>
             
-            <Card className="bg-white border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md hover:border-blue-300 relative overflow-hidden group">
+            <Card className="bg-white border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md hover:border-blue-300 max-w-md">
               <CardContent className="p-4 flex justify-between items-center">
                 <div className="flex flex-col">
                   <p className="font-bold text-2xl md:text-3xl text-primary leading-tight">
