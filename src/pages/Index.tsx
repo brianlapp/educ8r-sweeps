@@ -1,4 +1,3 @@
-
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Helmet } from 'react-helmet-async';
@@ -103,7 +102,7 @@ const Index = () => {
       </header>
 
       <main className="flex-grow">
-        <div className="container mx-auto px-4 py-6 md:py-12">
+        <div className="container mx-auto px-2 sm:px-4 py-6 md:py-12">
           <div className="relative grid md:grid-cols-2 gap-0 items-center max-w-6xl mx-auto">
             <div className="order-1 md:order-1 md:pr-12 z-0 md:w-[calc(100%+3rem)]">
               <img alt="Students collaborating on laptop" className="w-full animate-fadeIn transform hover:scale-[1.02] transition-transform duration-300 rounded-none" src="/lovable-uploads/308c0411-e546-4640-ab1a-b354a074f9c4.png" />
@@ -121,8 +120,8 @@ const Index = () => {
             </div>
           </div>
 
-          <div className="mt-12 bg-white p-8 rounded-xl shadow-md border border-gray-100">
-            <div className="max-w-4xl mx-auto">
+          <div className="mt-12 bg-white p-4 sm:p-8 rounded-xl shadow-md border border-gray-100 mx-0">
+            <div className="w-full mx-auto">
               <h2 className="text-2xl font-semibold mb-2 text-center">⏰ Limited Time Opportunity!</h2>
               <p className="text-center font-semibold text-gray-800 mb-6 text-lg">
                 Be Among the First 500 Teachers to Enter!
@@ -133,7 +132,7 @@ const Index = () => {
                 Enter for a chance to win $1,000 to spend on everything on your school supply list - from backpacks and notebooks to markers and more! Get ready for a successful school year.
               </p>
 
-              <div className="mt-8 bg-gradient-to-br from-blue-50 to-indigo-50 p-8 rounded-2xl border border-blue-100">
+              <div className="mt-8 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-8 rounded-2xl border border-blue-100">
                 <div className="flex flex-col items-center mb-6">
                   <img 
                     src="https://i0.wp.com/dmlearninglab.com/wp-content/uploads/2024/03/Comprendi-Logo-5.png?fit=580%2C327&ssl=1" 

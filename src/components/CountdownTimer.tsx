@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Rocket, Star, Gift, ArrowRight } from "lucide-react";
@@ -41,16 +42,16 @@ export const CountdownTimer = ({
 
   if (displayMode === "launch-phase") {
     return (
-      <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200 shadow-md overflow-hidden animate-fadeIn">
-        <CardHeader className="pb-2">
-          <div className="flex justify-between items-center">
+      <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200 shadow-md overflow-hidden animate-fadeIn mx-0 md:mx-auto w-full">
+        <CardHeader className="pb-2 px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
             <div className="flex items-center gap-2">
               <div className="bg-primary/10 p-2 rounded-full">
                 <Rocket className="text-primary h-6 w-6 animate-pulse" />
               </div>
               <h3 className="font-bold text-xl text-primary">Launch Period</h3>
             </div>
-            <Badge variant="success" className="animate-fadeIn py-1.5 px-3">
+            <Badge variant="success" className="animate-fadeIn py-1.5 px-3 w-fit">
               <Star className="mr-1.5 h-3.5 w-3.5" /> Early Entry Phase
             </Badge>
           </div>
@@ -58,7 +59,7 @@ export const CountdownTimer = ({
         
         <Separator className="bg-blue-200 h-[1.5px] w-[calc(100%+3rem)] -mx-6 opacity-70 mb-4" />
         
-        <CardContent className="space-y-6 pt-2">
+        <CardContent className="space-y-6 pt-2 px-4 sm:px-6">
           <div className="space-y-3">            
             <div className="space-y-2">
               <Progress value={progress} className="h-7 bg-white" />
@@ -107,7 +108,7 @@ export const CountdownTimer = ({
           </div>
         </CardContent>
         
-        <CardFooter className="pt-0 flex justify-center">
+        <CardFooter className="pt-0 flex justify-center px-4 sm:px-6">
           <div className="flex items-center gap-1 text-sm md:text-base font-medium text-primary hover:text-primary-hover transition-colors duration-200">
             Get Your Entry in Before the Rush
             <ArrowRight className="h-4 w-4 ml-1" />
