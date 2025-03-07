@@ -1,9 +1,8 @@
 
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Rocket, Star, Gift, Clock, ArrowRight } from "lucide-react";
+import { Rocket, Star, Gift, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 
 interface CountdownTimerProps {
@@ -42,7 +41,7 @@ export const CountdownTimer = ({
 
   if (displayMode === "launch-phase") {
     return (
-      <Card className="bg-gradient-to-br from-blue-100 to-indigo-100 border-blue-200 shadow-md overflow-hidden animate-fadeIn">
+      <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200 shadow-md overflow-hidden animate-fadeIn">
         <CardHeader className="pb-2">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
@@ -64,7 +63,7 @@ export const CountdownTimer = ({
             </p>
             
             <div className="space-y-2">
-              <Progress value={progress} className="h-5 bg-blue-50" />
+              <Progress value={progress} className="h-7 bg-blue-50" />
               <div className="flex justify-between items-center text-xs text-gray-600">
                 <p>Campaign Start</p>
                 <p className="font-medium text-primary">Launch Phase: {progress}% Complete</p>
@@ -73,7 +72,7 @@ export const CountdownTimer = ({
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card className="bg-white border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md hover:border-blue-300">
               <CardContent className="p-4 flex items-center gap-4">
                 <div className="bg-blue-50 p-3 rounded-full">
@@ -86,28 +85,28 @@ export const CountdownTimer = ({
               </CardContent>
             </Card>
             
-            <Card className="bg-white border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md hover:border-blue-300">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="bg-blue-50 p-3 rounded-full">
-                  <Clock className="text-primary h-6 w-6" />
-                </div>
-                <div>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-3xl font-bold text-primary">{timeLeft.days}</span>
-                    <span className="text-lg font-medium text-gray-600">days</span>
-                  </div>
-                  <p className="text-sm text-gray-500">Until Drawing</p>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-white border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md hover:border-blue-300">
-              <CardContent className="p-4 flex items-center justify-center text-center">
-                <div className="flex flex-col items-center">
+            <Card className="bg-white border-blue-100 shadow-sm transition-all duration-300 hover:shadow-md hover:border-blue-300 relative overflow-hidden group">
+              <CardContent className="p-4 flex justify-between items-center">
+                <div className="flex flex-col">
                   <p className="font-medium text-gray-700 mb-1">
-                    <span className="text-primary font-bold">Enter Now</span>
+                    <span className="text-primary font-bold text-lg">Enter Now</span>
                   </p>
                   <p className="text-sm text-gray-600">Before Spots Fill Up!</p>
+                  <ArrowRight className="h-5 w-5 mt-2 text-primary group-hover:translate-x-1 transition-transform" />
+                </div>
+                <div className="bg-blue-50/80 rounded-full p-2 relative">
+                  <div className="absolute -top-2 -right-2 z-10">
+                    <Badge variant="success" className="animate-pulse h-6 w-6 flex items-center justify-center p-0">
+                      <Star className="h-3 w-3" />
+                    </Badge>
+                  </div>
+                  <div className="relative h-20 w-20 overflow-hidden rounded-full bg-gradient-to-b from-blue-50 to-indigo-50 border-2 border-blue-100 shadow-sm">
+                    <img 
+                      src="/lovable-uploads/f5195a11-06c5-427c-9cd7-246be0569877.png" 
+                      alt="Teacher avatar" 
+                      className="object-contain transform scale-110 translate-y-2" 
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
