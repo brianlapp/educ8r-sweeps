@@ -122,8 +122,8 @@ const Index = () => {
 
           <div className="mt-12 bg-white p-8 rounded-xl shadow-md border border-gray-100">
             <div className="max-w-4xl mx-auto">
-              <h2 className="text-2xl font-semibold mb-6 text-center">⏰ Enter Before Time's Up!</h2>
-              <CountdownTimer targetDate={targetDate} />
+              <h2 className="text-2xl font-semibold mb-6 text-center">⏰ Limited Time Opportunity!</h2>
+              <CountdownTimer targetDate={targetDate} displayMode="launch-phase" />
               
               <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed mt-6 text-center">
                 Enter for a chance to win $1,000 to spend on everything on your school supply list - from backpacks and notebooks to markers and more! Get ready for a successful school year.
