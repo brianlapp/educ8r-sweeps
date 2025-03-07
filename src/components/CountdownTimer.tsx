@@ -1,9 +1,9 @@
-
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Rocket, Star, Gift, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 
 interface CountdownTimerProps {
   targetDate: Date;
@@ -56,7 +56,9 @@ export const CountdownTimer = ({
           </div>
         </CardHeader>
         
-        <CardContent className="space-y-6 pt-4">
+        <Separator className="bg-blue-200 h-[1.5px] w-full opacity-70 mb-4 mx-auto" />
+        
+        <CardContent className="space-y-6 pt-2">
           <div className="space-y-3">            
             <div className="space-y-2">
               <Progress value={progress} className="h-7 bg-white" />
