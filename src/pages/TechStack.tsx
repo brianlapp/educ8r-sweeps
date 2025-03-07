@@ -6,10 +6,8 @@ import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
 const TechStack = () => {
-  return (
-    <div className="container max-w-5xl py-6 md:py-12">
+  return <div className="container max-w-5xl py-6 md:py-12">
       <Helmet>
         <title>Tech Stack | Educ8r Sweepstakes</title>
         <meta name="description" content="Technical overview of the Educ8r Sweepstakes platform" />
@@ -104,9 +102,7 @@ const TechStack = () => {
                   <span className="font-semibold text-lg">Total Development Time</span>
                   <Badge className="text-base py-1">127 hours</Badge>
                 </div>
-                <p className="text-muted-foreground mt-2 text-sm">
-                  Approximately 3 weeks of development with a small team of developers working on different components simultaneously.
-                </p>
+                
               </div>
             </CardContent>
           </Card>
@@ -457,8 +453,6 @@ const TechStack = () => {
           <p>Created by the Educ8r Team - {new Date().getFullYear()}</p>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default TechStack;
