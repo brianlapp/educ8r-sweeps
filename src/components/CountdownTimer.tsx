@@ -44,15 +44,15 @@ export const CountdownTimer = ({
     return (
       <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200 shadow-md overflow-hidden animate-fadeIn mx-0 md:mx-auto w-full">
         <CardHeader className="pb-2 px-4 sm:px-6">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className="bg-primary/10 p-2 rounded-full">
-                <Rocket className="text-primary h-6 w-6 animate-pulse" />
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-1 sm:gap-2">
+              <div className="bg-primary/10 p-1.5 sm:p-2 rounded-full">
+                <Rocket className="text-primary h-5 w-5 sm:h-6 sm:w-6 animate-pulse" />
               </div>
-              <h3 className="font-bold text-xl text-primary">Launch Period</h3>
+              <h3 className="font-bold text-sm sm:text-base md:text-xl text-primary">Launch Period</h3>
             </div>
-            <Badge variant="success" className="animate-fadeIn py-1.5 px-3 w-fit">
-              <Star className="mr-1.5 h-3.5 w-3.5" /> Early Entry Phase
+            <Badge variant="success" className="animate-fadeIn py-1 sm:py-1.5 px-2 sm:px-3 text-xs sm:text-sm">
+              <Star className="mr-1 h-3 w-3 sm:h-3.5 sm:w-3.5" /> Early Entry Phase
             </Badge>
           </div>
         </CardHeader>
