@@ -57,13 +57,9 @@ export const CountdownTimer = ({
         </CardHeader>
         
         <CardContent className="space-y-6 pt-4">
-          <div className="space-y-3">
-            <p className="text-center font-semibold text-gray-800 mb-3 text-lg">
-              Be Among the First 500 Teachers to Enter!
-            </p>
-            
+          <div className="space-y-3">            
             <div className="space-y-2">
-              <Progress value={progress} className="h-7 bg-blue-50" />
+              <Progress value={progress} className="h-7 bg-white" />
               <div className="flex justify-between items-center text-xs text-gray-600">
                 <p>Campaign Start</p>
                 <p className="font-medium text-primary">Launch Phase: {progress}% Complete</p>
