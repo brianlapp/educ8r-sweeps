@@ -56,7 +56,7 @@ export const CountdownTimer = ({
           </div>
         </CardHeader>
         
-        <Separator className="bg-blue-200 h-[1.5px] w-full opacity-70 mb-4 mx-auto" />
+        <Separator className="bg-blue-200 h-[1.5px] w-[calc(100%+3rem)] -mx-6 opacity-70 mb-4" />
         
         <CardContent className="space-y-6 pt-2">
           <div className="space-y-3">            
