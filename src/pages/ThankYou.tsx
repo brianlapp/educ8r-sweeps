@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Helmet } from 'react-helmet-async';
 import { supabase } from "@/integrations/supabase/client";
+import { CheckCircle } from "lucide-react";
 
 declare global {
   interface Window {
@@ -210,8 +211,11 @@ const ThankYou = () => {
     try {
       await navigator.clipboard.writeText(referralLink);
       toast({
-        title: "Link Copied!",
-        description: "Your referral link has been copied to clipboard."
+        title: "Link Copied Successfully!",
+        description: "Share it with parents to earn bonus entries!",
+        variant: "default",
+        duration: 4000,
+        icon: <CheckCircle className="h-5 w-5 text-green-500" />,
       });
     } catch (err) {
       toast({
