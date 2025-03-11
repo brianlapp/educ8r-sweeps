@@ -22,15 +22,74 @@
     <meta name="twitter:description" content="Enter now to win $1,000 for your classroom supplies! Free entry for educators. Support your students with everything they need for a successful school year." />
     <meta name="twitter:image" content="https://educ8r.freeparentsearch.com/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png" />
     
-    <!-- Google Analytics -->
-    <!-- Google tag (gtag.js) -->
+    <!-- Google Analytics: First load Google Tag Manager -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-7ZWHGLBHFM"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
 
-      gtag('config', 'G-7ZWHGLBHFM');
+      // Configure with enhanced measurement & SPA settings
+      gtag('config', 'G-7ZWHGLBHFM', {
+        send_page_view: false,  // We'll handle page views manually for SPA
+        custom_map: {
+          'dimension1': 'device_type',
+          'dimension2': 'user_agent'
+        }
+      });
+      
+      // Track initial page view
+      gtag('event', 'page_view', {
+        page_title: document.title,
+        page_location: window.location.href,
+        page_path: window.location.pathname,
+        device_type: /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+        user_agent: navigator.userAgent
+      });
+      
+      // Listen for SPA route changes via history API
+      let lastUrl = window.location.href;
+      const handleRouteChange = () => {
+        const newUrl = window.location.href;
+        if (newUrl !== lastUrl) {
+          lastUrl = newUrl;
+          
+          // Send page view for new route
+          gtag('event', 'page_view', {
+            page_title: document.title,
+            page_location: newUrl,
+            page_path: window.location.pathname,
+            device_type: /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+            user_agent: navigator.userAgent
+          });
+          
+          // Also send a standard engagement event
+          gtag('event', 'engagement', {
+            engagement_type: 'page_change'
+          });
+        }
+      };
+      
+      // Monitor for history changes
+      ['pushState', 'replaceState'].forEach(method => {
+        const original = window.history[method];
+        window.history[method] = function() {
+          const result = original.apply(this, arguments);
+          const event = new Event('locationchange');
+          window.dispatchEvent(event);
+          return result;
+        };
+      });
+      
+      window.addEventListener('popstate', handleRouteChange);
+      window.addEventListener('locationchange', handleRouteChange);
+      
+      // Track user engagement
+      ['mousedown', 'touchstart', 'keydown', 'scroll'].forEach(event => {
+        window.addEventListener(event, () => {
+          gtag('event', 'user_engagement');
+        }, { once: true });  // Fire only once per session
+      });
     </script>
     
     <!-- Favicon -->

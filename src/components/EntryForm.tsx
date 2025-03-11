@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAnalytics } from "@/hooks/use-analytics";
 
 // Define an interface for the API response structure
 interface SubmitEntryResponse {
@@ -57,6 +57,7 @@ export const EntryForm = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const referredBy = searchParams.get("ref");
+  const analytics = useAnalytics();
 
   const validateEmail = (email: string): boolean => {
     // Basic regex check for email format
@@ -81,12 +82,27 @@ export const EntryForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Track form submission attempt
+    analytics.trackEvent('form_submission_attempt', {
+      form: 'entry_form',
+      has_referral: !!referredBy
+    });
+    
     // Validate email before submission
     if (!validateEmail(formData.email)) {
+      analytics.trackEvent('form_validation_error', {
+        form: 'entry_form',
+        error_type: 'invalid_email'
+      });
       return;
     }
     
     if (!agreed) {
+      analytics.trackEvent('form_validation_error', {
+        form: 'entry_form',
+        error_type: 'terms_not_accepted'
+      });
+      
       toast({
         title: "Terms & Conditions",
         description: "Please agree to the terms and conditions to continue.",
@@ -118,7 +134,10 @@ export const EntryForm = () => {
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        analytics.trackFormSubmission('entry_form', false);
+        throw error;
+      }
       
       if (data && data.data && data.data.referral_code) {
         const referralCode = data.data.referral_code;
@@ -129,8 +148,18 @@ export const EntryForm = () => {
         
         // Set flag for returning user status
         localStorage.setItem('isReturningUser', data.isExisting ? 'true' : 'false');
+        
+        // Track successful form submission
+        analytics.trackFormSubmission('entry_form', true);
+        analytics.trackEvent('sweepstakes_entry', {
+          is_returning: data.isExisting,
+          has_referral: !!referredBy
+        });
       } else {
         console.error('Missing referral code in response:', data);
+        analytics.trackEvent('api_response_error', {
+          error_type: 'missing_referral_code'
+        });
       }
       
       // Navigate to thank you page
@@ -138,6 +167,11 @@ export const EntryForm = () => {
       
     } catch (error) {
       console.error('Error submitting entry:', error);
+      analytics.trackEvent('form_submission_error', {
+        form: 'entry_form',
+        error: String(error)
+      });
+      
       toast({
         title: "Error",
         description: "There was an error submitting your entry. Please try again.",
@@ -239,6 +273,11 @@ export const EntryForm = () => {
         type="submit"
         disabled={isSubmitting}
         className="w-full text-white font-medium rounded-lg transition-colors duration-200 bg-green-500 hover:bg-green-400 text-2xl py-[28px]"
+        onClick={() => {
+          if (!isSubmitting) {
+            analytics.trackButtonClick('entry_submit_button');
+          }
+        }}
       >
         {isSubmitting ? "Submitting..." : "Enter Now for FREE!"}
       </Button>

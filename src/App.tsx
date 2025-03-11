@@ -1,7 +1,8 @@
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { HelmetProvider } from 'react-helmet-async';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect } from "react";
 import Index from "./pages/Index";
 import ThankYou from "./pages/ThankYou";
 import TestLanding from "./pages/TestLanding";
@@ -15,10 +16,29 @@ import TechStack from "./pages/TechStack";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { useAnalytics } from "./hooks/use-analytics";
 import "./App.css";
 
 // Create a client
 const queryClient = new QueryClient();
+
+// Route change tracker component
+function RouteChangeTracker() {
+  const location = useLocation();
+  const analytics = useAnalytics();
+  
+  useEffect(() => {
+    // Track page view on route change
+    analytics.trackPageView();
+    
+    // Track engagement on new page
+    analytics.trackEvent('page_engagement', {
+      path: location.pathname
+    });
+  }, [location.pathname, analytics]);
+  
+  return null;
+}
 
 function App() {
   return (
@@ -26,6 +46,7 @@ function App() {
       <HelmetProvider>
         <AuthProvider>
           <Router>
+            <RouteChangeTracker />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/thank-you" element={<ThankYou />} />
