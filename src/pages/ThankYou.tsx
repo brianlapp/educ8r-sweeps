@@ -215,7 +215,6 @@ const ThankYou = () => {
         description: "Share it with parents to earn bonus entries!",
         variant: "default",
         duration: 4000,
-        icon: <CheckCircle className="h-5 w-5 text-green-500" />,
       });
     } catch (err) {
       toast({
