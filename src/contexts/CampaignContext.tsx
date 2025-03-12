@@ -26,16 +26,19 @@ export const CampaignProvider: React.FC<{children: React.ReactNode}> = ({ childr
   const [error, setError] = useState<Error | null>(null);
   const { slug } = useParams<{ slug: string }>();
 
+  console.log("CampaignProvider mounted with slug:", slug);
+
   useEffect(() => {
     const fetchCampaign = async () => {
+      console.log("Starting fetchCampaign with slug:", slug);
       try {
         setIsLoading(true);
         setError(null);
         
-        console.log("Fetching campaign with slug:", slug || "default active campaign");
+        console.log("Executing Supabase query for:", slug ? `slug: ${slug}` : "active campaign");
         
         let { data, error: supabaseError } = slug 
-          ? await supabase.from('campaigns').select('*').eq('slug', slug).single()
+          ? await supabase.from('campaigns').select('*').eq('slug', slug).maybeSingle()
           : await supabase.from('campaigns').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle();
         
         if (supabaseError) {
@@ -46,9 +49,10 @@ export const CampaignProvider: React.FC<{children: React.ReactNode}> = ({ childr
         console.log("Campaign data received:", data);
         setCampaign(data); // data can be null now which is fine
       } catch (err) {
-        console.error('Error fetching campaign:', err);
+        console.error('Error in fetchCampaign:', err);
         setError(err as Error);
       } finally {
+        console.log("Setting isLoading to false");
         setIsLoading(false);
       }
     };
@@ -56,7 +60,13 @@ export const CampaignProvider: React.FC<{children: React.ReactNode}> = ({ childr
     fetchCampaign();
   }, [slug]);
 
-  console.log("CampaignContext state:", { isLoading, campaign, error: error?.message });
+  console.log("CampaignContext rendering with state:", { 
+    isLoading, 
+    hasCampaign: !!campaign, 
+    campaignId: campaign?.id,
+    error: error?.message,
+    slug 
+  });
 
   return (
     <CampaignContext.Provider value={{ campaign, isLoading, error }}>
