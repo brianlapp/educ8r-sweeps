@@ -1,4 +1,3 @@
-
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Helmet } from 'react-helmet-async';
@@ -101,7 +100,7 @@ const Index = () => {
       <PartnershipBanner />
 
       <main className="flex-grow">
-        <div className="container mx-auto px-2 sm:px-4 py-6 md:py-12">
+        <div className="container mx-auto px-2 sm:px-4">
           {isLoading ? (
             <div className="text-center py-12">
               <p className="text-xl">Loading campaign...</p>
