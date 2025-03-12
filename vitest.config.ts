@@ -11,6 +11,9 @@ export default defineConfig({
     globals: true,
     css: true,
     include: ['**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    typecheck: {
+      tsconfig: './tsconfig.json',
+    },
   },
   resolve: {
     alias: {
@@ -18,3 +21,4 @@ export default defineConfig({
     },
   },
 });
+
