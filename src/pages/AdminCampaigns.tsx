@@ -20,7 +20,7 @@ const AdminCampaigns = () => {
   const { trackEvent } = useAnalytics();
   
   const { data: campaigns = [], isLoading, refetch } = useCampaigns();
-  const { createCampaign, updateCampaign, toggleCampaignVisibility } = useCampaignMutations();
+  const { createCampaign, updateCampaign, toggleCampaignVisibility, deleteCampaign } = useCampaignMutations();
 
   useEffect(() => {
     console.log("[AdminCampaigns] Component mounted, triggering refetch");
@@ -32,8 +32,6 @@ const AdminCampaigns = () => {
     
     if (editingCampaign) {
       console.log("[AdminCampaigns] Updating existing campaign:", editingCampaign.id);
-      console.log("[AdminCampaigns] New title value:", formData.title);
-      console.log("[AdminCampaigns] Old title value:", editingCampaign.title);
       
       const updatedCampaign = { 
         ...formData, 
@@ -42,60 +40,33 @@ const AdminCampaigns = () => {
         updated_at: editingCampaign.updated_at
       };
       
-      console.log("[AdminCampaigns] Calling updateCampaign with:", JSON.stringify(updatedCampaign, null, 2));
-      
       trackEvent('admin_update_campaign', { campaignId: editingCampaign.id });
       
-      try {
-        updateCampaign.mutate(updatedCampaign, {
-          onSuccess: () => {
-            console.log("[AdminCampaigns] Update mutation successful - forcing refetch");
-            toast.success("Campaign updated successfully!");
-            
-            resetForm();
-            
-            setTimeout(() => {
-              console.log("[AdminCampaigns] Executing delayed refetch");
-              refetch().then(result => {
-                console.log("[AdminCampaigns] Refetch completed after update with result:", result);
-                if (result.data) {
-                  console.log("[AdminCampaigns] Updated campaign list:", JSON.stringify(result.data, null, 2));
-                }
-              }).catch(err => {
-                console.error("[AdminCampaigns] Refetch failed:", err);
-              });
-            }, 500);
-          },
-          onError: (error) => {
-            console.error("[AdminCampaigns] Update mutation failed:", error);
-            toast.error("Failed to update campaign. Please try again.");
-          }
-        });
-      } catch (err) {
-        console.error("[AdminCampaigns] Exception in updateCampaign.mutate:", err);
-        toast.error("An error occurred while updating the campaign");
-      }
+      updateCampaign.mutate(updatedCampaign, {
+        onSuccess: () => {
+          console.log("[AdminCampaigns] Update successful - closing form and refreshing");
+          toast.success("Campaign updated successfully!");
+          resetForm();
+          setTimeout(() => refetch(), 500);
+        },
+        onError: (error) => {
+          console.error("[AdminCampaigns] Update failed:", error);
+          toast.error("Failed to update campaign. Please try again.");
+        }
+      });
     } else {
       console.log("[AdminCampaigns] Creating new campaign");
       trackEvent('admin_create_campaign');
+      
       createCampaign.mutate(formData, {
         onSuccess: () => {
-          console.log("[AdminCampaigns] Create mutation successful - closing form");
+          console.log("[AdminCampaigns] Create successful - closing form and refreshing");
+          toast.success("Campaign created successfully!");
           resetForm();
-          setTimeout(() => {
-            console.log("[AdminCampaigns] Executing delayed refetch after create");
-            refetch()
-              .then(result => {
-                console.log("[AdminCampaigns] Refetch completed after create with result:", result);
-              })
-              .catch(err => {
-                console.error("[AdminCampaigns] Refetch failed after create:", err);
-                toast.error("Error refreshing campaign list");
-              });
-          }, 500);
+          setTimeout(() => refetch(), 500);
         },
         onError: (error: Error) => {
-          console.error("[AdminCampaigns] Create mutation failed:", error);
+          console.error("[AdminCampaigns] Create failed:", error);
           toast.error("Failed to create campaign: " + error.message);
         }
       });
@@ -108,7 +79,7 @@ const AdminCampaigns = () => {
   };
 
   const openEditForm = (campaign: Campaign) => {
-    console.log("[AdminCampaigns] Opening edit form for campaign:", JSON.stringify(campaign, null, 2));
+    console.log("[AdminCampaigns] Opening edit form for campaign:", campaign.id);
     setEditingCampaign(campaign);
     setIsFormOpen(true);
   };
