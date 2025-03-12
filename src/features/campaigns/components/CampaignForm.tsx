@@ -1,5 +1,7 @@
+
 import { Campaign, CampaignFormData } from "../types";
-import { Input, Textarea } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { useState } from "react";
