@@ -1,3 +1,4 @@
+
 import { Json } from "@/integrations/supabase/types";
 
 export interface WhyShareItem {
@@ -26,6 +27,7 @@ export interface Campaign {
   updated_at?: string;
   visible_in_admin?: boolean;
   subtitle?: string;
+  mobile_subtitle?: string;
   promotional_text?: string;
   meta_title?: string;
   meta_description?: string;
@@ -52,6 +54,7 @@ export interface CampaignFormData {
   hero_image_url?: string;
   visible_in_admin?: boolean;
   subtitle?: string;
+  mobile_subtitle?: string;
   promotional_text?: string;
   meta_title?: string;
   meta_description?: string;
@@ -80,6 +83,7 @@ export interface SupabaseCampaign {
   updated_at?: string;
   visible_in_admin?: boolean;
   subtitle?: string;
+  mobile_subtitle?: string;
   promotional_text?: string;
   meta_title?: string;
   meta_description?: string;

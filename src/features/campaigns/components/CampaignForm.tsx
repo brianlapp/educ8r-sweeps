@@ -1,3 +1,4 @@
+
 import { Campaign, CampaignFormData } from "../types";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,6 +29,7 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
     share_description: initialData?.share_description || 'Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you\'ll earn an extra entry for every parent who activates the trial.',
     hero_image_url: initialData?.hero_image_url || '',
     subtitle: initialData?.subtitle || 'Support Your Students and Stock Up on Classroom Supplies',
+    mobile_subtitle: initialData?.mobile_subtitle || 'Support Your Students',
     promotional_text: initialData?.promotional_text || 'Enter for a chance to win $200 to spend on everything on your Anything from Amazon list - from backpacks and notebooks to markers and more! Get ready for a successful school year.',
     meta_title: initialData?.meta_title || '',
     meta_description: initialData?.meta_description || '',
@@ -150,7 +152,7 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="subtitle" className="text-sm font-medium">Form Subtitle</label>
+        <label htmlFor="subtitle" className="text-sm font-medium">Form Subtitle (Desktop)</label>
         <Input
           id="subtitle"
           name="subtitle"
@@ -158,7 +160,19 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
           onChange={handleInputChange}
           placeholder="e.g. Support Your Students and Stock Up on Classroom Supplies"
         />
-        <p className="text-xs text-gray-500 mt-1">This appears as a subtitle below the main form title</p>
+        <p className="text-xs text-gray-500 mt-1">This appears as a subtitle below the main form title on desktop</p>
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="mobile_subtitle" className="text-sm font-medium">Form Subtitle (Mobile)</label>
+        <Input
+          id="mobile_subtitle"
+          name="mobile_subtitle"
+          value={formData.mobile_subtitle}
+          onChange={handleInputChange}
+          placeholder="e.g. Support Your Students"
+        />
+        <p className="text-xs text-gray-500 mt-1">A shorter subtitle that appears on mobile devices</p>
       </div>
 
       <div className="space-y-2">

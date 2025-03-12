@@ -39,6 +39,7 @@ interface Campaign {
   email_template_id: string;
   hero_image_url?: string;
   subtitle?: string;
+  mobile_subtitle?: string;
   promotional_text?: string;
 }
 
@@ -73,6 +74,7 @@ const AdminCampaignPreview = () => {
             ? JSON.parse(data.why_share_items) 
             : data.why_share_items,
           subtitle: data.subtitle || '',
+          mobile_subtitle: data.mobile_subtitle || '',
           promotional_text: data.promotional_text || 'Enter for a chance to win $200 to spend on everything on your Anything from Amazon list - from backpacks and notebooks to markers and more! Get ready for a successful school year.'
         };
         
@@ -81,6 +83,7 @@ const AdminCampaignPreview = () => {
           title: processedData.title,
           prize_name: processedData.prize_name,
           subtitle: processedData.subtitle,
+          mobile_subtitle: processedData.mobile_subtitle,
           promotional_text: processedData.promotional_text,
           hero_image_url: processedData.hero_image_url || ''
         });
@@ -310,7 +313,7 @@ const AdminCampaignPreview = () => {
                 </div>
                 
                 <div>
-                  <h3 className="font-semibold mb-1">Form Subtitle</h3>
+                  <h3 className="font-semibold mb-1">Form Subtitle (Desktop)</h3>
                   {isEditing ? (
                     <Input
                       name="subtitle"
@@ -325,7 +328,27 @@ const AdminCampaignPreview = () => {
                     </p>
                   )}
                   <p className="text-xs text-gray-500 mt-1">
-                    This text appears below the main form title
+                    This text appears below the main form title on desktop devices
+                  </p>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-1">Form Subtitle (Mobile)</h3>
+                  {isEditing ? (
+                    <Input
+                      name="mobile_subtitle"
+                      value={editableContent.mobile_subtitle || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                      placeholder="Support Your Students"
+                    />
+                  ) : (
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign?.mobile_subtitle || 'No mobile subtitle set'}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    A shorter subtitle that appears on mobile devices
                   </p>
                 </div>
                 
