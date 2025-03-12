@@ -73,5 +73,27 @@ export function useCampaignMutations() {
     }
   });
 
-  return { createCampaign, updateCampaign };
+  const deleteCampaign = useMutation({
+    mutationFn: async (campaignId: string) => {
+      console.log("[AdminCampaignsPage] Deleting campaign:", campaignId);
+      
+      const { error } = await supabase
+        .from('campaigns')
+        .delete()
+        .eq('id', campaignId);
+
+      if (error) throw error;
+      return campaignId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      toast.success("Campaign deleted successfully!");
+    },
+    onError: (error) => {
+      console.error("[AdminCampaignsPage] Delete error:", error);
+      toast.error("Failed to delete campaign");
+    }
+  });
+
+  return { createCampaign, updateCampaign, deleteCampaign };
 }
