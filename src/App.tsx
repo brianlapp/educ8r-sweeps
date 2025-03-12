@@ -1,112 +1,108 @@
 
-import React from 'react';
-import {
-  BrowserRouter as Router,
-  Route,
-  Routes,
-  Navigate
-} from "react-router-dom";
-import { ThemeProvider } from "@/components/theme-provider"
-import LandingPage from "@/pages/LandingPage";
-import ThankYou from "@/pages/ThankYou";
-import Admin from "@/pages/Admin";
-import Webhooks from "@/pages/Webhooks";
-import { Auth } from '@supabase/auth-ui-react'
-import { ThemeSupa } from '@supabase/auth-ui-shared'
-import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react'
-import { CampaignProvider } from '@/contexts/CampaignContext';
-import AdminCampaignContent from "@/pages/AdminCampaignContent";
-import { Toaster } from "@/components/ui/toaster";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import { HelmetProvider } from 'react-helmet-async';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect } from "react";
+import Index from "./pages/Index";
+import ThankYou from "./pages/ThankYou";
+import TestLanding from "./pages/TestLanding";
+import Admin from "./pages/Admin";
+import AdminWebhookStatus from "./pages/AdminWebhookStatus";
+import AdminLogin from "./pages/AdminLogin";
+import Documentation from "./pages/Documentation";
+import Terms from "./pages/Terms";
+import Rules from "./pages/Rules";
+import TechStack from "./pages/TechStack";
+import NotFound from "./pages/NotFound";
+import { AuthProvider } from "./contexts/AuthContext";
+import { CampaignProvider } from "./contexts/CampaignContext";
+import ProtectedRoute from "./components/ProtectedRoute";
+import { useAnalytics } from "./hooks/use-analytics";
+import "./App.css";
+
+// Create a client
+const queryClient = new QueryClient();
+
+// Route change tracker component
+function RouteChangeTracker() {
+  const location = useLocation();
+  const analytics = useAnalytics();
+  
+  useEffect(() => {
+    // Track page view on route change
+    analytics.trackPageView();
+    
+    // Track engagement on new page
+    analytics.trackEvent('page_engagement', {
+      path: location.pathname
+    });
+  }, [location.pathname, analytics]);
+  
+  return null;
+}
 
 function App() {
-  console.log("App component rendering");
   return (
-    <ThemeProvider defaultTheme="system" storageKey="vite-react-ts-shadcn">
-      <Router>
-        <Routes>
-          {/* Landing page routes */}
-          <Route path="/" element={
-            <CampaignProvider>
-              <LandingPage />
-            </CampaignProvider>
-          } />
-          
-          {/* Thank you routes */}
-          <Route path="/thank-you" element={
-            <CampaignProvider>
-              <ThankYou />
-            </CampaignProvider>
-          } />
-
-          {/* Routes with slug parameter */}
-          <Route path="/:slug" element={
-            <CampaignProvider>
-              <LandingPage />
-            </CampaignProvider>
-          } />
-          <Route path="/thank-you/:slug" element={
-            <CampaignProvider>
-              <ThankYou />
-            </CampaignProvider>
-          } />
-
-          {/* Admin routes */}
-          <Route path="/admin" element={
-            <ProtectedRoute>
-              <Admin />
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/webhooks" element={
-            <ProtectedRoute>
-              <Webhooks />
-            </ProtectedRoute>
-          } />
-          <Route path="/admin/campaign-content" element={
-            <ProtectedRoute>
-              <AdminCampaignContent />
-            </ProtectedRoute>
-          } />
-
-          {/* Auth and fallback routes */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-        <Toaster />
-      </Router>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <HelmetProvider>
+        <AuthProvider>
+          <Router>
+            <RouteChangeTracker />
+            <Routes>
+              <Route 
+                path="/" 
+                element={
+                  <CampaignProvider>
+                    <Index />
+                  </CampaignProvider>
+                } 
+              />
+              <Route 
+                path="/:slug" 
+                element={
+                  <CampaignProvider>
+                    <Index />
+                  </CampaignProvider>
+                } 
+              />
+              <Route 
+                path="/:slug/thank-you" 
+                element={
+                  <CampaignProvider>
+                    <ThankYou />
+                  </CampaignProvider>
+                } 
+              />
+              <Route path="/thank-you" element={<ThankYou />} />
+              <Route path="/test-landing" element={<TestLanding />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/rules" element={<Rules />} />
+              <Route path="/tech-stack" element={<TechStack />} />
+              <Route 
+                path="/admin" 
+                element={
+                  <ProtectedRoute>
+                    <Admin />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route
+                path="/admin/webhooks"
+                element={
+                  <ProtectedRoute>
+                    <AdminWebhookStatus />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/docs" element={<Documentation />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Router>
+        </AuthProvider>
+      </HelmetProvider>
+    </QueryClientProvider>
   );
-}
-
-function LoginPage() {
-  const session = useSession()
-  const supabase = useSupabaseClient()
-
-  return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100">
-      <div className="p-8 bg-white shadow-md rounded-md w-96">
-        {!session ? (
-          <Auth
-            supabaseClient={supabase}
-            appearance={{ theme: ThemeSupa }}
-            providers={['google']}
-            redirectTo={`${window.location.origin}/admin`}
-          />
-        ) : (
-          <Navigate to="/admin" />
-        )}
-      </div>
-    </div>
-  )
-}
-
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const session = useSession();
-
-  if (!session) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
 }
 
 export default App;

@@ -1,10 +1,22 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
 
-type Campaign = Database['public']['Tables']['campaigns']['Row'];
+interface Campaign {
+  id: string;
+  title: string;
+  slug: string;
+  prize_name: string;
+  prize_amount: string;
+  target_audience: string;
+  thank_you_title: string;
+  thank_you_description: string;
+  email_template_id: string;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+}
 
 interface CampaignContextType {
   campaign: Campaign | null;
@@ -18,60 +30,52 @@ const CampaignContext = createContext<CampaignContextType>({
   error: null,
 });
 
-export const useCampaign = () => useContext(CampaignContext);
-
-export const CampaignProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
+export function CampaignProvider({ children }: { children: React.ReactNode }) {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const { slug } = useParams<{ slug: string }>();
-
-  console.log("CampaignProvider mounted with slug:", slug);
+  const { slug = 'classroom-supplies-2025' } = useParams();
 
   useEffect(() => {
-    const fetchCampaign = async () => {
+    async function fetchCampaign() {
       try {
-        setIsLoading(true);
-        setError(null);
-        
-        console.log("Starting fetchCampaign with slug:", slug);
-        console.log("Executing Supabase query for:", slug ? `slug: ${slug}` : "active campaign");
-        
-        // Fixed query construction to maintain proper types
-        let { data, error: supabaseError } = slug 
-          ? await supabase.from('campaigns').select('*').eq('slug', slug).maybeSingle()
-          : await supabase.from('campaigns').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle();
-        
-        if (supabaseError) {
-          console.error("Supabase error:", supabaseError);
-          throw new Error(supabaseError.message);
+        console.log('Fetching campaign with slug:', slug);
+        const { data, error: fetchError } = await supabase
+          .from('campaigns')
+          .select('*')
+          .eq('slug', slug)
+          .single();
+
+        if (fetchError) {
+          throw fetchError;
         }
-        
-        console.log("Campaign data received:", data);
-        setCampaign(data);
+
+        if (data) {
+          console.log('Campaign data fetched:', data);
+          setCampaign(data);
+        }
       } catch (err) {
-        console.error('Error in fetchCampaign:', err);
-        setError(err instanceof Error ? err : new Error('Unknown error occurred'));
+        console.error('Error fetching campaign:', err);
+        setError(err instanceof Error ? err : new Error('Failed to fetch campaign'));
       } finally {
-        console.log("Setting isLoading to false");
         setIsLoading(false);
       }
-    };
+    }
 
     fetchCampaign();
   }, [slug]);
-
-  console.log("CampaignContext rendering with state:", { 
-    isLoading, 
-    hasCampaign: !!campaign, 
-    campaignId: campaign?.id,
-    error: error?.message,
-    slug 
-  });
 
   return (
     <CampaignContext.Provider value={{ campaign, isLoading, error }}>
       {children}
     </CampaignContext.Provider>
   );
-};
+}
+
+export function useCampaign() {
+  const context = useContext(CampaignContext);
+  if (!context) {
+    throw new Error('useCampaign must be used within a CampaignProvider');
+  }
+  return context;
+}
