@@ -37,17 +37,10 @@ export const CampaignProvider: React.FC<{children: React.ReactNode}> = ({ childr
         console.log("Starting fetchCampaign with slug:", slug);
         console.log("Executing Supabase query for:", slug ? `slug: ${slug}` : "active campaign");
         
-        let query = supabase
-          .from('campaigns')
-          .select('*');
-          
-        if (slug) {
-          query = query.eq('slug', slug).maybeSingle();
-        } else {
-          query = query.eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle();
-        }
-        
-        const { data, error: supabaseError } = await query;
+        // Fixed query construction to maintain proper types
+        let { data, error: supabaseError } = slug 
+          ? await supabase.from('campaigns').select('*').eq('slug', slug).maybeSingle()
+          : await supabase.from('campaigns').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle();
         
         if (supabaseError) {
           console.error("Supabase error:", supabaseError);
