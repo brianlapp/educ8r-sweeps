@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
@@ -65,7 +64,6 @@ const AdminCampaignPreview = () => {
           
         if (error) throw error;
         
-        // Ensure why_share_items is properly parsed
         const processedData = {
           ...data,
           why_share_items: typeof data.why_share_items === 'string' 
@@ -149,7 +147,6 @@ const AdminCampaignPreview = () => {
   };
 
   const cancelEditing = () => {
-    // Reset to original values
     if (campaign) {
       setEditableContent({
         share_title: campaign.share_title,
@@ -247,14 +244,95 @@ const AdminCampaignPreview = () => {
           </CardContent>
         </Card>
         
-        <Tabs defaultValue="thank-you" className="space-y-4">
+        <Tabs defaultValue="landing" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="thank-you">Thank You Page</TabsTrigger>
             <TabsTrigger value="landing">Landing Page</TabsTrigger>
+            <TabsTrigger value="thank-you">Thank You Page</TabsTrigger>
             <TabsTrigger value="email">Email Template</TabsTrigger>
           </TabsList>
           
-          {/* Thank You Page Tab */}
+          <TabsContent value="landing" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-medium">Landing Page Preview</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 overflow-hidden">
+                <div className="h-[600px] rounded-md border border-gray-200 overflow-hidden bg-white">
+                  <iframe 
+                    src={`/${campaign.slug}`} 
+                    className="w-full h-full" 
+                    title="Landing Page Preview"
+                  />
+                </div>
+                <div className="flex justify-end p-4">
+                  <Link 
+                    to={`/${campaign.slug}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    Open in new tab
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-medium">Landing Page Content</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h3 className="font-semibold mb-1">Thank You Title</h3>
+                  {isEditing ? (
+                    <Input
+                      name="thank_you_title"
+                      value={editableContent.thank_you_title || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                    />
+                  ) : (
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign.thank_you_title}
+                    </p>
+                  )}
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-1">Thank You Description</h3>
+                  {isEditing ? (
+                    <Textarea
+                      name="thank_you_description"
+                      value={editableContent.thank_you_description || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                      rows={3}
+                    />
+                  ) : (
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign.thank_you_description}
+                    </p>
+                  )}
+                </div>
+
+                {isEditing && (
+                  <div>
+                    <h3 className="font-semibold mb-1">Hero Image URL (Optional)</h3>
+                    <Input
+                      name="hero_image_url"
+                      value={editableContent.hero_image_url || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                      placeholder="https://example.com/image.jpg"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">URL for the campaign landing page hero image</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
           <TabsContent value="thank-you" className="space-y-4">
             <Card>
               <CardHeader>
@@ -385,90 +463,6 @@ const AdminCampaignPreview = () => {
             </Card>
           </TabsContent>
           
-          {/* Landing Page Tab */}
-          <TabsContent value="landing" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg font-medium">Landing Page Preview</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 overflow-hidden">
-                <div className="h-[600px] rounded-md border border-gray-200 overflow-hidden bg-white">
-                  <iframe 
-                    src={`/${campaign.slug}`} 
-                    className="w-full h-full" 
-                    title="Landing Page Preview"
-                  />
-                </div>
-                <div className="flex justify-end p-4">
-                  <Link 
-                    to={`/${campaign.slug}`} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    Open in new tab
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg font-medium">Landing Page Content</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h3 className="font-semibold mb-1">Thank You Title</h3>
-                  {isEditing ? (
-                    <Input
-                      name="thank_you_title"
-                      value={editableContent.thank_you_title || ''}
-                      onChange={handleInputChange}
-                      className="w-full"
-                    />
-                  ) : (
-                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
-                      {campaign.thank_you_title}
-                    </p>
-                  )}
-                </div>
-                
-                <div>
-                  <h3 className="font-semibold mb-1">Thank You Description</h3>
-                  {isEditing ? (
-                    <Textarea
-                      name="thank_you_description"
-                      value={editableContent.thank_you_description || ''}
-                      onChange={handleInputChange}
-                      className="w-full"
-                      rows={3}
-                    />
-                  ) : (
-                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
-                      {campaign.thank_you_description}
-                    </p>
-                  )}
-                </div>
-
-                {isEditing && (
-                  <div>
-                    <h3 className="font-semibold mb-1">Hero Image URL (Optional)</h3>
-                    <Input
-                      name="hero_image_url"
-                      value={editableContent.hero_image_url || ''}
-                      onChange={handleInputChange}
-                      className="w-full"
-                      placeholder="https://example.com/image.jpg"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">URL for the campaign landing page hero image</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          {/* Email Template Tab */}
           <TabsContent value="email" className="space-y-4">
             <Card>
               <CardHeader>
