@@ -1,8 +1,9 @@
+
 import { Helmet } from 'react-helmet-async';
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { BackToAdminButton } from "@/components/admin/BackToAdminButton";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription } from "@/components/ui/alert-dialog";
@@ -11,6 +12,7 @@ import { CampaignForm } from "@/features/campaigns/components/CampaignForm";
 import { useCampaigns } from "@/features/campaigns/hooks/useCampaigns";
 import { useCampaignMutations } from "@/features/campaigns/hooks/useCampaignMutations";
 import { Campaign } from "@/features/campaigns/types";
+import { toast } from "sonner";
 
 const AdminCampaigns = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -19,12 +21,19 @@ const AdminCampaigns = () => {
   const { data: campaigns = [], isLoading, refetch } = useCampaigns();
   const { createCampaign, updateCampaign, toggleCampaignVisibility } = useCampaignMutations();
 
+  // Add this effect to ensure proper refetching after form operations
+  useEffect(() => {
+    // This will run when the component mounts and should trigger a fresh fetch
+    refetch();
+  }, [refetch]);
+
   const handleSubmit = (formData: any) => {
-    console.log("[FORM-DEBUG] Form submitted with data:", formData);
+    console.log("[FORM-DEBUG] Form submitted with data:", JSON.stringify(formData, null, 2));
     
     if (editingCampaign) {
       console.log("[FORM-DEBUG] Updating existing campaign:", editingCampaign.id);
       console.log("[FORM-DEBUG] New title value:", formData.title);
+      console.log("[FORM-DEBUG] Old title value:", editingCampaign.title);
       
       const updatedCampaign = { 
         ...formData, 
@@ -33,20 +42,37 @@ const AdminCampaigns = () => {
         updated_at: editingCampaign.updated_at
       };
       
-      console.log("[FORM-DEBUG] Calling updateCampaign with:", updatedCampaign);
-      updateCampaign.mutate(updatedCampaign);
+      console.log("[FORM-DEBUG] Calling updateCampaign with:", JSON.stringify(updatedCampaign, null, 2));
+      
+      try {
+        updateCampaign.mutate(updatedCampaign, {
+          onSuccess: () => {
+            console.log("[FORM-DEBUG] Update mutation successful - forcing refetch");
+            // Force a refetch to ensure the UI shows the latest data
+            setTimeout(() => {
+              refetch().then(result => {
+                console.log("[FORM-DEBUG] Refetch completed with result:", result);
+                if (result.data) {
+                  console.log("[FORM-DEBUG] Updated campaign list:", JSON.stringify(result.data, null, 2));
+                }
+              });
+            }, 500);
+          },
+          onError: (error) => {
+            console.error("[FORM-DEBUG] Update mutation failed:", error);
+            toast.error("Failed to update campaign. Please try again.");
+          }
+        });
+      } catch (err) {
+        console.error("[FORM-DEBUG] Exception in updateCampaign.mutate:", err);
+        toast.error("An error occurred while updating the campaign");
+      }
     } else {
       console.log("[AdminCampaigns] Creating new campaign");
       createCampaign.mutate(formData);
     }
     
     resetForm();
-    
-    // Force a refetch to ensure the UI shows the latest data
-    setTimeout(() => {
-      console.log("[FORM-DEBUG] Refetching campaign data");
-      refetch();
-    }, 1000);
   };
 
   const resetForm = () => {
@@ -55,7 +81,7 @@ const AdminCampaigns = () => {
   };
 
   const openEditForm = (campaign: Campaign) => {
-    console.log("[AdminCampaigns] Opening edit form for campaign:", campaign);
+    console.log("[AdminCampaigns] Opening edit form for campaign:", JSON.stringify(campaign, null, 2));
     setEditingCampaign(campaign);
     setIsFormOpen(true);
   };

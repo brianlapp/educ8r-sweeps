@@ -1,4 +1,3 @@
-
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Campaign, CampaignFormData, WhyShareItem } from "../types";
@@ -46,11 +45,11 @@ export function useCampaignMutations() {
 
   const updateCampaign = useMutation({
     mutationFn: async (campaign: Campaign) => {
-      console.log("[UPDATE-DEBUG] Starting update with campaign data:", campaign);
-      console.log("[UPDATE-DEBUG] Title being updated to:", campaign.title);
+      console.log("[DEEP-DEBUG] Starting update with campaign data:", JSON.stringify(campaign, null, 2));
+      console.log("[DEEP-DEBUG] Title being updated to:", campaign.title);
       
       if (!campaign.id || !campaign.title || !campaign.slug) {
-        console.error("[UPDATE-DEBUG] Missing required fields:", { 
+        console.error("[DEEP-DEBUG] Missing required fields:", { 
           id: campaign.id, 
           title: campaign.title, 
           slug: campaign.slug 
@@ -64,21 +63,21 @@ export function useCampaignMutations() {
         why_share_items: campaign.why_share_items as unknown as Json
       };
       
-      console.log("[UPDATE-DEBUG] Sending to Supabase:", campaignData);
+      console.log("[DEEP-DEBUG] Sending to Supabase:", JSON.stringify(campaignData, null, 2));
       
       const { data, error } = await supabase
         .from('campaigns')
         .update(campaignData)
         .eq('id', campaign.id)
-        .select()
+        .select('*')
         .single();
 
       if (error) {
-        console.error("[UPDATE-DEBUG] Supabase update error:", error);
+        console.error("[DEEP-DEBUG] Supabase update error:", error);
         throw error;
       }
       
-      console.log("[UPDATE-DEBUG] Received from Supabase:", data);
+      console.log("[DEEP-DEBUG] Received from Supabase:", JSON.stringify(data, null, 2));
       
       // Transform the data back to Campaign type
       const updatedCampaign: Campaign = {
@@ -92,39 +91,40 @@ export function useCampaignMutations() {
           : undefined
       };
       
-      console.log("[UPDATE-DEBUG] Final transformed campaign:", updatedCampaign);
-      console.log("[UPDATE-DEBUG] Final title value:", updatedCampaign.title);
+      console.log("[DEEP-DEBUG] Final transformed campaign:", JSON.stringify(updatedCampaign, null, 2));
+      console.log("[DEEP-DEBUG] Final title value:", updatedCampaign.title);
       return updatedCampaign;
     },
     onSuccess: (updatedCampaign) => {
-      console.log("[UPDATE-DEBUG] onSuccess called with:", updatedCampaign);
+      console.log("[DEEP-DEBUG] onSuccess called with:", JSON.stringify(updatedCampaign, null, 2));
       
-      // Log current cache state
+      // Force invalidate the campaigns query to ensure fresh fetch
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      
+      // For debugging - log the current cache
       const currentCache = queryClient.getQueryData(['campaigns']);
-      console.log("[UPDATE-DEBUG] Current cache state:", currentCache);
+      console.log("[DEEP-DEBUG] Current cache state BEFORE update:", JSON.stringify(currentCache, null, 2));
       
-      // Update specific campaign in cache
+      // Force an update of the specific campaign in the cache
       queryClient.setQueryData(['campaigns'], (oldData: Campaign[] | undefined) => {
         if (!oldData) {
-          console.log("[UPDATE-DEBUG] No existing cache, setting new data");
+          console.log("[DEEP-DEBUG] No existing cache, setting new data");
           return [updatedCampaign];
         }
         
-        console.log("[UPDATE-DEBUG] Updating cache with new campaign data");
+        console.log("[DEEP-DEBUG] Updating cache with new campaign data");
         const newData = oldData.map(campaign => 
           campaign.id === updatedCampaign.id ? updatedCampaign : campaign
         );
         
-        console.log("[UPDATE-DEBUG] New cache state:", newData);
+        console.log("[DEEP-DEBUG] New cache state AFTER update:", JSON.stringify(newData, null, 2));
         return newData;
       });
       
-      // Invalidate queries to ensure fresh data
-      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       toast.success("Campaign updated successfully!");
     },
     onError: (error) => {
-      console.error("[UPDATE-DEBUG] Mutation error:", error);
+      console.error("[DEEP-DEBUG] Mutation error:", error);
       toast.error("Failed to update campaign");
     }
   });
@@ -152,7 +152,6 @@ export function useCampaignMutations() {
     }
   });
 
-  // Keep the deleteCampaign mutation but it will now be unused
   const deleteCampaign = useMutation({
     mutationFn: async (campaignId: string) => {
       console.log("[AdminCampaignsPage] Deleting campaign:", campaignId);
