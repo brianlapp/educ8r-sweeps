@@ -73,10 +73,8 @@ const AdminCampaignPreview = () => {
         
         setCampaign(processedData as Campaign);
         setEditableContent({
-          share_title: processedData.share_title,
-          share_description: processedData.share_description,
-          thank_you_title: processedData.thank_you_title,
-          thank_you_description: processedData.thank_you_description
+          title: processedData.title,
+          prize_name: processedData.prize_name,
         });
         setWhyShareItems(processedData.why_share_items || []);
       } catch (error) {
@@ -149,10 +147,8 @@ const AdminCampaignPreview = () => {
   const cancelEditing = () => {
     if (campaign) {
       setEditableContent({
-        share_title: campaign.share_title,
-        share_description: campaign.share_description,
-        thank_you_title: campaign.thank_you_title,
-        thank_you_description: campaign.thank_you_description
+        title: campaign.title,
+        prize_name: campaign.prize_name,
       });
       setWhyShareItems(campaign.why_share_items || []);
     }
@@ -284,51 +280,41 @@ const AdminCampaignPreview = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <h3 className="font-semibold mb-1">Thank You Title</h3>
+                  <h3 className="font-semibold mb-1">Form Title</h3>
                   {isEditing ? (
                     <Input
-                      name="thank_you_title"
-                      value={editableContent.thank_you_title || ''}
+                      name="title"
+                      value={editableContent.title || ''}
                       onChange={handleInputChange}
                       className="w-full"
+                      placeholder="Enter form title"
                     />
                   ) : (
                     <p className="p-3 bg-gray-50 rounded border border-gray-100">
-                      {campaign.thank_you_title}
+                      {campaign?.title}
                     </p>
                   )}
                 </div>
                 
                 <div>
-                  <h3 className="font-semibold mb-1">Thank You Description</h3>
+                  <h3 className="font-semibold mb-1">Prize Usage Description</h3>
                   {isEditing ? (
-                    <Textarea
-                      name="thank_you_description"
-                      value={editableContent.thank_you_description || ''}
+                    <Input
+                      name="prize_name"
+                      value={editableContent.prize_name || ''}
                       onChange={handleInputChange}
                       className="w-full"
-                      rows={3}
+                      placeholder="What can they spend the prize on?"
                     />
                   ) : (
                     <p className="p-3 bg-gray-50 rounded border border-gray-100">
-                      {campaign.thank_you_description}
+                      {campaign?.prize_name}
                     </p>
                   )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    This text appears below the prize value (e.g., "For your classroom supplies")
+                  </p>
                 </div>
-
-                {isEditing && (
-                  <div>
-                    <h3 className="font-semibold mb-1">Hero Image URL (Optional)</h3>
-                    <Input
-                      name="hero_image_url"
-                      value={editableContent.hero_image_url || ''}
-                      onChange={handleInputChange}
-                      className="w-full"
-                      placeholder="https://example.com/image.jpg"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">URL for the campaign landing page hero image</p>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </TabsContent>
