@@ -1,7 +1,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Campaign, CampaignFormData, SupabaseCampaign, WhyShareItem } from "../types";
+import { Campaign, CampaignFormData, WhyShareItem } from "../types";
 import { toast } from "sonner";
 import { Json } from "@/integrations/supabase/types";
 
@@ -46,11 +46,15 @@ export function useCampaignMutations() {
 
   const updateCampaign = useMutation({
     mutationFn: async (campaign: Campaign) => {
-      console.log("[AdminCampaignsPage] Updating campaign - received data:", campaign);
+      console.log("[UPDATE-DEBUG] Starting update with campaign data:", campaign);
+      console.log("[UPDATE-DEBUG] Title being updated to:", campaign.title);
       
-      // Ensure required fields are present
       if (!campaign.id || !campaign.title || !campaign.slug) {
-        console.error("[AdminCampaignsPage] Missing required fields for update", campaign);
+        console.error("[UPDATE-DEBUG] Missing required fields:", { 
+          id: campaign.id, 
+          title: campaign.title, 
+          slug: campaign.slug 
+        });
         throw new Error("Missing required fields for campaign update");
       }
       
@@ -60,7 +64,7 @@ export function useCampaignMutations() {
         why_share_items: campaign.why_share_items as unknown as Json
       };
       
-      console.log("[AdminCampaignsPage] Sending update to Supabase with data:", campaignData);
+      console.log("[UPDATE-DEBUG] Sending to Supabase:", campaignData);
       
       const { data, error } = await supabase
         .from('campaigns')
@@ -70,16 +74,15 @@ export function useCampaignMutations() {
         .single();
 
       if (error) {
-        console.error("[AdminCampaignsPage] Supabase update error:", error);
+        console.error("[UPDATE-DEBUG] Supabase update error:", error);
         throw error;
       }
       
-      console.log("[AdminCampaignsPage] Campaign updated successfully, returned data:", data);
+      console.log("[UPDATE-DEBUG] Received from Supabase:", data);
       
       // Transform the data back to Campaign type
       const updatedCampaign: Campaign = {
         ...data,
-        // Convert the why_share_items from Json back to WhyShareItem[]
         why_share_items: data.why_share_items 
           ? (Array.isArray(data.why_share_items) 
               ? data.why_share_items as unknown as WhyShareItem[]
@@ -89,33 +92,39 @@ export function useCampaignMutations() {
           : undefined
       };
       
-      console.log("[AdminCampaignsPage] Transformed campaign data:", updatedCampaign);
+      console.log("[UPDATE-DEBUG] Final transformed campaign:", updatedCampaign);
+      console.log("[UPDATE-DEBUG] Final title value:", updatedCampaign.title);
       return updatedCampaign;
     },
     onSuccess: (updatedCampaign) => {
-      console.log("[AdminCampaignsPage] Update success callback with data:", updatedCampaign);
+      console.log("[UPDATE-DEBUG] onSuccess called with:", updatedCampaign);
       
-      // First update the specific campaign in the cache
+      // Log current cache state
+      const currentCache = queryClient.getQueryData(['campaigns']);
+      console.log("[UPDATE-DEBUG] Current cache state:", currentCache);
+      
+      // Update specific campaign in cache
       queryClient.setQueryData(['campaigns'], (oldData: Campaign[] | undefined) => {
         if (!oldData) {
-          console.log("[AdminCampaignsPage] No existing campaigns in cache, setting new data");
+          console.log("[UPDATE-DEBUG] No existing cache, setting new data");
           return [updatedCampaign];
         }
         
-        console.log("[AdminCampaignsPage] Updating specific campaign in cache");
+        console.log("[UPDATE-DEBUG] Updating cache with new campaign data");
         const newData = oldData.map(campaign => 
           campaign.id === updatedCampaign.id ? updatedCampaign : campaign
         );
         
+        console.log("[UPDATE-DEBUG] New cache state:", newData);
         return newData;
       });
       
-      // Then invalidate the query to ensure fresh data on next fetch
+      // Invalidate queries to ensure fresh data
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       toast.success("Campaign updated successfully!");
     },
     onError: (error) => {
-      console.error("[AdminCampaignsPage] Mutation error:", error);
+      console.error("[UPDATE-DEBUG] Mutation error:", error);
       toast.error("Failed to update campaign");
     }
   });

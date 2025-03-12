@@ -1,4 +1,3 @@
-
 import { Helmet } from 'react-helmet-async';
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,19 +20,20 @@ const AdminCampaigns = () => {
   const { createCampaign, updateCampaign, toggleCampaignVisibility } = useCampaignMutations();
 
   const handleSubmit = (formData: any) => {
-    console.log("[AdminCampaigns] Form submitted with data:", formData);
+    console.log("[FORM-DEBUG] Form submitted with data:", formData);
     
     if (editingCampaign) {
-      console.log("[AdminCampaigns] Updating existing campaign:", editingCampaign.id);
+      console.log("[FORM-DEBUG] Updating existing campaign:", editingCampaign.id);
+      console.log("[FORM-DEBUG] New title value:", formData.title);
+      
       const updatedCampaign = { 
         ...formData, 
         id: editingCampaign.id,
-        // Preserve these fields from the original campaign if they exist
         created_at: editingCampaign.created_at,
         updated_at: editingCampaign.updated_at
       };
       
-      console.log("[AdminCampaigns] Calling updateCampaign with:", updatedCampaign);
+      console.log("[FORM-DEBUG] Calling updateCampaign with:", updatedCampaign);
       updateCampaign.mutate(updatedCampaign);
     } else {
       console.log("[AdminCampaigns] Creating new campaign");
@@ -44,9 +44,9 @@ const AdminCampaigns = () => {
     
     // Force a refetch to ensure the UI shows the latest data
     setTimeout(() => {
-      console.log("[AdminCampaigns] Refetching campaign data");
+      console.log("[FORM-DEBUG] Refetching campaign data");
       refetch();
-    }, 1000); // Small delay to ensure the mutation has completed
+    }, 1000);
   };
 
   const resetForm = () => {
