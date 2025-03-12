@@ -9,26 +9,25 @@ interface EmailPayload {
   email: string;
   firstName: string;
   referralCode: string;
-  campaignId?: string;
+  campaignId?: string; // Make this optional to support both new and old flows
 }
 
-const handler = async (req: Request): Promise<Response> => {
-  console.log("=== Send Referral Notification Handler Started ===");
-  
+async function sendNotification(req: Request) {
+  // Handle CORS
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    // Parse the payload
     const payload: EmailPayload = await req.json();
     console.log("Received notification request:", JSON.stringify(payload));
-    
-    if (!payload.email || !payload.firstName || !payload.referralCode) {
-      console.error("Missing required fields:", { 
-        hasEmail: !!payload.email, 
-        hasFirstName: !!payload.firstName, 
-        hasReferralCode: !!payload.referralCode 
-      });
+
+    // Extract fields from payload
+    const { email, firstName, referralCode, campaignId } = payload;
+
+    // Validate input
+    if (!email || !firstName || !referralCode) {
       return new Response(
         JSON.stringify({
           success: false,
@@ -41,23 +40,22 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const apiKey = Deno.env.get("BEEHIIV_API_KEY");
-    console.log("BeehiiV API Key present:", !!apiKey);
-    
+    // Initialize Supabase client
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    // Get campaign-specific information if campaign ID is provided
     let campaign = null;
     let shareText = "I just entered to win $1,000 for classroom supplies! You can enter too!";
     let thankYouTitle = "Thanks for Sharing!";
     
-    if (payload.campaignId) {
+    if (campaignId) {
       const { data: campaignData, error: campaignError } = await supabase
         .from("campaigns")
         .select("*")
-        .eq("id", payload.campaignId)
+        .eq("id", campaignId)
         .maybeSingle();
 
       if (campaignError) {
@@ -70,30 +68,31 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
+    // Generate the share URL
     const shareUrl = campaign 
-      ? `https://educ8r.freeparentsearch.com/${campaign.slug}?ref=${payload.referralCode}`
-      : `https://educ8r.freeparentsearch.com/?ref=${payload.referralCode}`;
+      ? `https://educ8r.freeparentsearch.com/${campaign.slug}?ref=${referralCode}`
+      : `https://educ8r.freeparentsearch.com/?ref=${referralCode}`;
 
+    // Format the current date
     const today = new Date();
     const formattedDate = `${today.toLocaleString('default', { month: 'long' })} ${today.getDate()}, ${today.getFullYear()}`;
 
-    // Format email variables as array of {key, value} objects for BeehiiV API
-    const customFields = [
-      { key: "first_name", value: payload.firstName },
-      { key: "referral_code", value: payload.referralCode },
-      { key: "referral_link", value: shareUrl },
-      { key: "share_text", value: shareText },
-      { key: "thank_you_title", value: thankYouTitle },
-      { key: "current_date", value: formattedDate },
-      { key: "campaign_name", value: campaign?.title || "$1,000 Classroom Sweepstakes" },
-      { key: "prize_amount", value: campaign?.prize_amount || "$1,000" },
-      { key: "prize_name", value: campaign?.prize_name || "classroom supplies" }
-    ];
+    // Define email variables
+    const emailVariables = {
+      first_name: firstName,
+      referral_code: referralCode,
+      referral_link: shareUrl,
+      share_text: shareText,
+      thank_you_title: thankYouTitle,
+      current_date: formattedDate,
+      campaign_name: campaign?.title || "$1,000 Classroom Sweepstakes",
+      prize_amount: campaign?.prize_amount || "$1,000",
+      prize_name: campaign?.prize_name || "classroom supplies"
+    };
 
-    console.log("Attempting BeehiiV API request with variables:", JSON.stringify(customFields));
-    
+    // Send email via BeehiiV API
     const BEEHIIV_API_KEY = Deno.env.get("BEEHIIV_API_KEY");
-    const publicationId = "pub_26e1c2a3-8da8-49b1-a07c-1b42adb5dad2";
+    const publicationId = "pub_26e1c2a3-8da8-49b1-a07c-1b42adb5dad2"; // FPS BeehiiV publication
 
     const beehiivResponse = await fetch(
       `https://api.beehiiv.com/v2/publications/${publicationId}/subscriptions`,
@@ -104,29 +103,26 @@ const handler = async (req: Request): Promise<Response> => {
           Authorization: `Bearer ${BEEHIIV_API_KEY}`,
         },
         body: JSON.stringify({
-          email: payload.email,
+          email: email,
           reactivate_existing: true,
           send_welcome_email: true,
           utm_source: "sweepstakes-referral",
           utm_medium: "email",
           utm_campaign: campaign?.slug || "classroom-1000",
-          custom_fields: customFields,
-          tags: ["sweeps", "comprendi"],
+          custom_fields: emailVariables,
+          tags: ["sweeps", "comprendi"], // Add any campaign-specific tags if needed
         }),
       }
     );
 
-    const responseStatus = beehiivResponse.status;
-    console.log("BeehiiV API Response Status:", responseStatus);
-    
     if (!beehiivResponse.ok) {
       const errorText = await beehiivResponse.text();
-      console.error("BeehiiV API error response:", errorText);
+      console.error("BeehiiV API error:", errorText);
       throw new Error(`BeehiiV API error: ${errorText}`);
     }
 
     const beehiivResult = await beehiivResponse.json();
-    console.log("BeehiiV API success response:", beehiivResult);
+    console.log("BeehiiV result:", beehiivResult);
 
     return new Response(
       JSON.stringify({
@@ -139,11 +135,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
   } catch (error) {
-    console.error("Detailed error in send-referral-notification:", {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    });
+    console.error("Error sending notification:", error);
 
     return new Response(
       JSON.stringify({
@@ -156,6 +148,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     );
   }
-};
+}
 
-serve(handler);
+// Main serve function
+serve(sendNotification);
