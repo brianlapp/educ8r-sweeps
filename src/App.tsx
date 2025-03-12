@@ -79,7 +79,22 @@ function App() {
               <Route path="/test-landing" element={<TestLanding />} />
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/terms" element={<Terms />} />
-              <Route path="/rules" element={<Rules />} />
+              <Route 
+                path="/rules" 
+                element={
+                  <CampaignProvider>
+                    <Rules />
+                  </CampaignProvider>
+                } 
+              />
+              <Route 
+                path="/:slug/rules" 
+                element={
+                  <CampaignProvider>
+                    <Rules />
+                  </CampaignProvider>
+                } 
+              />
               <Route path="/tech-stack" element={<TechStack />} />
               <Route 
                 path="/admin" 
