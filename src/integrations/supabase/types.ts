@@ -60,6 +60,8 @@ export type Database = {
           is_active: boolean | null
           prize_amount: string
           prize_name: string
+          share_description: string | null
+          share_title: string | null
           slug: string
           start_date: string
           target_audience: string
@@ -67,6 +69,7 @@ export type Database = {
           thank_you_title: string
           title: string
           updated_at: string | null
+          why_share_items: Json | null
         }
         Insert: {
           created_at?: string | null
@@ -76,6 +79,8 @@ export type Database = {
           is_active?: boolean | null
           prize_amount: string
           prize_name: string
+          share_description?: string | null
+          share_title?: string | null
           slug: string
           start_date: string
           target_audience: string
@@ -83,6 +88,7 @@ export type Database = {
           thank_you_title: string
           title: string
           updated_at?: string | null
+          why_share_items?: Json | null
         }
         Update: {
           created_at?: string | null
@@ -92,6 +98,8 @@ export type Database = {
           is_active?: boolean | null
           prize_amount?: string
           prize_name?: string
+          share_description?: string | null
+          share_title?: string | null
           slug?: string
           start_date?: string
           target_audience?: string
@@ -99,6 +107,7 @@ export type Database = {
           thank_you_title?: string
           title?: string
           updated_at?: string | null
+          why_share_items?: Json | null
         }
         Relationships: []
       }

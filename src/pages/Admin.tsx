@@ -9,15 +9,49 @@ import { useEffect, useState } from "react";
 import { Tables } from "@/integrations/supabase/types";
 import { ManualSyncButton } from "@/components/ManualSyncButton";
 import { Link } from 'react-router-dom';
-import { ExternalLink, Trash2, Users } from "lucide-react";
+import { ExternalLink, Trash2, Users, Eye } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
+// Add a new type for campaigns
+interface Campaign {
+  id: string;
+  title: string;
+  slug: string;
+  is_active: boolean;
+}
+
 const Admin = () => {
   const [entries, setEntries] = useState<Tables<'entries'>[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch campaigns
+  const { isLoading: isLoadingCampaigns } = useQuery({
+    queryKey: ['campaigns'],
+    queryFn: async () => {
+      console.log("[AdminPage] Fetching campaigns from Supabase...");
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('id, title, slug, is_active')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error("[AdminPage] Error fetching campaigns:", error);
+        throw error;
+      }
+
+      if (data) {
+        console.log(`[AdminPage] Retrieved ${data.length} campaigns from Supabase`);
+        setCampaigns(data);
+      }
+      
+      return data;
+    },
+    refetchOnMount: 'always'
+  });
 
   const { isLoading, error, refetch } = useQuery({
     queryKey: ['entries'],
@@ -216,11 +250,61 @@ const Admin = () => {
       <div className="container mx-auto py-12">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <Link to="/admin/webhooks" className="text-sm flex items-center text-blue-500 hover:text-blue-700">
-            <ExternalLink size={14} className="mr-1.5" />
-            Webhook Status
-          </Link>
+          <div className="flex gap-4">
+            <Link to="/admin/webhooks" className="text-sm flex items-center text-blue-500 hover:text-blue-700">
+              <ExternalLink size={14} className="mr-1.5" />
+              Webhook Status
+            </Link>
+          </div>
         </div>
+        
+        {/* Campaigns Card */}
+        <Card className="mb-8 overflow-hidden border border-gray-100">
+          <CardHeader className="bg-white py-4 px-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-xl font-semibold">Campaigns</CardTitle>
+                <CardDescription className="text-gray-500">
+                  View and manage your sweepstakes campaigns
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Campaign</TableHead>
+                    <TableHead>Slug</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {campaigns.map((campaign) => (
+                    <TableRow key={campaign.id}>
+                      <TableCell className="font-medium">{campaign.title}</TableCell>
+                      <TableCell>{campaign.slug}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs ${campaign.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                          {campaign.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Link to={`/admin/campaign/${campaign.id}`}>
+                          <Button variant="ghost" size="sm" className="h-8 w-8">
+                            <Eye size={16} />
+                          </Button>
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="mb-8 overflow-hidden border border-gray-100">
           <CardHeader className="bg-white py-4 px-6">

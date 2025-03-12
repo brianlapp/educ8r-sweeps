@@ -8,6 +8,7 @@ import ThankYou from "./pages/ThankYou";
 import TestLanding from "./pages/TestLanding";
 import Admin from "./pages/Admin";
 import AdminWebhookStatus from "./pages/AdminWebhookStatus";
+import AdminCampaignPreview from "./pages/AdminCampaignPreview";
 import AdminLogin from "./pages/AdminLogin";
 import Documentation from "./pages/Documentation";
 import Terms from "./pages/Terms";
@@ -92,6 +93,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <AdminWebhookStatus />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/campaign/:id"
+                element={
+                  <ProtectedRoute>
+                    <AdminCampaignPreview />
                   </ProtectedRoute>
                 }
               />

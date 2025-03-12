@@ -3,6 +3,11 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
+interface WhyShareItem {
+  title: string;
+  description: string;
+}
+
 interface Campaign {
   id: string;
   title: string;
@@ -16,6 +21,10 @@ interface Campaign {
   start_date: string;
   end_date: string;
   is_active: boolean;
+  // New fields for custom thank you page content
+  share_title?: string;
+  share_description?: string;
+  why_share_items?: WhyShareItem[];
 }
 
 interface CampaignContextType {
@@ -52,7 +61,14 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
 
         if (data) {
           console.log('Campaign data fetched:', data);
-          setCampaign(data);
+          // If why_share_items is a string, parse it to an object
+          const processedData = {
+            ...data,
+            why_share_items: typeof data.why_share_items === 'string' 
+              ? JSON.parse(data.why_share_items) 
+              : data.why_share_items
+          };
+          setCampaign(processedData);
         }
       } catch (err) {
         console.error('Error fetching campaign:', err);

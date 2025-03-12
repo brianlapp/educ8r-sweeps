@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Helmet } from 'react-helmet-async';
 import { supabase } from "@/integrations/supabase/client";
 import { CheckCircle } from "lucide-react";
+import { useCampaign } from "@/contexts/CampaignContext";
 
 declare global {
   interface Window {
@@ -24,6 +25,7 @@ const ThankYou = () => {
   // Keep jwtStatus for debugging, but don't display it to users
   const [jwtStatus, setJwtStatus] = useState<string | null>(null);
   const { toast } = useToast();
+  const { campaign } = useCampaign();
   
   // Scroll to top when component mounts
   useEffect(() => {
@@ -231,6 +233,28 @@ const ThankYou = () => {
     }
   };
   
+  // Get default values or campaign-specific values
+  const shareTitle = campaign?.share_title || "Give Your Students' Parents a Free Gift!";
+  const shareDescription = campaign?.share_description || 
+    "Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you'll earn an extra entry for every parent who activates the trial.";
+  
+  const defaultWhyShareItems = [
+    {
+      title: "A Gift for Parents",
+      description: "Provide them with a valuable, no-cost resource to help their kids thrive in reading."
+    },
+    {
+      title: "A Team Effort",
+      description: "Working together, we can support kids in building confidence and comprehension."
+    },
+    {
+      title: "Email Notifications",
+      description: "You'll receive an email notification whenever someone uses your link, keeping you updated on your entries!"
+    }
+  ];
+  
+  const whyShareItems = campaign?.why_share_items || defaultWhyShareItems;
+  
   return <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
       <Helmet>
         <title>{metaTitle}</title>
@@ -282,11 +306,11 @@ const ThankYou = () => {
 
           <div className="bg-white p-5 md:p-8 rounded-xl shadow-md border border-gray-100">
             <h3 className="font-bold text-lg md:text-xl mb-3">
-              <span className="hidden md:inline text-2xl text-blue-500">Give Your Students' Parents a Free Gift!</span>
-              <span className="md:hidden text-blue-500 text-3xl">Give a Free Gift!</span>
+              <span className="hidden md:inline text-2xl text-blue-500">{shareTitle}</span>
+              <span className="md:hidden text-blue-500 text-3xl">{shareTitle}</span>
             </h3>
             <p className="text-gray-600 mb-5 md:mb-6 text-sm md:text-base font-medium">
-              Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you'll earn an extra entry for every parent who activates the trial.
+              {shareDescription}
             </p>
             
             <div className="bg-gray-50 p-3 md:p-4 rounded-lg mb-5 md:mb-6">
@@ -316,24 +340,14 @@ const ThankYou = () => {
             <div className="p-4 md:p-5 rounded-lg border-l-4 border-blue-500 bg-blue-50">
               <h3 className="font-bold text-lg md:text-xl mb-3 text-blue-500">📚 Why Share?</h3>
               <ul className="text-left text-gray-700 space-y-3">
-                <li className="flex items-start">
-                  <span className="inline-block mr-2 text-blue-600">•</span>
-                  <div>
-                    <span className="font-medium">A Gift for Parents:</span> Provide them with a valuable, no-cost resource to help their kids thrive in reading.
-                  </div>
-                </li>
-                <li className="flex items-start">
-                  <span className="inline-block mr-2 text-blue-600">•</span>
-                  <div>
-                    <span className="font-medium">A Team Effort:</span> Working together, we can support kids in building confidence and comprehension.
-                  </div>
-                </li>
-                <li className="flex items-start">
-                  <span className="inline-block mr-2 text-blue-600">•</span>
-                  <div>
-                    <span className="font-medium">Email Notifications:</span> You'll receive an email notification whenever someone uses your link, keeping you updated on your entries!
-                  </div>
-                </li>
+                {whyShareItems.map((item, index) => (
+                  <li key={index} className="flex items-start">
+                    <span className="inline-block mr-2 text-blue-600">•</span>
+                    <div>
+                      <span className="font-medium">{item.title}:</span> {item.description}
+                    </div>
+                  </li>
+                ))}
               </ul>
             </div>
             
