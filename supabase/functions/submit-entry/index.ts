@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -11,11 +10,9 @@ const BEEHIIV_API_KEY = Deno.env.get('BEEHIIV_API_KEY')
 const BEEHIIV_PUBLICATION_ID = 'pub_4b47c3db-7b59-4c82-a18b-16cf10fc2d23'
 
 serve(async (req) => {
-  // Record start time for performance monitoring
   const startTime = Date.now()
   console.log(`[${new Date().toISOString()}] Request started`)
   
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -24,7 +21,6 @@ serve(async (req) => {
     const { firstName, lastName, email, referredBy, campaignId } = await req.json()
     console.log('Received submission with referral:', { firstName, lastName, email, referredBy, campaignId })
 
-    // Initialize Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -32,14 +28,14 @@ serve(async (req) => {
     
     console.log(`Supabase client initialized in ${Date.now() - startTime}ms`)
 
-    // Get default campaign if none is provided
     let campaign_id = campaignId;
+    let campaign_slug = '';
     
     if (!campaign_id) {
       console.log('No campaign ID provided, fetching default campaign')
       const { data: defaultCampaign, error: campaignError } = await supabaseClient
         .from('campaigns')
-        .select('id')
+        .select('id, slug')
         .eq('slug', 'classroom-supplies-2025')
         .maybeSingle();
       
@@ -47,11 +43,21 @@ serve(async (req) => {
         console.error('Error fetching default campaign:', campaignError)
       } else if (defaultCampaign) {
         campaign_id = defaultCampaign.id;
-        console.log('Using default campaign:', campaign_id)
+        campaign_slug = defaultCampaign.slug;
+        console.log('Using default campaign:', campaign_id, 'with slug:', campaign_slug)
+      }
+    } else {
+      const { data: campaignData, error: campaignError } = await supabaseClient
+        .from('campaigns')
+        .select('slug')
+        .eq('id', campaign_id)
+        .maybeSingle();
+        
+      if (!campaignError && campaignData) {
+        campaign_slug = campaignData.slug;
       }
     }
 
-    // First check if the email already exists
     const { data: existingEntry, error: lookupError } = await supabaseClient
       .from('entries')
       .select('referral_code, entry_count, created_at')
@@ -68,16 +74,13 @@ serve(async (req) => {
     if (existingEntry) {
       console.log('Found existing entry with referral code:', existingEntry.referral_code)
       
-      // For existing users, update BeehiiV subscription 
       try {
-        // Only update subscription data - no need to trigger automation directly
-        // since BeehiiV will now trigger based on "Email Submitted" event
         const subscriberData = {
           email: email,
           first_name: firstName,
           last_name: lastName,
           utm_source: 'sweepstakes',
-          utm_medium: 'comprendi',
+          utm_medium: campaign_slug || 'unknown',
           utm_campaign: 'comprendi',
           reactivate: true,
           custom_fields: [
@@ -100,7 +103,6 @@ serve(async (req) => {
           ]
         }
 
-        // DIAGNOSTIC LOGGING: Log the exact format being sent to BeehiiV
         console.log('DIAGNOSTIC - BeehiiV payload for existing user:', JSON.stringify(subscriberData));
         console.log('DIAGNOSTIC - custom_fields type:', Array.isArray(subscriberData.custom_fields) ? 'Array' : typeof subscriberData.custom_fields);
         console.log('DIAGNOSTIC - Publication ID:', BEEHIIV_PUBLICATION_ID);
@@ -139,7 +141,6 @@ serve(async (req) => {
         console.error('[BeehiiV] Error processing BeehiiV actions for existing user:', beehiivError)
       }
       
-      // Return existing entry with a clear message
       return new Response(
         JSON.stringify({
           success: true,
@@ -156,7 +157,6 @@ serve(async (req) => {
       )
     }
 
-    // Verify the referral code exists if one was provided
     let validReferral = false
     if (referredBy) {
       const { data: referrerEntry, error: referrerError } = await supabaseClient
@@ -178,7 +178,6 @@ serve(async (req) => {
 
     console.log(`Referral verification completed at ${Date.now() - startTime}ms`)
 
-    // If email doesn't exist, proceed with insertion
     const { data: entry, error: supabaseError } = await supabaseClient
       .from('entries')
       .insert({
@@ -200,8 +199,6 @@ serve(async (req) => {
     console.log(`Database insert completed at ${Date.now() - startTime}ms`)
     console.log('Successfully created entry with referral code:', entry.referral_code)
 
-    // Create/Update BeehiiV subscription
-    // IMPORTANT: BeehiiV API expects custom_fields as an array of objects with name/value pairs
     const customFields = [
       {
         name: 'First Name',
@@ -226,13 +223,12 @@ serve(async (req) => {
       first_name: firstName,
       last_name: lastName,
       utm_source: 'sweepstakes',
-      utm_medium: 'comprendi',
+      utm_medium: campaign_slug || 'unknown',
       utm_campaign: 'comprendi',
       reactivate: true,
       custom_fields: customFields
     }
 
-    // DIAGNOSTIC LOGGING: Log the exact format being sent to BeehiiV
     console.log('DIAGNOSTIC - BeehiiV payload for new user:', JSON.stringify(subscriberData));
     console.log('DIAGNOSTIC - custom_fields type:', Array.isArray(subscriberData.custom_fields) ? 'Array' : typeof subscriberData.custom_fields);
     console.log('DIAGNOSTIC - Publication ID:', BEEHIIV_PUBLICATION_ID);
@@ -242,7 +238,6 @@ serve(async (req) => {
     
     const beehiivSubscribeStartTime = Date.now()
     
-    // Create/update subscriber
     const subscribeResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`, {
       method: 'POST',
       headers: {
@@ -270,10 +265,7 @@ serve(async (req) => {
       }
     }
 
-    // Add tags to the subscriber
     try {
-      // Get subscriber ID first (needed for tag update)
-      console.log(`[BeehiiV] Retrieving subscriber ID for: ${email}`)
       const getSubscriberStartTime = Date.now()
       
       const getSubscriberResponse = await fetch(
@@ -306,7 +298,6 @@ serve(async (req) => {
             const subscriberId = subscriberData.data[0].id
             console.log(`[BeehiiV] Found subscriber ID: ${subscriberId}`)
             
-            // Now add the comprendi tag - this is critical for the automation to work
             console.log(`[BeehiiV] Adding tags to subscriber ID: ${subscriberId}`)
             const tagUpdateStartTime = Date.now()
             
@@ -350,26 +341,23 @@ serve(async (req) => {
       console.error('[BeehiiV] Error adding tags:', tagError)
     }
 
-    // Add debug entry for referral tracking
     if (validReferral) {
       const { error: debugError } = await supabaseClient
         .from('referral_debug')
         .insert({
           email: email,
-          referrer_email: null, // We don't store referrer email
+          referrer_email: null,
           referred_by: referredBy,
           referral_code: entry.referral_code
         })
 
       if (debugError) {
         console.error('Error creating debug entry:', debugError)
-        // Don't throw, this is just for debugging
       }
     }
 
     console.log(`Total processing time: ${Date.now() - startTime}ms`)
 
-    // Return success response with the entry data
     return new Response(
       JSON.stringify({ 
         success: true, 
