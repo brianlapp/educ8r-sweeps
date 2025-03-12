@@ -1,144 +1,77 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-const BEEHIIV_API_KEY = Deno.env.get('BEEHIIV_API_KEY')
-const BEEHIIV_PUBLICATION_ID = 'pub_4b47c3db-7b59-4c82-a18b-16cf10fc2d23'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { corsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
+import { 
+  initializeSupabaseClient, 
+  getDefaultCampaign, 
+  getCampaignByID,
+  getExistingEntry, 
+  verifyReferralCode, 
+  createEntry,
+  logReferral
+} from "./database.ts";
+import { 
+  createBeehiivSubscriberData, 
+  subscribeToBeehiiv, 
+  addTagsToBeehiivSubscriber
+} from "./beehiiv.ts";
 
 serve(async (req) => {
-  const startTime = Date.now()
-  console.log(`[${new Date().toISOString()}] Request started`)
+  const startTime = Date.now();
+  console.log(`[${new Date().toISOString()}] Request started`);
   
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+  // Handle CORS preflight requests
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) {
+    return corsResponse;
   }
 
   try {
-    const { firstName, lastName, email, referredBy, campaignId } = await req.json()
-    console.log('Received submission with referral:', { firstName, lastName, email, referredBy, campaignId })
+    const { firstName, lastName, email, referredBy, campaignId } = await req.json();
+    console.log('Received submission with referral:', { firstName, lastName, email, referredBy, campaignId });
 
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-    
-    console.log(`Supabase client initialized in ${Date.now() - startTime}ms`)
+    // Initialize Supabase client
+    const supabaseClient = await initializeSupabaseClient();
+    console.log(`Supabase client initialized in ${Date.now() - startTime}ms`);
 
+    // Get campaign information
     let campaign_id = campaignId;
     let campaign_slug = '';
     
     if (!campaign_id) {
-      console.log('No campaign ID provided, fetching default campaign')
-      const { data: defaultCampaign, error: campaignError } = await supabaseClient
-        .from('campaigns')
-        .select('id, slug')
-        .eq('slug', 'classroom-supplies-2025')
-        .maybeSingle();
-      
-      if (campaignError) {
-        console.error('Error fetching default campaign:', campaignError)
-      } else if (defaultCampaign) {
+      const defaultCampaign = await getDefaultCampaign(supabaseClient);
+      if (defaultCampaign) {
         campaign_id = defaultCampaign.id;
         campaign_slug = defaultCampaign.slug;
-        console.log('Using default campaign:', campaign_id, 'with slug:', campaign_slug)
       }
     } else {
-      const { data: campaignData, error: campaignError } = await supabaseClient
-        .from('campaigns')
-        .select('slug')
-        .eq('id', campaign_id)
-        .maybeSingle();
-        
-      if (!campaignError && campaignData) {
-        campaign_slug = campaignData.slug;
-      }
+      campaign_slug = await getCampaignByID(supabaseClient, campaign_id) || '';
     }
 
-    const { data: existingEntry, error: lookupError } = await supabaseClient
-      .from('entries')
-      .select('referral_code, entry_count, created_at')
-      .eq('email', email)
-      .maybeSingle()
-
-    if (lookupError) {
-      console.error('Error checking for existing entry:', lookupError)
-      throw new Error(lookupError.message)
-    }
-
-    console.log(`Database lookup completed in ${Date.now() - startTime}ms`)
+    // Check for existing entry
+    const existingEntry = await getExistingEntry(supabaseClient, email);
+    console.log(`Database lookup completed in ${Date.now() - startTime}ms`);
     
     if (existingEntry) {
-      console.log('Found existing entry with referral code:', existingEntry.referral_code)
+      console.log('Found existing entry with referral code:', existingEntry.referral_code);
       
       try {
-        const subscriberData = {
-          email: email,
-          first_name: firstName,
-          last_name: lastName,
-          utm_source: 'sweepstakes',
-          utm_medium: campaign_slug || 'unknown',
-          utm_campaign: 'comprendi',
-          reactivate: true,
-          custom_fields: [
-            {
-              name: 'First Name',
-              value: firstName
-            },
-            {
-              name: 'Last Name',
-              value: lastName
-            },
-            {
-              name: 'referral_code',
-              value: existingEntry.referral_code
-            },
-            {
-              name: 'sweepstakes_entries',
-              value: '1'
-            }
-          ]
-        }
+        // Create BeehiiV subscriber data for existing user
+        const subscriberData = createBeehiivSubscriberData(
+          email, 
+          firstName, 
+          lastName, 
+          existingEntry.referral_code,
+          campaign_slug
+        );
 
         console.log('DIAGNOSTIC - BeehiiV payload for existing user:', JSON.stringify(subscriberData));
         console.log('DIAGNOSTIC - custom_fields type:', Array.isArray(subscriberData.custom_fields) ? 'Array' : typeof subscriberData.custom_fields);
-        console.log('DIAGNOSTIC - Publication ID:', BEEHIIV_PUBLICATION_ID);
         
-        console.log(`[BeehiiV] Making subscription update API request for existing user: ${email}`)
-        const beehiivRequestStartTime = Date.now()
-        
-        const subscribeResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-          },
-          body: JSON.stringify(subscriberData)
-        })
-
-        console.log(`[BeehiiV] API request completed in ${Date.now() - beehiivRequestStartTime}ms`)
-        console.log(`[BeehiiV] Status code: ${subscribeResponse.status}`)
-        
-        const subscribeResponseText = await subscribeResponse.text()
-        console.log(`[BeehiiV] subscription update response body:`, subscribeResponseText)
-
-        if (!subscribeResponse.ok) {
-          console.error('[BeehiiV] subscription update ERROR:', subscribeResponseText)
-        } else {
-          console.log('[BeehiiV] Successfully updated BeehiiV subscription for existing user')
-          
-          try {
-            const responseData = JSON.parse(subscribeResponseText)
-            console.log('[BeehiiV] Parsed response data:', JSON.stringify(responseData))
-          } catch (parseError) {
-            console.error('[BeehiiV] Could not parse response as JSON:', parseError)
-          }
-        }
+        // Update subscription for existing user
+        await subscribeToBeehiiv(subscriberData);
       } catch (beehiivError) {
-        console.error('[BeehiiV] Error processing BeehiiV actions for existing user:', beehiivError)
+        console.error('[BeehiiV] Error processing BeehiiV actions for existing user:', beehiivError);
       }
       
       return new Response(
@@ -154,209 +87,47 @@ serve(async (req) => {
             'Content-Type': 'application/json'
           }
         }
-      )
+      );
     }
 
-    let validReferral = false
-    if (referredBy) {
-      const { data: referrerEntry, error: referrerError } = await supabaseClient
-        .from('entries')
-        .select('referral_code')
-        .eq('referral_code', referredBy)
-        .maybeSingle()
+    // Verify referral code
+    const validReferral = await verifyReferralCode(supabaseClient, referredBy);
+    console.log(`Referral verification completed at ${Date.now() - startTime}ms`);
 
-      if (referrerError) {
-        console.error('Error verifying referral code:', referrerError)
-        console.log('Invalid referral code provided:', referredBy)
-      } else if (referrerEntry) {
-        console.log('Valid referral code found:', referredBy)
-        validReferral = true
-      } else {
-        console.log('Referral code not found in database:', referredBy)
-      }
-    }
-
-    console.log(`Referral verification completed at ${Date.now() - startTime}ms`)
-
-    const { data: entry, error: supabaseError } = await supabaseClient
-      .from('entries')
-      .insert({
-        first_name: firstName,
-        last_name: lastName,
-        email: email,
-        referred_by: validReferral ? referredBy : null,
-        entry_count: 1,
-        campaign_id: campaign_id
-      })
-      .select()
-      .single()
-
-    if (supabaseError) {
-      console.error('Supabase error:', supabaseError)
-      throw new Error(supabaseError.message)
-    }
-
-    console.log(`Database insert completed at ${Date.now() - startTime}ms`)
-    console.log('Successfully created entry with referral code:', entry.referral_code)
-
-    const customFields = [
-      {
-        name: 'First Name',
-        value: firstName
-      },
-      {
-        name: 'Last Name',
-        value: lastName
-      },
-      {
-        name: 'referral_code',
-        value: entry.referral_code
-      },
-      {
-        name: 'sweepstakes_entries',
-        value: '1'
-      }
-    ];
-
-    const subscriberData = {
-      email: email,
+    // Create new entry
+    const entry = await createEntry(supabaseClient, {
       first_name: firstName,
       last_name: lastName,
-      utm_source: 'sweepstakes',
-      utm_medium: campaign_slug || 'unknown',
-      utm_campaign: 'comprendi',
-      reactivate: true,
-      custom_fields: customFields
-    }
+      email: email,
+      referred_by: validReferral ? referredBy : null,
+      entry_count: 1,
+      campaign_id: campaign_id
+    });
+    console.log(`Database insert completed at ${Date.now() - startTime}ms`);
+
+    // Create BeehiiV subscriber data for new user
+    const subscriberData = createBeehiivSubscriberData(
+      email, 
+      firstName, 
+      lastName, 
+      entry.referral_code,
+      campaign_slug
+    );
 
     console.log('DIAGNOSTIC - BeehiiV payload for new user:', JSON.stringify(subscriberData));
-    console.log('DIAGNOSTIC - custom_fields type:', Array.isArray(subscriberData.custom_fields) ? 'Array' : typeof subscriberData.custom_fields);
-    console.log('DIAGNOSTIC - Publication ID:', BEEHIIV_PUBLICATION_ID);
-
-    console.log('[BeehiiV] Sending subscription data to BeehiiV:', JSON.stringify(subscriberData))
-    console.log(`[BeehiiV] Making subscription API request for new user: ${email}`)
     
-    const beehiivSubscribeStartTime = Date.now()
+    // Subscribe new user to BeehiiV
+    await subscribeToBeehiiv(subscriberData);
     
-    const subscribeResponse = await fetch(`https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-      },
-      body: JSON.stringify(subscriberData)
-    })
+    // Add tags to BeehiiV subscriber
+    await addTagsToBeehiivSubscriber(email);
 
-    console.log(`[BeehiiV] API subscription request completed in ${Date.now() - beehiivSubscribeStartTime}ms`)
-    console.log(`[BeehiiV] Subscription API status code: ${subscribeResponse.status}`)
-    
-    const subscribeResponseText = await subscribeResponse.text()
-    console.log(`[BeehiiV] subscription response body:`, subscribeResponseText)
-
-    if (!subscribeResponse.ok) {
-      console.error('[BeehiiV] subscription ERROR:', subscribeResponseText)
-      throw new Error('Failed to subscribe to newsletter')
-    } else {
-      try {
-        const responseData = JSON.parse(subscribeResponseText)
-        console.log('[BeehiiV] Parsed subscription response data:', JSON.stringify(responseData))
-      } catch (parseError) {
-        console.error('[BeehiiV] Could not parse subscription response as JSON:', parseError)
-      }
-    }
-
-    try {
-      const getSubscriberStartTime = Date.now()
-      
-      const getSubscriberResponse = await fetch(
-        `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions?email=${encodeURIComponent(email)}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-          }
-        }
-      )
-      
-      console.log(`[BeehiiV] Get subscriber API request completed in ${Date.now() - getSubscriberStartTime}ms`)
-      console.log(`[BeehiiV] Get subscriber API status code: ${getSubscriberResponse.status}`)
-      
-      const subscriberResponseText = await getSubscriberResponse.text()
-      console.log(`[BeehiiV] get subscriber response body:`, subscriberResponseText)
-      
-      if (!getSubscriberResponse.ok) {
-        console.error(`[BeehiiV] get subscriber ERROR:`, subscriberResponseText)
-      } else {
-        try {
-          const subscriberData = JSON.parse(subscriberResponseText)
-          console.log('[BeehiiV] Parsed subscriber data:', JSON.stringify(subscriberData))
-          
-          if (!subscriberData.data || subscriberData.data.length === 0) {
-            console.error('[BeehiiV] No subscriber found with email:', email)
-          } else {
-            const subscriberId = subscriberData.data[0].id
-            console.log(`[BeehiiV] Found subscriber ID: ${subscriberId}`)
-            
-            console.log(`[BeehiiV] Adding tags to subscriber ID: ${subscriberId}`)
-            const tagUpdateStartTime = Date.now()
-            
-            const updateTagsResponse = await fetch(
-              `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}/tags`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-                },
-                body: JSON.stringify({ 
-                  tags: ['comprendi', 'sweeps']  // Explicitly setting both required tags
-                })
-              }
-            )
-            
-            console.log(`[BeehiiV] Tag update API request completed in ${Date.now() - tagUpdateStartTime}ms`)
-            console.log(`[BeehiiV] Tag update API status code: ${updateTagsResponse.status}`)
-            
-            const tagsResponseText = await updateTagsResponse.text()
-            console.log(`[BeehiiV] tag update response body:`, tagsResponseText)
-            
-            if (!updateTagsResponse.ok) {
-              console.error(`[BeehiiV] tag update ERROR:`, tagsResponseText)
-            } else {
-              console.log('[BeehiiV] Successfully added tags to BeehiiV subscriber')
-              try {
-                const tagsData = JSON.parse(tagsResponseText)
-                console.log('[BeehiiV] Parsed tags response data:', JSON.stringify(tagsData))
-              } catch (parseError) {
-                console.error('[BeehiiV] Could not parse tags response as JSON:', parseError)
-              }
-            }
-          }
-        } catch (parseError) {
-          console.error('[BeehiiV] Error parsing BeehiiV subscriber data:', parseError)
-        }
-      }
-    } catch (tagError) {
-      console.error('[BeehiiV] Error adding tags:', tagError)
-    }
-
+    // Log referral if valid
     if (validReferral) {
-      const { error: debugError } = await supabaseClient
-        .from('referral_debug')
-        .insert({
-          email: email,
-          referrer_email: null,
-          referred_by: referredBy,
-          referral_code: entry.referral_code
-        })
-
-      if (debugError) {
-        console.error('Error creating debug entry:', debugError)
-      }
+      await logReferral(supabaseClient, email, referredBy, entry.referral_code);
     }
 
-    console.log(`Total processing time: ${Date.now() - startTime}ms`)
+    console.log(`Total processing time: ${Date.now() - startTime}ms`);
 
     return new Response(
       JSON.stringify({ 
@@ -371,10 +142,10 @@ serve(async (req) => {
           'Content-Type': 'application/json'
         } 
       }
-    )
+    );
 
   } catch (error) {
-    console.error('Error in submit-entry function:', error)
+    console.error('Error in submit-entry function:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 
@@ -387,6 +158,6 @@ serve(async (req) => {
           'Content-Type': 'application/json'
         }
       }
-    )
+    );
   }
-})
+});
