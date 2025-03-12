@@ -11,6 +11,7 @@ interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> 
   eager?: boolean; // For above-the-fold images that should load immediately
   priority?: 'high' | 'low' | 'auto';
   blurhash?: string; // Optional blurhash placeholder
+  isLCP?: boolean; // Mark as Largest Contentful Paint element
 }
 
 // Cache observed elements to avoid duplicate observations
@@ -27,13 +28,20 @@ export function OptimizedImage({
   eager = false,
   priority = 'auto',
   blurhash,
+  isLCP = false,
+  width: propWidth,
+  height: propHeight,
   ...props
 }: OptimizedImageProps) {
   const [optimizedSrc, setOptimizedSrc] = useState<string>(placeholderSrc);
   const [isLoading, setIsLoading] = useState(!eager);
   const [error, setError] = useState(false);
-  const [isIntersecting, setIsIntersecting] = useState(eager);
+  const [isIntersecting, setIsIntersecting] = useState(eager || isLCP);
   const imgRef = useRef<HTMLImageElement>(null);
+  const [dimensions, setDimensions] = useState<{width?: number, height?: number}>({
+    width: propWidth as number,
+    height: propHeight as number
+  });
 
   // Create image observer if it doesn't exist
   useEffect(() => {
@@ -65,11 +73,28 @@ export function OptimizedImage({
 
   // Add observer to current image
   useEffect(() => {
-    if (imgRef.current && imageObserver && !eager && !observedElements.has(imgRef.current)) {
+    if (imgRef.current && imageObserver && !eager && !isLCP && !observedElements.has(imgRef.current)) {
       imageObserver.observe(imgRef.current);
       observedElements.add(imgRef.current);
     }
-  }, [eager, imgRef.current]);
+  }, [eager, isLCP, imgRef.current]);
+
+  // Preload LCP images
+  useEffect(() => {
+    if (isLCP) {
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.href = src;
+      link.type = 'image/webp'; // Prefer WebP format
+      document.head.appendChild(link);
+      
+      // Clean up
+      return () => {
+        document.head.removeChild(link);
+      };
+    }
+  }, [isLCP, src]);
 
   // Generate appropriate srcset for responsive images
   const generateSrcSet = (baseSrc: string): string | undefined => {
@@ -87,7 +112,7 @@ export function OptimizedImage({
 
   useEffect(() => {
     // Don't load the image until it's in viewport (or is eager)
-    if (!src || !isIntersecting) return;
+    if (!src || (!isIntersecting && !isLCP)) return;
 
     let isMounted = true;
     setIsLoading(true);
@@ -97,11 +122,29 @@ export function OptimizedImage({
       try {
         // Handle absolute URLs vs relative paths
         const fullSrc = src.startsWith('http') ? src : (src.startsWith('/') ? src : `/${src}`);
-        const optimized = await optimizeImage(fullSrc, { quality, maxWidth });
+        const optimized = await optimizeImage(fullSrc, { 
+          quality, 
+          maxWidth,
+          preferWebP: true // Force WebP when supported
+        });
         
         if (isMounted) {
           setOptimizedSrc(optimized);
           setIsLoading(false);
+          
+          // Extract and store image dimensions if not provided via props
+          if (!propWidth || !propHeight) {
+            const img = new Image();
+            img.onload = () => {
+              if (isMounted) {
+                setDimensions({
+                  width: img.naturalWidth,
+                  height: img.naturalHeight
+                });
+              }
+            };
+            img.src = optimized;
+          }
         }
       } catch (err) {
         console.error('Failed to optimize image:', err);
@@ -118,17 +161,22 @@ export function OptimizedImage({
     return () => {
       isMounted = false;
     };
-  }, [src, quality, maxWidth, isIntersecting]);
+  }, [src, quality, maxWidth, isIntersecting, isLCP, propWidth, propHeight]);
 
   const srcSet = generateSrcSet(optimizedSrc);
   const sizes = `(max-width: 768px) 100vw, ${maxWidth}px`;
 
   // Determine proper loading strategy
-  const loadingStrategy = eager ? "eager" : "lazy";
-  const decodingStrategy = eager ? "sync" : "async";
-  const fetchPriorityStrategy = priority === 'auto' 
+  const loadingStrategy = eager || isLCP ? "eager" : "lazy";
+  const decodingStrategy = eager || isLCP ? "sync" : "async";
+  const fetchPriorityStrategy = isLCP ? "high" : (priority === 'auto' 
     ? (eager ? "high" : "auto") 
-    : priority;
+    : priority);
+
+  // Ensure we have width and height - critical for preventing layout shifts
+  const imgWidth = dimensions.width || propWidth;
+  const imgHeight = dimensions.height || propHeight;
+  const hasExplicitDimensions = Boolean(imgWidth && imgHeight);
 
   return (
     <>
@@ -136,10 +184,11 @@ export function OptimizedImage({
         <div 
           className={`bg-gray-200 animate-pulse ${className}`} 
           style={{
-            ...props.style,
-            aspectRatio: props.width && props.height 
-              ? `${props.width} / ${props.height}` 
-              : 'auto'
+            width: imgWidth ? `${imgWidth}px` : undefined,
+            height: imgHeight ? `${imgHeight}px` : undefined,
+            aspectRatio: hasExplicitDimensions 
+              ? `${imgWidth} / ${imgHeight}` 
+              : '16 / 9'
           }}
           aria-hidden="true"
         >
@@ -147,15 +196,15 @@ export function OptimizedImage({
             src={placeholderSrc} 
             alt=""
             className="w-full h-full object-cover opacity-30"
-            width={props.width} 
-            height={props.height}
+            width={imgWidth} 
+            height={imgHeight}
             aria-hidden="true"
           />
         </div>
       )}
       <img
         ref={imgRef}
-        src={isIntersecting ? optimizedSrc : placeholderSrc}
+        src={isIntersecting || isLCP ? optimizedSrc : placeholderSrc}
         alt={alt}
         className={`${className} ${isLoading ? 'hidden' : ''}`}
         loading={loadingStrategy}
@@ -163,6 +212,14 @@ export function OptimizedImage({
         fetchPriority={fetchPriorityStrategy}
         srcSet={srcSet}
         sizes={srcSet ? sizes : undefined}
+        width={imgWidth}
+        height={imgHeight}
+        style={{
+          aspectRatio: hasExplicitDimensions 
+            ? `${imgWidth} / ${imgHeight}` 
+            : undefined,
+          ...props.style
+        }}
         onError={() => {
           setError(true);
           setOptimizedSrc(src); // Fallback to original source on error

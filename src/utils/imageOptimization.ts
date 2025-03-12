@@ -115,10 +115,11 @@ export const optimizeImage = async (
   imageUrl: string, 
   options: { 
     quality?: number,
-    maxWidth?: number
+    maxWidth?: number,
+    preferWebP?: boolean
   } = {}
 ): Promise<string> => {
-  const { quality = 0.7, maxWidth = 800 } = options;
+  const { quality = 0.7, maxWidth = 800, preferWebP = true } = options;
   
   // Don't optimize SVGs
   if (imageUrl.endsWith('.svg')) {
@@ -126,7 +127,7 @@ export const optimizeImage = async (
   }
   
   // Check cache first
-  const cacheKey = `${imageUrl}-${quality}-${maxWidth}`;
+  const cacheKey = `${imageUrl}-${quality}-${maxWidth}-${preferWebP}`;
   if (imageCache.has(cacheKey)) {
     return imageCache.get(cacheKey)!;
   }
@@ -156,13 +157,13 @@ export const optimizeImage = async (
     const supportsWebP = await getWebPSupport();
     
     // Compress with best available format
-    const format = supportsWebP ? 'image/webp' : 'image/jpeg';
+    const format = (supportsWebP && preferWebP) ? 'image/webp' : 'image/jpeg';
     const optimizedUrl = canvas.toDataURL(format, quality);
     
     // Cache the result
     imageCache.set(cacheKey, optimizedUrl);
     
-    console.log(`Optimized image: ${imageUrl} -> ${Math.round(optimizedUrl.length / 1024)} KB (${format})`);
+    console.log(`Optimized image: ${imageUrl} -> ${Math.round(optimizedUrl.length / 1024)} KB (${format}), dimensions: ${width}x${height}`);
     return optimizedUrl;
   } catch (error) {
     console.error('Error optimizing image:', error);

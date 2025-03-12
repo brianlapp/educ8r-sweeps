@@ -2,6 +2,7 @@
 #root {
   margin: 0 auto;
   text-align: left;
+  overflow-x: hidden; /* Prevent horizontal overflow */
 }
 
 .logo {
@@ -40,26 +41,28 @@
   color: #888;
 }
 
-/* Page transitions */
+/* Performance optimized page transitions */
 .page-enter {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translate3d(0, 10px, 0); /* Use translate3d for GPU acceleration */
+  will-change: opacity, transform; /* Hint to browser for optimization */
 }
 
 .page-enter-active {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate3d(0, 0, 0);
   transition: opacity 300ms, transform 300ms;
 }
 
 .page-exit {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate3d(0, 0, 0);
+  will-change: opacity, transform;
 }
 
 .page-exit-active {
   opacity: 0;
-  transform: translateY(-10px);
+  transform: translate3d(0, -10px, 0);
   transition: opacity 300ms, transform 300ms;
 }
 
@@ -72,4 +75,24 @@
     transition: none;
     transform: none;
   }
+  
+  /* Disable all animations */
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Add contain: content to all images by default to avoid layout shifts */
+img {
+  content-visibility: auto;
+  contain: content;
+}
+
+/* Improve performance with content-visibility where appropriate */
+.off-screen-content {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
 }

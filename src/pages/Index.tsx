@@ -100,6 +100,9 @@ const Index = () => {
               className="h-12 w-auto"
               maxWidth={200}
               quality={0.85}
+              width={160}
+              height={48}
+              eager={true}
             />
           </div>
         </div>
@@ -122,6 +125,11 @@ const Index = () => {
                   src={campaign?.hero_image_url || "/lovable-uploads/308c0411-e546-4640-ab1a-b354a074f9c4.png"}
                   maxWidth={800}
                   quality={0.8}
+                  width={800}
+                  height={600}
+                  isLCP={true}
+                  eager={true}
+                  priority="high"
                 />
               </div>
               <div className="order-2 md:order-2 md:-ml-12 z-10 -mt-4 sm:-mt-8 md:mt-0">
@@ -153,6 +161,9 @@ const Index = () => {
                     className="h-16 object-contain mb-4"
                     maxWidth={400}
                     quality={0.9}
+                    width={290}
+                    height={160}
+                    eager={true}
                   />
                   <div className="flex items-center gap-3">
                     <span className="text-blue-600 text-2xl">📚</span>
@@ -189,6 +200,8 @@ const Index = () => {
               className="h-8 w-auto" 
               maxWidth={160}
               quality={0.85}
+              width={120}
+              height={36}
             />
             <p className="text-sm text-gray-600">© {currentYear} All rights reserved.</p>
           </div>
