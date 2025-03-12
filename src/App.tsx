@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { HelmetProvider } from 'react-helmet-async';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -7,6 +6,8 @@ import Index from "./pages/Index";
 import ThankYou from "./pages/ThankYou";
 import TestLanding from "./pages/TestLanding";
 import Admin from "./pages/Admin";
+import AdminCampaigns from "./pages/AdminCampaigns";
+import AdminEntries from "./pages/AdminEntries";
 import AdminWebhookStatus from "./pages/AdminWebhookStatus";
 import AdminCampaignPreview from "./pages/AdminCampaignPreview";
 import AdminLogin from "./pages/AdminLogin";
@@ -87,6 +88,22 @@ function App() {
                     <Admin />
                   </ProtectedRoute>
                 } 
+              />
+              <Route
+                path="/admin/campaigns"
+                element={
+                  <ProtectedRoute>
+                    <AdminCampaigns />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/entries"
+                element={
+                  <ProtectedRoute>
+                    <AdminEntries />
+                  </ProtectedRoute>
+                }
               />
               <Route
                 path="/admin/webhooks"
