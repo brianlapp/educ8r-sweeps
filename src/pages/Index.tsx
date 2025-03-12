@@ -1,3 +1,4 @@
+
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Helmet } from 'react-helmet-async';
@@ -132,7 +133,7 @@ const Index = () => {
               <CountdownTimer targetDate={targetDate} displayMode="launch-phase" />
               
               <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed mt-6 text-center">
-                Enter for a chance to win {campaign?.prize_amount || "$1,000"} to spend on everything on your {campaign?.prize_name || "school supply"} list - from backpacks and notebooks to markers and more! Get ready for a successful school year.
+                {campaign?.promotional_text || `Enter for a chance to win ${campaign?.prize_amount || "$1,000"} to spend on everything on your ${campaign?.prize_name || "school supply"} list - from backpacks and notebooks to markers and more! Get ready for a successful school year.`}
               </p>
 
               <div className="mt-8 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-8 rounded-2xl border border-blue-100">
