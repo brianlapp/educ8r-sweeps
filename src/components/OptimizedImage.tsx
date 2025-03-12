@@ -8,6 +8,7 @@ interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> 
   quality?: number;
   maxWidth?: number;
   placeholderSrc?: string;
+  eager?: boolean; // For above-the-fold images that should load immediately
 }
 
 export function OptimizedImage({
@@ -17,11 +18,26 @@ export function OptimizedImage({
   maxWidth = 800,
   placeholderSrc = '/placeholder.svg',
   className = '',
+  eager = false,
   ...props
 }: OptimizedImageProps) {
   const [optimizedSrc, setOptimizedSrc] = useState<string>(placeholderSrc);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  // Generate appropriate srcset for responsive images
+  const generateSrcSet = (baseSrc: string): string | undefined => {
+    if (!baseSrc || baseSrc === placeholderSrc) return undefined;
+    
+    // Don't generate srcset for SVGs or data URLs
+    if (baseSrc.includes('data:') || baseSrc.endsWith('.svg')) return undefined;
+    
+    const widths = [400, 800, 1200, 1600];
+    return widths
+      .filter(w => w <= maxWidth * 2) // Don't go beyond double the maxWidth
+      .map(w => `${baseSrc}?width=${w} ${w}w`)
+      .join(', ');
+  };
 
   useEffect(() => {
     if (!src) return;
@@ -57,14 +73,23 @@ export function OptimizedImage({
     };
   }, [src, quality, maxWidth]);
 
+  const srcSet = generateSrcSet(optimizedSrc);
+  const sizes = `(max-width: 768px) 100vw, ${maxWidth}px`;
+
   return (
     <>
       {isLoading && (
-        <div className={`bg-gray-200 animate-pulse ${className}`} {...props}>
+        <div 
+          className={`bg-gray-200 animate-pulse ${className}`} 
+          style={props.style}
+          aria-hidden="true"
+        >
           <img 
             src={placeholderSrc} 
             alt={alt} 
             className="w-full h-full object-cover opacity-30"
+            width={props.width} 
+            height={props.height}
           />
         </div>
       )}
@@ -72,7 +97,11 @@ export function OptimizedImage({
         src={optimizedSrc}
         alt={alt}
         className={`${className} ${isLoading ? 'hidden' : ''}`}
-        loading="lazy"
+        loading={eager ? "eager" : "lazy"}
+        decoding={eager ? "sync" : "async"}
+        fetchPriority={eager ? "high" : "auto"}
+        srcSet={srcSet}
+        sizes={srcSet ? sizes : undefined}
         onError={() => {
           setError(true);
           setOptimizedSrc(src); // Fallback to original source on error
