@@ -21,7 +21,7 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
     target_audience: initialData?.target_audience || '',
     thank_you_title: initialData?.thank_you_title || '',
     thank_you_description: initialData?.thank_you_description || '',
-    email_template_id: initialData?.email_template_id || '',
+    email_template_id: initialData?.email_template_id || 'default', // Provide a default value
     start_date: initialData?.start_date || new Date().toISOString().split('T')[0],
     end_date: initialData?.end_date || new Date(new Date().setMonth(new Date().getMonth() + 3)).toISOString().split('T')[0],
     share_title: initialData?.share_title || 'Give Your Students\' Parents a Free Gift!',
@@ -29,6 +29,7 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
     hero_image_url: initialData?.hero_image_url || ''
   });
   const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -36,17 +37,66 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
       ...formData,
       [name]: type === 'checkbox' ? checked : value
     });
+    
+    // Clear error for this field when user starts typing
+    if (fieldErrors[name]) {
+      const updatedErrors = { ...fieldErrors };
+      delete updatedErrors[name];
+      setFieldErrors(updatedErrors);
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    let isValid = true;
+
+    // Required fields validation
+    const requiredFields: Array<{ field: keyof CampaignFormData; label: string }> = [
+      { field: 'title', label: 'Campaign Title' },
+      { field: 'slug', label: 'Campaign Slug' },
+      { field: 'prize_name', label: 'Prize Name' },
+      { field: 'prize_amount', label: 'Prize Amount' },
+      { field: 'target_audience', label: 'Target Audience' },
+      { field: 'thank_you_title', label: 'Thank You Title' },
+      { field: 'thank_you_description', label: 'Thank You Description' },
+      { field: 'email_template_id', label: 'Email Template ID' },
+      { field: 'start_date', label: 'Start Date' },
+      { field: 'end_date', label: 'End Date' }
+    ];
+
+    for (const { field, label } of requiredFields) {
+      if (!formData[field]) {
+        errors[field] = `${label} is required`;
+        isValid = false;
+      }
+    }
+
+    // Date validation
+    if (formData.start_date && formData.end_date) {
+      const startDate = new Date(formData.start_date);
+      const endDate = new Date(formData.end_date);
+      
+      if (endDate < startDate) {
+        errors.end_date = 'End date must be after start date';
+        isValid = false;
+      }
+    }
+
+    setFieldErrors(errors);
+    
+    if (!isValid) {
+      setFormError("Please fix the highlighted errors");
+    } else {
+      setFormError(null);
+    }
+    
+    return isValid;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError(null);
-
-    if (!formData.title || !formData.slug || !formData.email_template_id || 
-        !formData.prize_name || !formData.prize_amount || !formData.target_audience ||
-        !formData.thank_you_title || !formData.thank_you_description ||
-        !formData.start_date || !formData.end_date) {
-      setFormError("Please fill in all required fields");
+    
+    if (!validateForm()) {
       return;
     }
 
@@ -70,8 +120,12 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
             value={formData.title}
             onChange={handleInputChange}
             placeholder="e.g. Classroom Supplies 2024"
+            className={fieldErrors.title ? "border-red-500" : ""}
             required
           />
+          {fieldErrors.title && (
+            <p className="text-xs text-red-500 mt-1">{fieldErrors.title}</p>
+          )}
         </div>
         <div className="space-y-2">
           <label htmlFor="slug" className="text-sm font-medium">Campaign Slug *</label>
@@ -81,8 +135,12 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
             value={formData.slug}
             onChange={handleInputChange}
             placeholder="e.g. classroom-supplies-2024"
+            className={fieldErrors.slug ? "border-red-500" : ""}
             required
           />
+          {fieldErrors.slug && (
+            <p className="text-xs text-red-500 mt-1">{fieldErrors.slug}</p>
+          )}
         </div>
       </div>
 
@@ -95,8 +153,12 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
             value={formData.prize_name}
             onChange={handleInputChange}
             placeholder="e.g. Classroom Supplies"
+            className={fieldErrors.prize_name ? "border-red-500" : ""}
             required
           />
+          {fieldErrors.prize_name && (
+            <p className="text-xs text-red-500 mt-1">{fieldErrors.prize_name}</p>
+          )}
         </div>
         <div className="space-y-2">
           <label htmlFor="prize_amount" className="text-sm font-medium">Prize Amount *</label>
@@ -106,8 +168,12 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
             value={formData.prize_amount}
             onChange={handleInputChange}
             placeholder="e.g. $500"
+            className={fieldErrors.prize_amount ? "border-red-500" : ""}
             required
           />
+          {fieldErrors.prize_amount && (
+            <p className="text-xs text-red-500 mt-1">{fieldErrors.prize_amount}</p>
+          )}
         </div>
       </div>
 
@@ -119,8 +185,12 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
           value={formData.target_audience}
           onChange={handleInputChange}
           placeholder="e.g. Teachers"
+          className={fieldErrors.target_audience ? "border-red-500" : ""}
           required
         />
+        {fieldErrors.target_audience && (
+          <p className="text-xs text-red-500 mt-1">{fieldErrors.target_audience}</p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -130,9 +200,14 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
           name="email_template_id"
           value={formData.email_template_id}
           onChange={handleInputChange}
-          placeholder="e.g. template_123abc"
+          placeholder="e.g. default"
+          className={fieldErrors.email_template_id ? "border-red-500" : ""}
           required
         />
+        <p className="text-xs text-gray-500 mt-1">Use "default" if you don't have a specific template ID</p>
+        {fieldErrors.email_template_id && (
+          <p className="text-xs text-red-500 mt-1">{fieldErrors.email_template_id}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -144,8 +219,12 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
             type="date"
             value={formData.start_date}
             onChange={handleInputChange}
+            className={fieldErrors.start_date ? "border-red-500" : ""}
             required
           />
+          {fieldErrors.start_date && (
+            <p className="text-xs text-red-500 mt-1">{fieldErrors.start_date}</p>
+          )}
         </div>
         <div className="space-y-2">
           <label htmlFor="end_date" className="text-sm font-medium">End Date *</label>
@@ -155,8 +234,12 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
             type="date"
             value={formData.end_date}
             onChange={handleInputChange}
+            className={fieldErrors.end_date ? "border-red-500" : ""}
             required
           />
+          {fieldErrors.end_date && (
+            <p className="text-xs text-red-500 mt-1">{fieldErrors.end_date}</p>
+          )}
         </div>
       </div>
 
@@ -168,8 +251,12 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
           value={formData.thank_you_title}
           onChange={handleInputChange}
           placeholder="e.g. Thanks for entering!"
+          className={fieldErrors.thank_you_title ? "border-red-500" : ""}
           required
         />
+        {fieldErrors.thank_you_title && (
+          <p className="text-xs text-red-500 mt-1">{fieldErrors.thank_you_title}</p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -180,8 +267,12 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
           value={formData.thank_you_description}
           onChange={handleInputChange}
           placeholder="e.g. You've been successfully entered in our sweepstakes."
+          className={fieldErrors.thank_you_description ? "border-red-500" : ""}
           required
         />
+        {fieldErrors.thank_you_description && (
+          <p className="text-xs text-red-500 mt-1">{fieldErrors.thank_you_description}</p>
+        )}
       </div>
 
       <div className="space-y-2">

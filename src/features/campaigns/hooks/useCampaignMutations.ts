@@ -11,12 +11,18 @@ export function useCampaignMutations() {
     mutationFn: async (campaign: CampaignFormData) => {
       console.log("[CREATE-CAMPAIGN] Starting campaign creation with data:", campaign);
       
-      if (!campaign.title || !campaign.slug || !campaign.email_template_id || 
-          !campaign.prize_name || !campaign.prize_amount || !campaign.target_audience ||
-          !campaign.thank_you_title || !campaign.thank_you_description ||
-          !campaign.start_date || !campaign.end_date) {
-        console.error("[CREATE-CAMPAIGN] Validation failed - missing required fields:", campaign);
-        throw new Error("Missing required fields for campaign creation");
+      // Validate required fields
+      const requiredFields = [
+        'title', 'slug', 'email_template_id', 'prize_name', 
+        'prize_amount', 'target_audience', 'thank_you_title', 
+        'thank_you_description', 'start_date', 'end_date'
+      ];
+      
+      const missingFields = requiredFields.filter(field => !campaign[field as keyof CampaignFormData]);
+      
+      if (missingFields.length > 0) {
+        console.error("[CREATE-CAMPAIGN] Validation failed - missing fields:", missingFields);
+        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
       }
       
       // Convert WhyShareItem[] to Json for Supabase
@@ -35,7 +41,7 @@ export function useCampaignMutations() {
 
       if (error) {
         console.error("[CREATE-CAMPAIGN] Supabase error:", error);
-        throw error;
+        throw new Error(`Database error: ${error.message}`);
       }
 
       if (!data || data.length === 0) {
@@ -43,7 +49,7 @@ export function useCampaignMutations() {
         throw new Error("Failed to create campaign - no data returned");
       }
 
-      console.log("[CREATE-CAMPAIGN] Successfully created campaign:", data);
+      console.log("[CREATE-CAMPAIGN] Successfully created campaign:", data[0]);
       return data[0];
     },
     onSuccess: (data) => {
@@ -54,7 +60,7 @@ export function useCampaignMutations() {
     },
     onError: (error: Error) => {
       console.error("[CREATE-CAMPAIGN] Mutation error:", error);
-      toast.error("Failed to create campaign: " + error.message);
+      toast.error(`Failed to create campaign: ${error.message}`);
     }
   });
 
@@ -192,5 +198,5 @@ export function useCampaignMutations() {
     }
   });
 
-  return { createCampaign, updateCampaign, deleteCampaign, toggleCampaignVisibility };
+  return { createCampaign, updateCampaign, toggleCampaignVisibility, deleteCampaign };
 }

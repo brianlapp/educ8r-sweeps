@@ -1,3 +1,4 @@
+
 import { Helmet } from 'react-helmet-async';
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import { useAnalytics } from "@/hooks/use-analytics";
 const AdminCampaigns = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { trackEvent } = useAnalytics();
   
   const { data: campaigns = [], isLoading, refetch } = useCampaigns();
@@ -29,6 +31,7 @@ const AdminCampaigns = () => {
 
   const handleSubmit = (formData: any) => {
     console.log("[AdminCampaigns] Form submitted with data:", JSON.stringify(formData, null, 2));
+    setIsSubmitting(true);
     
     if (editingCampaign) {
       console.log("[AdminCampaigns] Updating existing campaign:", editingCampaign.id);
@@ -51,7 +54,8 @@ const AdminCampaigns = () => {
         },
         onError: (error) => {
           console.error("[AdminCampaigns] Update failed:", error);
-          toast.error("Failed to update campaign. Please try again.");
+          toast.error(`Failed to update campaign: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          setIsSubmitting(false);
         }
       });
     } else {
@@ -67,7 +71,8 @@ const AdminCampaigns = () => {
         },
         onError: (error: Error) => {
           console.error("[AdminCampaigns] Create failed:", error);
-          toast.error("Failed to create campaign: " + error.message);
+          toast.error(`Failed to create campaign: ${error.message}`);
+          setIsSubmitting(false);
         }
       });
     }
@@ -76,6 +81,7 @@ const AdminCampaigns = () => {
   const resetForm = () => {
     setIsFormOpen(false);
     setEditingCampaign(null);
+    setIsSubmitting(false);
   };
 
   const openEditForm = (campaign: Campaign) => {
@@ -91,6 +97,9 @@ const AdminCampaigns = () => {
       onSuccess: () => {
         toast.success("Campaign hidden successfully!");
         setTimeout(() => refetch(), 500);
+      },
+      onError: (error) => {
+        toast.error(`Failed to hide campaign: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     });
   };
@@ -141,12 +150,13 @@ const AdminCampaigns = () => {
           </CardContent>
         </Card>
 
-        <AlertDialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <AlertDialog open={isFormOpen} onOpenChange={(open) => !isSubmitting && setIsFormOpen(open)}>
           <AlertDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <AlertDialogHeader>
               <AlertDialogTitle>{editingCampaign ? 'Edit Campaign' : 'Create New Campaign'}</AlertDialogTitle>
               <AlertDialogDescription>
                 Fill in the details below to {editingCampaign ? 'update the' : 'create a new'} campaign.
+                Fields marked with * are required.
               </AlertDialogDescription>
             </AlertDialogHeader>
             
