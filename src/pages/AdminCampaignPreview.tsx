@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -8,7 +8,13 @@ import { BackToAdminButton } from "@/components/admin/BackToAdminButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, CheckCircle2, Calendar, Award } from "lucide-react";
+import { ExternalLink, CheckCircle2, Calendar, Award, Eye, Pencil, Save, X, Mail } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { useCampaignMutations } from "@/features/campaigns/hooks/useCampaignMutations";
+import { useAnalytics } from "@/hooks/use-analytics";
 
 interface WhyShareItem {
   title: string;
@@ -30,12 +36,21 @@ interface Campaign {
   share_title: string;
   share_description: string;
   why_share_items: WhyShareItem[];
+  email_template_id: string;
+  hero_image_url?: string;
 }
 
 const AdminCampaignPreview = () => {
   const { id } = useParams<{ id: string }>();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableContent, setEditableContent] = useState<Partial<Campaign>>({});
+  const [whyShareItems, setWhyShareItems] = useState<WhyShareItem[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const navigate = useNavigate();
+  const { trackEvent } = useAnalytics();
+  const { updateCampaign } = useCampaignMutations();
 
   useEffect(() => {
     const fetchCampaign = async () => {
@@ -59,8 +74,16 @@ const AdminCampaignPreview = () => {
         };
         
         setCampaign(processedData as Campaign);
+        setEditableContent({
+          share_title: processedData.share_title,
+          share_description: processedData.share_description,
+          thank_you_title: processedData.thank_you_title,
+          thank_you_description: processedData.thank_you_description
+        });
+        setWhyShareItems(processedData.why_share_items || []);
       } catch (error) {
         console.error("Error fetching campaign:", error);
+        toast.error("Failed to load campaign details");
       } finally {
         setIsLoading(false);
       }
@@ -68,6 +91,76 @@ const AdminCampaignPreview = () => {
     
     fetchCampaign();
   }, [id]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditableContent({
+      ...editableContent,
+      [name]: value
+    });
+  };
+
+  const handleWhyShareItemChange = (index: number, field: keyof WhyShareItem, value: string) => {
+    const updatedItems = [...whyShareItems];
+    updatedItems[index] = {
+      ...updatedItems[index],
+      [field]: value
+    };
+    setWhyShareItems(updatedItems);
+  };
+
+  const handleAddWhyShareItem = () => {
+    setWhyShareItems([
+      ...whyShareItems,
+      { title: "", description: "" }
+    ]);
+  };
+
+  const handleRemoveWhyShareItem = (index: number) => {
+    const updatedItems = [...whyShareItems];
+    updatedItems.splice(index, 1);
+    setWhyShareItems(updatedItems);
+  };
+
+  const handleSaveChanges = () => {
+    if (!campaign) return;
+    
+    setIsSaving(true);
+    trackEvent('admin_update_campaign_content', { campaignId: campaign.id });
+    
+    const updatedCampaign = {
+      ...campaign,
+      ...editableContent,
+      why_share_items: whyShareItems
+    };
+    
+    updateCampaign.mutate(updatedCampaign, {
+      onSuccess: () => {
+        toast.success("Campaign content updated successfully!");
+        setCampaign(updatedCampaign);
+        setIsEditing(false);
+        setIsSaving(false);
+      },
+      onError: (error) => {
+        toast.error(`Failed to update campaign: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        setIsSaving(false);
+      }
+    });
+  };
+
+  const cancelEditing = () => {
+    // Reset to original values
+    if (campaign) {
+      setEditableContent({
+        share_title: campaign.share_title,
+        share_description: campaign.share_description,
+        thank_you_title: campaign.thank_you_title,
+        thank_you_description: campaign.thank_you_description
+      });
+      setWhyShareItems(campaign.why_share_items || []);
+    }
+    setIsEditing(false);
+  };
 
   if (isLoading) {
     return (
@@ -102,8 +195,31 @@ const AdminCampaignPreview = () => {
       <div className="container mx-auto py-12">
         <AdminPageHeader 
           title="Campaign Preview" 
-          description="Preview how the thank you page appears for this campaign"
-          actions={<BackToAdminButton />}
+          description="Preview and edit dynamic content for this campaign"
+          actions={
+            <div className="flex gap-2">
+              <BackToAdminButton />
+              {!isEditing && (
+                <Button onClick={() => setIsEditing(true)} variant="outline" className="flex items-center gap-2">
+                  <Pencil size={16} /> Edit Content
+                </Button>
+              )}
+              {isEditing && (
+                <>
+                  <Button onClick={cancelEditing} variant="outline" className="flex items-center gap-2">
+                    <X size={16} /> Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleSaveChanges} 
+                    disabled={isSaving}
+                    className="flex items-center gap-2"
+                  >
+                    <Save size={16} /> {isSaving ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                </>
+              )}
+            </div>
+          }
         />
         
         <Card className="mb-6">
@@ -134,7 +250,9 @@ const AdminCampaignPreview = () => {
         <Tabs defaultValue="preview" className="space-y-4">
           <TabsList>
             <TabsTrigger value="preview">Thank You Page Preview</TabsTrigger>
-            <TabsTrigger value="content">Content Details</TabsTrigger>
+            <TabsTrigger value="content">Dynamic Content</TabsTrigger>
+            <TabsTrigger value="email">Email Template</TabsTrigger>
+            <TabsTrigger value="landing">Landing Page</TabsTrigger>
           </TabsList>
           
           <TabsContent value="preview" className="space-y-4">
@@ -173,31 +291,212 @@ const AdminCampaignPreview = () => {
               <CardContent className="space-y-6">
                 <div>
                   <h3 className="font-semibold mb-1">Share Title</h3>
-                  <p className="p-3 bg-gray-50 rounded border border-gray-100">
-                    {campaign.share_title}
-                  </p>
+                  {isEditing ? (
+                    <Input
+                      name="share_title"
+                      value={editableContent.share_title || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                    />
+                  ) : (
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign.share_title}
+                    </p>
+                  )}
                 </div>
                 
                 <div>
                   <h3 className="font-semibold mb-1">Share Description</h3>
-                  <p className="p-3 bg-gray-50 rounded border border-gray-100">
-                    {campaign.share_description}
-                  </p>
+                  {isEditing ? (
+                    <Textarea
+                      name="share_description"
+                      value={editableContent.share_description || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                      rows={3}
+                    />
+                  ) : (
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign.share_description}
+                    </p>
+                  )}
                 </div>
                 
                 <div>
-                  <h3 className="font-semibold mb-2">Why Share Items</h3>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold">Why Share Items</h3>
+                    {isEditing && (
+                      <Button 
+                        onClick={handleAddWhyShareItem} 
+                        variant="outline" 
+                        size="sm"
+                        className="text-xs"
+                      >
+                        Add Item
+                      </Button>
+                    )}
+                  </div>
+                  
                   <div className="space-y-3">
-                    {campaign.why_share_items.map((item, index) => (
-                      <div key={index} className="p-3 bg-gray-50 rounded border border-gray-100">
-                        <p className="font-medium mb-1">{item.title}</p>
-                        <p className="text-sm text-gray-700">{item.description}</p>
+                    {whyShareItems.map((item, index) => (
+                      <div key={index} className={`p-3 rounded border ${isEditing ? 'border-blue-200 bg-blue-50' : 'border-gray-100 bg-gray-50'}`}>
+                        {isEditing ? (
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <label className="text-sm font-medium">Title</label>
+                              <Button 
+                                onClick={() => handleRemoveWhyShareItem(index)} 
+                                variant="ghost" 
+                                size="sm"
+                                className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                              >
+                                <X size={16} />
+                              </Button>
+                            </div>
+                            <Input
+                              value={item.title}
+                              onChange={(e) => handleWhyShareItemChange(index, 'title', e.target.value)}
+                              className="w-full mb-2"
+                            />
+                            <label className="text-sm font-medium">Description</label>
+                            <Textarea
+                              value={item.description}
+                              onChange={(e) => handleWhyShareItemChange(index, 'description', e.target.value)}
+                              className="w-full"
+                              rows={2}
+                            />
+                          </div>
+                        ) : (
+                          <>
+                            <p className="font-medium mb-1">{item.title}</p>
+                            <p className="text-sm text-gray-700">{item.description}</p>
+                          </>
+                        )}
                       </div>
                     ))}
+                    
+                    {whyShareItems.length === 0 && (
+                      <p className="text-gray-500 italic text-center py-4">
+                        No share items defined yet.
+                        {isEditing && " Use the 'Add Item' button to create one."}
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+          
+          <TabsContent value="email" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-medium">Email Template Preview</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 overflow-hidden">
+                <div className="h-[600px] rounded-md border border-gray-200 overflow-hidden bg-white p-4">
+                  <iframe 
+                    src="/email-template-preview.html" 
+                    className="w-full h-full" 
+                    title="Email Template Preview"
+                  />
+                </div>
+                <div className="flex justify-between p-4">
+                  <div className="text-sm text-gray-500">
+                    <span className="font-medium">Template ID:</span> {campaign.email_template_id}
+                  </div>
+                  <Link 
+                    to="/email-template-preview.html" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    Open editor in new tab
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="landing" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-medium">Landing Page Preview</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 overflow-hidden">
+                <div className="h-[600px] rounded-md border border-gray-200 overflow-hidden bg-white">
+                  <iframe 
+                    src={`/${campaign.slug}`} 
+                    className="w-full h-full" 
+                    title="Landing Page Preview"
+                  />
+                </div>
+                <div className="flex justify-end p-4">
+                  <Link 
+                    to={`/${campaign.slug}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    Open in new tab
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {isEditing && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg font-medium">Landing Page Content</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <h3 className="font-semibold mb-1">Thank You Title</h3>
+                    <Input
+                      name="thank_you_title"
+                      value={editableContent.thank_you_title || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <h3 className="font-semibold mb-1">Thank You Description</h3>
+                    <Textarea
+                      name="thank_you_description"
+                      value={editableContent.thank_you_description || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                      rows={3}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {!isEditing && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg font-medium">Landing Page Content</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <h3 className="font-semibold mb-1">Thank You Title</h3>
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign.thank_you_title}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <h3 className="font-semibold mb-1">Thank You Description</h3>
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign.thank_you_description}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>
