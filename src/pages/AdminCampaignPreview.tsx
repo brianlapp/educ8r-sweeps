@@ -38,6 +38,7 @@ interface Campaign {
   email_template_id: string;
   hero_image_url?: string;
   subtitle?: string;
+  promotional_text?: string;
 }
 
 const AdminCampaignPreview = () => {
@@ -70,14 +71,16 @@ const AdminCampaignPreview = () => {
           why_share_items: typeof data.why_share_items === 'string' 
             ? JSON.parse(data.why_share_items) 
             : data.why_share_items,
-          subtitle: data.subtitle || ''
+          subtitle: data.subtitle || '',
+          promotional_text: data.promotional_text || 'Enter for a chance to win $200 to spend on everything on your Anything from Amazon list - from backpacks and notebooks to markers and more! Get ready for a successful school year.'
         };
         
         setCampaign(processedData as Campaign);
         setEditableContent({
           title: processedData.title,
           prize_name: processedData.prize_name,
-          subtitle: processedData.subtitle
+          subtitle: processedData.subtitle,
+          promotional_text: processedData.promotional_text
         });
         setWhyShareItems(processedData.why_share_items || []);
       } catch (error) {
@@ -133,6 +136,8 @@ const AdminCampaignPreview = () => {
       why_share_items: whyShareItems
     };
     
+    console.log("Saving updated campaign with data:", updatedCampaign);
+    
     updateCampaign.mutate(updatedCampaign, {
       onSuccess: () => {
         toast.success("Campaign content updated successfully!");
@@ -141,6 +146,7 @@ const AdminCampaignPreview = () => {
         setIsSaving(false);
       },
       onError: (error) => {
+        console.error("Update failed with error:", error);
         toast.error(`Failed to update campaign: ${error instanceof Error ? error.message : 'Unknown error'}`);
         setIsSaving(false);
       }
@@ -152,7 +158,8 @@ const AdminCampaignPreview = () => {
       setEditableContent({
         title: campaign.title,
         prize_name: campaign.prize_name,
-        subtitle: campaign.subtitle
+        subtitle: campaign.subtitle,
+        promotional_text: campaign.promotional_text
       });
       setWhyShareItems(campaign.why_share_items || []);
     }
@@ -317,6 +324,27 @@ const AdminCampaignPreview = () => {
                   )}
                   <p className="text-xs text-gray-500 mt-1">
                     This text appears below the main form title
+                  </p>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-1">Promotional Description</h3>
+                  {isEditing ? (
+                    <Textarea
+                      name="promotional_text"
+                      value={editableContent.promotional_text || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                      placeholder="Enter for a chance to win $200 to spend on everything..."
+                      rows={3}
+                    />
+                  ) : (
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign?.promotional_text || 'No promotional text set'}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    This is the main promotional text that describes the campaign offer
                   </p>
                 </div>
                 

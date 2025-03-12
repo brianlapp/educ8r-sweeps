@@ -27,6 +27,7 @@ export interface Campaign {
   updated_at?: string;
   visible_in_admin?: boolean;
   subtitle?: string;
+  promotional_text?: string;
 }
 
 export interface CampaignFormData {
@@ -48,6 +49,7 @@ export interface CampaignFormData {
   hero_image_url?: string;
   visible_in_admin?: boolean;
   subtitle?: string;
+  promotional_text?: string;
 }
 
 export interface SupabaseCampaign {
@@ -71,4 +73,5 @@ export interface SupabaseCampaign {
   updated_at?: string;
   visible_in_admin?: boolean;
   subtitle?: string;
+  promotional_text?: string;
 }

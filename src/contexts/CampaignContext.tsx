@@ -21,6 +21,7 @@ export interface Campaign {
   hero_image_url?: string;
   email_template_id?: string;
   subtitle?: string;
+  promotional_text?: string;
 }
 
 interface CampaignContextType {

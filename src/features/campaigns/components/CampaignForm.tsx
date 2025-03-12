@@ -1,4 +1,3 @@
-
 import { Campaign, CampaignFormData } from "../types";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -27,7 +26,8 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
     share_title: initialData?.share_title || 'Give Your Students\' Parents a Free Gift!',
     share_description: initialData?.share_description || 'Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you\'ll earn an extra entry for every parent who activates the trial.',
     hero_image_url: initialData?.hero_image_url || '',
-    subtitle: initialData?.subtitle || 'Support Your Students and Stock Up on Classroom Supplies'
+    subtitle: initialData?.subtitle || 'Support Your Students and Stock Up on Classroom Supplies',
+    promotional_text: initialData?.promotional_text || 'Enter for a chance to win $200 to spend on everything on your Anything from Amazon list - from backpacks and notebooks to markers and more! Get ready for a successful school year.'
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -39,7 +39,6 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
       [name]: type === 'checkbox' ? checked : value
     });
     
-    // Clear error for this field when user starts typing
     if (fieldErrors[name]) {
       const updatedErrors = { ...fieldErrors };
       delete updatedErrors[name];
@@ -51,7 +50,6 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
     const errors: Record<string, string> = {};
     let isValid = true;
 
-    // Required fields validation
     const requiredFields: Array<{ field: keyof CampaignFormData; label: string }> = [
       { field: 'title', label: 'Campaign Title' },
       { field: 'slug', label: 'Campaign Slug' },
@@ -72,7 +70,6 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
       }
     }
 
-    // Date validation
     if (formData.start_date && formData.end_date) {
       const startDate = new Date(formData.start_date);
       const endDate = new Date(formData.end_date);
@@ -155,6 +152,18 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
           placeholder="e.g. Support Your Students and Stock Up on Classroom Supplies"
         />
         <p className="text-xs text-gray-500 mt-1">This appears as a subtitle below the main form title</p>
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="promotional_text" className="text-sm font-medium">Promotional Description</label>
+        <Input
+          id="promotional_text"
+          name="promotional_text"
+          value={formData.promotional_text}
+          onChange={handleInputChange}
+          placeholder="Enter for a chance to win $200 to spend on everything on your Anything from Amazon list..."
+        />
+        <p className="text-xs text-gray-500 mt-1">This appears as the main promotional description on the landing page</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
