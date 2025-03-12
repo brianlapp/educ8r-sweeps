@@ -58,13 +58,22 @@ export function useCampaignMutations() {
         .from('campaigns')
         .update(campaignData)
         .eq('id', campaign.id)
-        .select();
+        .select()
+        .single();
 
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      // Ensure we fully invalidate the cache to force a refresh
+    onSuccess: (updatedCampaign) => {
+      // Update the specific campaign in the cache
+      queryClient.setQueryData(['campaigns'], (oldData: Campaign[] | undefined) => {
+        if (!oldData) return [updatedCampaign];
+        return oldData.map(campaign => 
+          campaign.id === updatedCampaign.id ? updatedCampaign : campaign
+        );
+      });
+      
+      // Also invalidate the query to ensure fresh data
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       toast.success("Campaign updated successfully!");
     },

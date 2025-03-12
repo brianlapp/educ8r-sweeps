@@ -70,6 +70,7 @@ export type Database = {
           thank_you_title: string
           title: string
           updated_at: string | null
+          visible_in_admin: boolean | null
           why_share_items: Json | null
         }
         Insert: {
@@ -90,6 +91,7 @@ export type Database = {
           thank_you_title: string
           title: string
           updated_at?: string | null
+          visible_in_admin?: boolean | null
           why_share_items?: Json | null
         }
         Update: {
@@ -110,6 +112,7 @@ export type Database = {
           thank_you_title?: string
           title?: string
           updated_at?: string | null
+          visible_in_admin?: boolean | null
           why_share_items?: Json | null
         }
         Relationships: []
