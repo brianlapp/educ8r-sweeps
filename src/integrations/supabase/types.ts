@@ -61,6 +61,7 @@ export type Database = {
           is_active: boolean | null
           prize_amount: string
           prize_name: string
+          promotional_text: string | null
           share_description: string | null
           share_title: string | null
           slug: string
@@ -83,6 +84,7 @@ export type Database = {
           is_active?: boolean | null
           prize_amount: string
           prize_name: string
+          promotional_text?: string | null
           share_description?: string | null
           share_title?: string | null
           slug: string
@@ -105,6 +107,7 @@ export type Database = {
           is_active?: boolean | null
           prize_amount?: string
           prize_name?: string
+          promotional_text?: string | null
           share_description?: string | null
           share_title?: string | null
           slug?: string
