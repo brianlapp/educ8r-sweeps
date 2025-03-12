@@ -95,9 +95,18 @@ const AdminCampaigns = () => {
   const createCampaign = useMutation({
     mutationFn: async (campaign: Partial<Campaign>) => {
       console.log("[AdminCampaignsPage] Creating new campaign:", campaign);
+      
+      // Fix: Ensure the campaign object has all required fields before inserting
+      if (!campaign.title || !campaign.slug || !campaign.email_template_id || 
+          !campaign.prize_name || !campaign.prize_amount || !campaign.target_audience ||
+          !campaign.thank_you_title || !campaign.thank_you_description ||
+          !campaign.start_date || !campaign.end_date) {
+        throw new Error("Missing required fields for campaign creation");
+      }
+      
       const { data, error } = await supabase
         .from('campaigns')
-        .insert([campaign])
+        .insert(campaign)  // Now passing a single object, not an array
         .select();
 
       if (error) {
