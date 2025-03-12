@@ -81,7 +81,10 @@ serve(async (req) => {
           ]
         }
 
-        console.log('Updating existing user in BeehiiV with data:', JSON.stringify(subscriberData))
+        // DIAGNOSTIC LOGGING: Log the exact format being sent to BeehiiV
+        console.log('DIAGNOSTIC - BeehiiV payload for existing user:', JSON.stringify(subscriberData));
+        console.log('DIAGNOSTIC - custom_fields type:', Array.isArray(subscriberData.custom_fields) ? 'Array' : typeof subscriberData.custom_fields);
+        console.log('DIAGNOSTIC - Publication ID:', BEEHIIV_PUBLICATION_ID);
         
         console.log(`[BeehiiV] Making subscription update API request for existing user: ${email}`)
         const beehiivRequestStartTime = Date.now()
@@ -178,6 +181,7 @@ serve(async (req) => {
     console.log('Successfully created entry with referral code:', entry.referral_code)
 
     // Create/Update BeehiiV subscription
+    // IMPORTANT: BeehiiV API expects custom_fields as an array of objects with name/value pairs
     const customFields = [
       {
         name: 'First Name',
@@ -195,7 +199,7 @@ serve(async (req) => {
         name: 'sweepstakes_entries',
         value: '1'
       }
-    ]
+    ];
 
     const subscriberData = {
       email: email,
@@ -207,6 +211,11 @@ serve(async (req) => {
       reactivate: true,
       custom_fields: customFields
     }
+
+    // DIAGNOSTIC LOGGING: Log the exact format being sent to BeehiiV
+    console.log('DIAGNOSTIC - BeehiiV payload for new user:', JSON.stringify(subscriberData));
+    console.log('DIAGNOSTIC - custom_fields type:', Array.isArray(subscriberData.custom_fields) ? 'Array' : typeof subscriberData.custom_fields);
+    console.log('DIAGNOSTIC - Publication ID:', BEEHIIV_PUBLICATION_ID);
 
     console.log('[BeehiiV] Sending subscription data to BeehiiV:', JSON.stringify(subscriberData))
     console.log(`[BeehiiV] Making subscription API request for new user: ${email}`)
