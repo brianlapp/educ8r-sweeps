@@ -15,6 +15,7 @@ import Rules from "./pages/Rules";
 import TechStack from "./pages/TechStack";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
+import { CampaignProvider } from "./contexts/CampaignContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAnalytics } from "./hooks/use-analytics";
 import "./App.css";
@@ -48,7 +49,30 @@ function App() {
           <Router>
             <RouteChangeTracker />
             <Routes>
-              <Route path="/" element={<Index />} />
+              <Route 
+                path="/" 
+                element={
+                  <CampaignProvider>
+                    <Index />
+                  </CampaignProvider>
+                } 
+              />
+              <Route 
+                path="/:slug" 
+                element={
+                  <CampaignProvider>
+                    <Index />
+                  </CampaignProvider>
+                } 
+              />
+              <Route 
+                path="/:slug/thank-you" 
+                element={
+                  <CampaignProvider>
+                    <ThankYou />
+                  </CampaignProvider>
+                } 
+              />
               <Route path="/thank-you" element={<ThankYou />} />
               <Route path="/test-landing" element={<TestLanding />} />
               <Route path="/admin/login" element={<AdminLogin />} />
