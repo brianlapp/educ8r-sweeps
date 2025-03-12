@@ -77,20 +77,20 @@ const handler = async (req: Request): Promise<Response> => {
     const today = new Date();
     const formattedDate = `${today.toLocaleString('default', { month: 'long' })} ${today.getDate()}, ${today.getFullYear()}`;
 
-    // Define email variables as object (original working format)
-    const emailVariables = {
-      first_name: payload.firstName,
-      referral_code: payload.referralCode,
-      referral_link: shareUrl,
-      share_text: shareText,
-      thank_you_title: thankYouTitle,
-      current_date: formattedDate,
-      campaign_name: campaign?.title || "$1,000 Classroom Sweepstakes",
-      prize_amount: campaign?.prize_amount || "$1,000",
-      prize_name: campaign?.prize_name || "classroom supplies"
-    };
+    // Format email variables as array of {key, value} objects for BeehiiV API
+    const customFields = [
+      { key: "first_name", value: payload.firstName },
+      { key: "referral_code", value: payload.referralCode },
+      { key: "referral_link", value: shareUrl },
+      { key: "share_text", value: shareText },
+      { key: "thank_you_title", value: thankYouTitle },
+      { key: "current_date", value: formattedDate },
+      { key: "campaign_name", value: campaign?.title || "$1,000 Classroom Sweepstakes" },
+      { key: "prize_amount", value: campaign?.prize_amount || "$1,000" },
+      { key: "prize_name", value: campaign?.prize_name || "classroom supplies" }
+    ];
 
-    console.log("Attempting BeehiiV API request with variables:", JSON.stringify(emailVariables));
+    console.log("Attempting BeehiiV API request with variables:", JSON.stringify(customFields));
     
     const BEEHIIV_API_KEY = Deno.env.get("BEEHIIV_API_KEY");
     const publicationId = "pub_26e1c2a3-8da8-49b1-a07c-1b42adb5dad2";
@@ -110,7 +110,7 @@ const handler = async (req: Request): Promise<Response> => {
           utm_source: "sweepstakes-referral",
           utm_medium: "email",
           utm_campaign: campaign?.slug || "classroom-1000",
-          custom_fields: emailVariables,
+          custom_fields: customFields,
           tags: ["sweeps", "comprendi"],
         }),
       }
