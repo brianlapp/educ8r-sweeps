@@ -46,13 +46,21 @@ export function useCampaignMutations() {
 
   const updateCampaign = useMutation({
     mutationFn: async (campaign: Campaign) => {
-      console.log("[AdminCampaignsPage] Updating campaign:", campaign);
+      console.log("[AdminCampaignsPage] Updating campaign - received data:", campaign);
+      
+      // Ensure required fields are present
+      if (!campaign.id || !campaign.title || !campaign.slug) {
+        console.error("[AdminCampaignsPage] Missing required fields for update", campaign);
+        throw new Error("Missing required fields for campaign update");
+      }
       
       // Convert WhyShareItem[] to Json for Supabase
       const campaignData = {
         ...campaign,
         why_share_items: campaign.why_share_items as unknown as Json
       };
+      
+      console.log("[AdminCampaignsPage] Sending update to Supabase with data:", campaignData);
       
       const { data, error } = await supabase
         .from('campaigns')
@@ -61,19 +69,33 @@ export function useCampaignMutations() {
         .select()
         .single();
 
-      if (error) throw error;
-      return data;
+      if (error) {
+        console.error("[AdminCampaignsPage] Supabase update error:", error);
+        throw error;
+      }
+      
+      console.log("[AdminCampaignsPage] Campaign updated successfully, returned data:", data);
+      return data as Campaign;
     },
     onSuccess: (updatedCampaign) => {
-      // Update the specific campaign in the cache
+      console.log("[AdminCampaignsPage] Update success callback with data:", updatedCampaign);
+      
+      // First update the specific campaign in the cache
       queryClient.setQueryData(['campaigns'], (oldData: Campaign[] | undefined) => {
-        if (!oldData) return [updatedCampaign];
-        return oldData.map(campaign => 
+        if (!oldData) {
+          console.log("[AdminCampaignsPage] No existing campaigns in cache, setting new data");
+          return [updatedCampaign];
+        }
+        
+        console.log("[AdminCampaignsPage] Updating specific campaign in cache");
+        const newData = oldData.map(campaign => 
           campaign.id === updatedCampaign.id ? updatedCampaign : campaign
         );
+        
+        return newData;
       });
       
-      // Also invalidate the query to ensure fresh data
+      // Then invalidate the query to ensure fresh data on next fetch
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       toast.success("Campaign updated successfully!");
     },

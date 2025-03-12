@@ -20,17 +20,33 @@ const AdminCampaigns = () => {
   const { data: campaigns = [], isLoading, refetch } = useCampaigns();
   const { createCampaign, updateCampaign, toggleCampaignVisibility } = useCampaignMutations();
 
-  const handleSubmit = (formData: Omit<Campaign, 'id'>) => {
+  const handleSubmit = (formData: any) => {
+    console.log("[AdminCampaigns] Form submitted with data:", formData);
+    
     if (editingCampaign) {
-      updateCampaign.mutate({ ...formData, id: editingCampaign.id });
+      console.log("[AdminCampaigns] Updating existing campaign:", editingCampaign.id);
+      const updatedCampaign = { 
+        ...formData, 
+        id: editingCampaign.id,
+        // Preserve these fields from the original campaign if they exist
+        created_at: editingCampaign.created_at,
+        updated_at: editingCampaign.updated_at
+      };
+      
+      console.log("[AdminCampaigns] Calling updateCampaign with:", updatedCampaign);
+      updateCampaign.mutate(updatedCampaign);
     } else {
+      console.log("[AdminCampaigns] Creating new campaign");
       createCampaign.mutate(formData);
     }
+    
     resetForm();
+    
     // Force a refetch to ensure the UI shows the latest data
     setTimeout(() => {
+      console.log("[AdminCampaigns] Refetching campaign data");
       refetch();
-    }, 500); // Small delay to ensure the mutation has completed
+    }, 1000); // Small delay to ensure the mutation has completed
   };
 
   const resetForm = () => {
@@ -39,6 +55,7 @@ const AdminCampaigns = () => {
   };
 
   const openEditForm = (campaign: Campaign) => {
+    console.log("[AdminCampaigns] Opening edit form for campaign:", campaign);
     setEditingCampaign(campaign);
     setIsFormOpen(true);
   };
