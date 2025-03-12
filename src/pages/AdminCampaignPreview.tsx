@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
@@ -80,7 +81,8 @@ const AdminCampaignPreview = () => {
           title: processedData.title,
           prize_name: processedData.prize_name,
           subtitle: processedData.subtitle,
-          promotional_text: processedData.promotional_text
+          promotional_text: processedData.promotional_text,
+          hero_image_url: processedData.hero_image_url || ''
         });
         setWhyShareItems(processedData.why_share_items || []);
       } catch (error) {
@@ -324,6 +326,26 @@ const AdminCampaignPreview = () => {
                   )}
                   <p className="text-xs text-gray-500 mt-1">
                     This text appears below the main form title
+                  </p>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-1">Hero Image URL</h3>
+                  {isEditing ? (
+                    <Input
+                      name="hero_image_url"
+                      value={editableContent.hero_image_url || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                      placeholder="https://example.com/hero-image.jpg"
+                    />
+                  ) : (
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign?.hero_image_url || 'No hero image URL set'}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    This is the URL for the hero image displayed on the landing page
                   </p>
                 </div>
                 
