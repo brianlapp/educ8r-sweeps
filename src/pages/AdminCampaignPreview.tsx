@@ -141,12 +141,13 @@ const AdminCampaignPreview = () => {
       why_share_items: whyShareItems
     };
     
-    console.log("Saving updated campaign with data:", updatedCampaign);
+    console.log("Saving updated campaign with data:", JSON.stringify(updatedCampaign, null, 2));
     
     updateCampaign.mutate(updatedCampaign, {
-      onSuccess: () => {
+      onSuccess: (result) => {
+        console.log("Update successful, received result:", result);
         toast.success("Campaign content updated successfully!");
-        setCampaign(updatedCampaign);
+        setCampaign(result);
         setIsEditing(false);
         setIsSaving(false);
       },

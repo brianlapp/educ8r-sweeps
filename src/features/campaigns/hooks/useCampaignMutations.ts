@@ -66,8 +66,7 @@ export function useCampaignMutations() {
 
   const updateCampaign = useMutation({
     mutationFn: async (campaign: Campaign) => {
-      console.log("[UPDATE-CAMPAIGN] Starting update with full campaign data:", campaign);
-      console.log("[UPDATE-CAMPAIGN] Checking subtitle value:", campaign.subtitle);
+      console.log("[UPDATE-CAMPAIGN] Starting update with campaign data:", JSON.stringify(campaign, null, 2));
       
       if (!campaign.id || !campaign.title || !campaign.slug) {
         console.error("[UPDATE-CAMPAIGN] Missing required fields:", { 
@@ -78,17 +77,21 @@ export function useCampaignMutations() {
         throw new Error("Missing required fields for campaign update");
       }
       
-      // Convert WhyShareItem[] to Json for Supabase
-      const campaignData = {
+      // Explicitly set empty fields to empty strings to avoid null values
+      const preparedCampaign = {
         ...campaign,
+        subtitle: campaign.subtitle || '',
+        mobile_subtitle: campaign.mobile_subtitle || '',
+        promotional_text: campaign.promotional_text || '',
+        // Convert WhyShareItem[] to Json for Supabase
         why_share_items: campaign.why_share_items as unknown as Json
       };
       
-      console.log("[UPDATE-CAMPAIGN] Sending data to Supabase:", JSON.stringify(campaignData, null, 2));
+      console.log("[UPDATE-CAMPAIGN] Sending prepared data to Supabase:", JSON.stringify(preparedCampaign, null, 2));
       
       const { data, error } = await supabase
         .from('campaigns')
-        .update(campaignData)
+        .update(preparedCampaign)
         .eq('id', campaign.id)
         .select('*')
         .single();
@@ -116,32 +119,23 @@ export function useCampaignMutations() {
       };
       
       console.log("[UPDATE-CAMPAIGN] Final transformed campaign:", JSON.stringify(updatedCampaign, null, 2));
-      console.log("[UPDATE-CAMPAIGN] Final title value:", updatedCampaign.title);
       return updatedCampaign;
     },
     onSuccess: (updatedCampaign) => {
       console.log("[UPDATE-CAMPAIGN] Update successful for campaign:", updatedCampaign.id);
-      console.log("[UPDATE-CAMPAIGN] Updated title:", updatedCampaign.title);
       
       // Force a complete invalidation of the campaigns cache
       console.log("[UPDATE-CAMPAIGN] Forcing cache invalidation for campaigns");
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       
       // Additionally, update the specific campaign in the cache to ensure immediate UI update
-      queryClient.setQueryData(['campaigns'], (oldData: Campaign[] | undefined) => {
-        if (!oldData) return [updatedCampaign];
-        
-        console.log("[UPDATE-CAMPAIGN] Updating specific campaign in cache");
-        const newData = oldData.map(campaign => 
-          campaign.id === updatedCampaign.id ? updatedCampaign : campaign
-        );
-        
-        return newData;
-      });
+      queryClient.setQueryData(['campaign', updatedCampaign.id], updatedCampaign);
+      
+      toast.success("Campaign updated successfully!");
     },
     onError: (error) => {
       console.error("[UPDATE-CAMPAIGN] Update mutation error:", error);
-      toast.error("Failed to update campaign");
+      toast.error(`Failed to update campaign: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   });
 
