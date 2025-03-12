@@ -1,9 +1,11 @@
+
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Helmet } from 'react-helmet-async';
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
 import { useCampaign } from "@/contexts/CampaignContext";
+import { PartnershipBanner } from "@/components/PartnershipBanner";
 
 const Index = () => {
   const targetDate = new Date("August 15, 2025");
@@ -95,6 +97,8 @@ const Index = () => {
           </div>
         </div>
       </header>
+
+      <PartnershipBanner />
 
       <main className="flex-grow">
         <div className="container mx-auto px-2 sm:px-4 py-6 md:py-12">
