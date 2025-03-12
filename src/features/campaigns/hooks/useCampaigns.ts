@@ -51,6 +51,6 @@ export function useCampaigns(includeHidden: boolean = false) {
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
     staleTime: 0, // Consider data immediately stale to ensure fresh fetches
-    cacheTime: 1000 // Very short cache time to ensure fresh data
+    gcTime: 1000 // Change cacheTime to gcTime - Very short cache time to ensure fresh data
   });
 }
