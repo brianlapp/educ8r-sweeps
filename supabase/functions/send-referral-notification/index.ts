@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.1.1";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -12,22 +11,26 @@ interface EmailPayload {
   campaignId?: string; // Make this optional to support both new and old flows
 }
 
-async function sendNotification(req: Request) {
-  // Handle CORS
+const handler = async (req: Request): Promise<Response> => {
+  console.log("=== Send Referral Notification Handler Started ===");
+  
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Parse the payload
+    // Log incoming request payload
     const payload: EmailPayload = await req.json();
     console.log("Received notification request:", JSON.stringify(payload));
-
-    // Extract fields from payload
-    const { email, firstName, referralCode, campaignId } = payload;
-
-    // Validate input
-    if (!email || !firstName || !referralCode) {
+    
+    // Validate input and log any issues
+    if (!payload.email || !payload.firstName || !payload.referralCode) {
+      console.error("Missing required fields:", { 
+        hasEmail: !!payload.email, 
+        hasFirstName: !!payload.firstName, 
+        hasReferralCode: !!payload.referralCode 
+      });
       return new Response(
         JSON.stringify({
           success: false,
@@ -40,6 +43,10 @@ async function sendNotification(req: Request) {
       );
     }
 
+    // Log BeehiiV API key presence (not the actual key)
+    const apiKey = Deno.env.get("BEEHIIV_API_KEY");
+    console.log("BeehiiV API Key present:", !!apiKey);
+    
     // Initialize Supabase client
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -51,11 +58,11 @@ async function sendNotification(req: Request) {
     let shareText = "I just entered to win $1,000 for classroom supplies! You can enter too!";
     let thankYouTitle = "Thanks for Sharing!";
     
-    if (campaignId) {
+    if (payload.campaignId) {
       const { data: campaignData, error: campaignError } = await supabase
         .from("campaigns")
         .select("*")
-        .eq("id", campaignId)
+        .eq("id", payload.campaignId)
         .maybeSingle();
 
       if (campaignError) {
@@ -70,8 +77,8 @@ async function sendNotification(req: Request) {
 
     // Generate the share URL
     const shareUrl = campaign 
-      ? `https://educ8r.freeparentsearch.com/${campaign.slug}?ref=${referralCode}`
-      : `https://educ8r.freeparentsearch.com/?ref=${referralCode}`;
+      ? `https://educ8r.freeparentsearch.com/${campaign.slug}?ref=${payload.referralCode}`
+      : `https://educ8r.freeparentsearch.com/?ref=${payload.referralCode}`;
 
     // Format the current date
     const today = new Date();
@@ -79,8 +86,8 @@ async function sendNotification(req: Request) {
 
     // Define email variables
     const emailVariables = {
-      first_name: firstName,
-      referral_code: referralCode,
+      first_name: payload.firstName,
+      referral_code: payload.referralCode,
       referral_link: shareUrl,
       share_text: shareText,
       thank_you_title: thankYouTitle,
@@ -90,7 +97,9 @@ async function sendNotification(req: Request) {
       prize_name: campaign?.prize_name || "classroom supplies"
     };
 
-    // Send email via BeehiiV API
+    // Log BeehiiV request attempt
+    console.log("Attempting BeehiiV API request with email:", payload.email);
+    
     const BEEHIIV_API_KEY = Deno.env.get("BEEHIIV_API_KEY");
     const publicationId = "pub_26e1c2a3-8da8-49b1-a07c-1b42adb5dad2"; // FPS BeehiiV publication
 
@@ -103,7 +112,7 @@ async function sendNotification(req: Request) {
           Authorization: `Bearer ${BEEHIIV_API_KEY}`,
         },
         body: JSON.stringify({
-          email: email,
+          email: payload.email,
           reactivate_existing: true,
           send_welcome_email: true,
           utm_source: "sweepstakes-referral",
@@ -115,14 +124,18 @@ async function sendNotification(req: Request) {
       }
     );
 
+    // Log BeehiiV response details
+    const responseStatus = beehiivResponse.status;
+    console.log("BeehiiV API Response Status:", responseStatus);
+    
     if (!beehiivResponse.ok) {
       const errorText = await beehiivResponse.text();
-      console.error("BeehiiV API error:", errorText);
+      console.error("BeehiiV API error response:", errorText);
       throw new Error(`BeehiiV API error: ${errorText}`);
     }
 
     const beehiivResult = await beehiivResponse.json();
-    console.log("BeehiiV result:", beehiivResult);
+    console.log("BeehiiV API success response:", beehiivResult);
 
     return new Response(
       JSON.stringify({
@@ -135,7 +148,11 @@ async function sendNotification(req: Request) {
       }
     );
   } catch (error) {
-    console.error("Error sending notification:", error);
+    console.error("Detailed error in send-referral-notification:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
 
     return new Response(
       JSON.stringify({
@@ -148,7 +165,7 @@ async function sendNotification(req: Request) {
       }
     );
   }
-}
+};
 
 // Main serve function
-serve(sendNotification);
+serve(handler);

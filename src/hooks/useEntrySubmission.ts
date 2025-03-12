@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAnalytics } from "@/hooks/use-analytics";
@@ -29,6 +28,11 @@ export const useEntrySubmission = (referredBy: string | null, campaignId?: strin
   const analytics = useAnalytics();
 
   const submitEntry = async (formData: FormData, agreed: boolean) => {
+    console.log("Starting entry submission process", { 
+      hasReferral: !!referredBy, 
+      campaignId 
+    });
+    
     // Track form submission attempt
     analytics.trackEvent('form_submission_attempt', {
       form: 'entry_form',
@@ -60,6 +64,13 @@ export const useEntrySubmission = (referredBy: string | null, campaignId?: strin
     });
     
     try {
+      console.log("Calling submit-entry function with data:", {
+        email: formData.email,
+        firstName: formData.firstName,
+        referredBy,
+        campaignId
+      });
+      
       // Set processing state in localStorage
       localStorage.setItem('referralCode', 'PROCESSING');
       localStorage.setItem('isReturningUser', 'false');
@@ -97,6 +108,22 @@ export const useEntrySubmission = (referredBy: string | null, campaignId?: strin
           has_referral: !!referredBy,
           campaign_id: campaignId || 'default'
         });
+        
+        try {
+          const notificationResponse = await supabase.functions.invoke('send-referral-notification', {
+            body: {
+              email: formData.email,
+              firstName: formData.firstName,
+              referralCode: referralCode,
+              campaignId
+            }
+          });
+          
+          console.log('BeehiiV notification response:', notificationResponse);
+        } catch (notificationError) {
+          console.error('Failed to send BeehiiV notification:', notificationError);
+          // Continue with the flow even if notification fails
+        }
       } else {
         console.error('Missing referral code in response:', data);
         analytics.trackEvent('api_response_error', {
@@ -110,7 +137,11 @@ export const useEntrySubmission = (referredBy: string | null, campaignId?: strin
       return true;
       
     } catch (error) {
-      console.error('Error submitting entry:', error);
+      console.error('Detailed submission error:', {
+        message: error.message,
+        type: error.type,
+        status: error.status
+      });
       analytics.trackEvent('form_submission_error', {
         form: 'entry_form',
         error: String(error),
