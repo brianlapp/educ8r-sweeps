@@ -1,27 +1,8 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-
-export interface Campaign {
-  id: string;
-  title: string;
-  slug: string;
-  is_active: boolean;
-  prize_name: string;
-  prize_amount: string;
-  target_audience: string;
-  thank_you_title: string;
-  thank_you_description: string;
-  start_date: string;
-  end_date: string;
-  share_title?: string;
-  share_description?: string;
-  why_share_items?: any;
-  hero_image_url?: string;
-  email_template_id?: string;
-  subtitle?: string;
-  promotional_text?: string;
-}
+import { Campaign } from '@/features/campaigns/types';
 
 interface CampaignContextType {
   campaign: Campaign | null;
