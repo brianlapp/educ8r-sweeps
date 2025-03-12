@@ -1,5 +1,5 @@
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -9,12 +9,11 @@ interface Campaign {
   slug: string;
   prize_name: string;
   prize_amount: string;
-  target_audience: string;
-  thank_you_title: string;
-  thank_you_description: string;
-  email_template_id: string;
   start_date: string;
   end_date: string;
+  thank_you_title: string;
+  thank_you_description: string;
+  target_audience: string;
   is_active: boolean;
 }
 
@@ -30,37 +29,40 @@ const CampaignContext = createContext<CampaignContextType>({
   error: null,
 });
 
-export function CampaignProvider({ children }: { children: React.ReactNode }) {
+export const useCampaign = () => useContext(CampaignContext);
+
+export const CampaignProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const { slug = 'classroom-supplies-2025' } = useParams();
+  const { slug } = useParams<{ slug: string }>();
 
   useEffect(() => {
-    async function fetchCampaign() {
+    const fetchCampaign = async () => {
       try {
-        console.log('Fetching campaign with slug:', slug);
-        const { data, error: fetchError } = await supabase
-          .from('campaigns')
-          .select('*')
-          .eq('slug', slug)
-          .single();
-
-        if (fetchError) {
-          throw fetchError;
+        setIsLoading(true);
+        
+        let query = supabase.from('campaigns').select('*');
+        
+        if (slug) {
+          query = query.eq('slug', slug).single();
+        } else {
+          // Default to the first active campaign if no slug is provided
+          query = query.eq('is_active', true).order('created_at', { ascending: false }).limit(1).single();
         }
-
-        if (data) {
-          console.log('Campaign data fetched:', data);
-          setCampaign(data);
-        }
+        
+        const { data, error: supabaseError } = await query;
+        
+        if (supabaseError) throw new Error(supabaseError.message);
+        
+        setCampaign(data);
       } catch (err) {
+        setError(err as Error);
         console.error('Error fetching campaign:', err);
-        setError(err instanceof Error ? err : new Error('Failed to fetch campaign'));
       } finally {
         setIsLoading(false);
       }
-    }
+    };
 
     fetchCampaign();
   }, [slug]);
@@ -70,12 +72,4 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
       {children}
     </CampaignContext.Provider>
   );
-}
-
-export function useCampaign() {
-  const context = useContext(CampaignContext);
-  if (!context) {
-    throw new Error('useCampaign must be used within a CampaignProvider');
-  }
-  return context;
-}
+};
