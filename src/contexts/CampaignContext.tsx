@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,39 +38,39 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [error, setError] = useState<Error | null>(null);
   const { slug = 'classroom-supplies-2025' } = useParams();
 
-  useEffect(() => {
-    async function fetchCampaign() {
-      try {
-        console.log('Fetching campaign with slug:', slug);
-        const { data, error: fetchError } = await supabase
-          .from('campaigns')
-          .select('*')
-          .eq('slug', slug)
-          .single();
+  const fetchCampaign = async () => {
+    try {
+      console.log('Fetching campaign with slug:', slug);
+      const { data, error: fetchError } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('slug', slug)
+        .single();
 
-        if (fetchError) {
-          throw fetchError;
-        }
-
-        if (data) {
-          console.log('Campaign data fetched:', data);
-          // If why_share_items is a string, parse it to an object
-          const processedData = {
-            ...data,
-            why_share_items: typeof data.why_share_items === 'string' 
-              ? JSON.parse(data.why_share_items) 
-              : data.why_share_items
-          };
-          setCampaign(processedData);
-        }
-      } catch (err) {
-        console.error('Error fetching campaign:', err);
-        setError(err instanceof Error ? err : new Error('Failed to fetch campaign'));
-      } finally {
-        setIsLoading(false);
+      if (fetchError) {
+        throw fetchError;
       }
-    }
 
+      if (data) {
+        console.log('Campaign data fetched:', data);
+        // If why_share_items is a string, parse it to an object
+        const processedData = {
+          ...data,
+          why_share_items: typeof data.why_share_items === 'string' 
+            ? JSON.parse(data.why_share_items) 
+            : data.why_share_items
+        };
+        setCampaign(processedData);
+      }
+    } catch (err) {
+      console.error('Error fetching campaign:', err);
+      setError(err instanceof Error ? err : new Error('Failed to fetch campaign'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchCampaign();
   }, [slug]);
 
