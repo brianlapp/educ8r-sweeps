@@ -45,9 +45,9 @@ export interface CampaignFormData {
   share_description?: string;
   why_share_items?: WhyShareItem[];
   hero_image_url?: string;
+  visible_in_admin?: boolean;
 }
 
-// Type for data coming from Supabase
 export interface SupabaseCampaign {
   id: string;
   title: string;

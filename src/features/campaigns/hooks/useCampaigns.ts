@@ -9,11 +9,13 @@ export function useCampaigns(includeHidden: boolean = false) {
     queryFn: async () => {
       console.log("[AdminCampaignsPage] Fetching campaigns from Supabase...");
       
+      // Get all campaigns by default
       let query = supabase
         .from('campaigns')
         .select('*');
         
-      // Only filter out invisible campaigns if includeHidden is false
+      // Only apply visibility filter if includeHidden is false
+      // This will get campaigns where visible_in_admin is either true or null (not set)
       if (!includeHidden) {
         query = query.or('visible_in_admin.is.null,visible_in_admin.eq.true');
       }
