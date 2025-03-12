@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
@@ -69,7 +70,8 @@ const AdminCampaignPreview = () => {
           ...data,
           why_share_items: typeof data.why_share_items === 'string' 
             ? JSON.parse(data.why_share_items) 
-            : data.why_share_items
+            : data.why_share_items,
+          subtitle: data.subtitle // Make sure subtitle is explicitly included
         };
         
         setCampaign(processedData as Campaign);
@@ -540,4 +542,3 @@ const AdminCampaignPreview = () => {
 };
 
 export default AdminCampaignPreview;
-

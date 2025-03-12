@@ -1,45 +1,37 @@
-
-import { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
-interface WhyShareItem {
-  title: string;
-  description: string;
-}
-
-interface Campaign {
+export interface Campaign {
   id: string;
   title: string;
   slug: string;
+  is_active: boolean;
   prize_name: string;
   prize_amount: string;
   target_audience: string;
   thank_you_title: string;
   thank_you_description: string;
-  email_template_id: string;
   start_date: string;
   end_date: string;
-  is_active: boolean;
-  hero_image_url?: string;
   share_title?: string;
   share_description?: string;
-  why_share_items?: WhyShareItem[];
+  why_share_items?: any;
+  hero_image_url?: string;
+  email_template_id?: string;
+  subtitle?: string;
 }
 
 interface CampaignContextType {
   campaign: Campaign | null;
   isLoading: boolean;
   error: Error | null;
+  refreshCampaign: () => Promise<void>;
 }
 
-const CampaignContext = createContext<CampaignContextType>({
-  campaign: null,
-  isLoading: true,
-  error: null,
-});
+const CampaignContext = createContext<CampaignContextType | undefined>(undefined);
 
-export function CampaignProvider({ children }: { children: React.ReactNode }) {
+export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -82,16 +74,16 @@ export function CampaignProvider({ children }: { children: React.ReactNode }) {
   }, [slug]);
 
   return (
-    <CampaignContext.Provider value={{ campaign, isLoading, error }}>
+    <CampaignContext.Provider value={{ campaign, isLoading, error, refreshCampaign: fetchCampaign }}>
       {children}
     </CampaignContext.Provider>
   );
-}
+};
 
-export function useCampaign() {
+export const useCampaign = (): CampaignContextType => {
   const context = useContext(CampaignContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useCampaign must be used within a CampaignProvider');
   }
   return context;
-}
+};
