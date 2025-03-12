@@ -25,6 +25,7 @@ export interface Campaign {
   hero_image_url?: string;
   created_at?: string;
   updated_at?: string;
+  visible_in_admin?: boolean;
 }
 
 export interface CampaignFormData {
@@ -66,4 +67,5 @@ export interface SupabaseCampaign {
   hero_image_url?: string;
   created_at?: string;
   updated_at?: string;
+  visible_in_admin?: boolean;
 }

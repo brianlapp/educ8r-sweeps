@@ -1,3 +1,4 @@
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Campaign, CampaignFormData, SupabaseCampaign } from "../types";
@@ -21,7 +22,8 @@ export function useCampaignMutations() {
       // Convert WhyShareItem[] to Json for Supabase
       const campaignData = {
         ...campaign,
-        why_share_items: campaign.why_share_items as unknown as Json
+        why_share_items: campaign.why_share_items as unknown as Json,
+        visible_in_admin: true  // New campaigns are visible by default
       };
       
       const { data, error } = await supabase
