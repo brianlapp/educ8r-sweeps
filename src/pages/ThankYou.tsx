@@ -1,10 +1,10 @@
-
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Helmet } from 'react-helmet-async';
 import { supabase } from "@/integrations/supabase/client";
 import { CheckCircle } from "lucide-react";
+import { useCampaign } from "@/contexts/CampaignContext";
 
 declare global {
   interface Window {
@@ -24,6 +24,7 @@ const ThankYou = () => {
   // Keep jwtStatus for debugging, but don't display it to users
   const [jwtStatus, setJwtStatus] = useState<string | null>(null);
   const { toast } = useToast();
+  const { campaign, isLoading: isCampaignLoading } = useCampaign();
   
   // Scroll to top when component mounts
   useEffect(() => {
@@ -31,8 +32,8 @@ const ThankYou = () => {
   }, []);
   
   // Meta description for better sharing from thank you page
-  const metaDescription = "Help your students succeed while increasing your chances to win $1,000 for your classroom! Share with other teachers and parents to earn bonus entries.";
-  const metaTitle = "Thank You - Share & Win More | Educ8r Sweepstakes";
+  const metaDescription = campaign?.thank_you_description || "Help your students succeed while increasing your chances to win $1,000 for your classroom! Share with other teachers and parents to earn bonus entries.";
+  const metaTitle = `Thank You - Share & Win More | ${campaign?.title || "Educ8r Sweepstakes"}`;
   const metaImage = "https://educ8r.freeparentsearch.com/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png";
   const metaUrl = "https://educ8r.freeparentsearch.com/thank-you";
 
@@ -52,7 +53,7 @@ const ThankYou = () => {
     
     // Update or create Open Graph tags
     const ogTags = {
-      'og:title': "Share & Get More Chances to Win $1,000 for Your Classroom!",
+      'og:title': `Share & Get More Chances to Win ${campaign?.prize_amount || "$1,000"} for Your Classroom!`,
       'og:description': metaDescription,
       'og:image': metaImage,
       'og:url': metaUrl,
@@ -72,7 +73,7 @@ const ThankYou = () => {
     // Update or create Twitter Card tags
     const twitterTags = {
       'twitter:card': 'summary_large_image',
-      'twitter:title': "Share & Get More Chances to Win $1,000 for Your Classroom!",
+      'twitter:title': `Share & Get More Chances to Win ${campaign?.prize_amount || "$1,000"} for Your Classroom!`,
       'twitter:description': metaDescription,
       'twitter:image': metaImage
     };
@@ -90,7 +91,7 @@ const ThankYou = () => {
     return () => {
       // Cleanup not necessary as we want to keep the meta tags
     };
-  }, []);
+  }, [metaTitle, metaDescription, campaign]);
 
   useEffect(() => {
     // Check JWT status of the everflow-webhook endpoint (for debugging only)
@@ -237,7 +238,7 @@ const ThankYou = () => {
         <meta name="description" content={metaDescription} />
         
         {/* Open Graph tags for Facebook, LinkedIn, etc */}
-        <meta property="og:title" content="Share & Get More Chances to Win $1,000 for Your Classroom!" />
+        <meta property="og:title" content={`Share & Get More Chances to Win ${campaign?.prize_amount || "$1,000"} for Your Classroom!`} />
         <meta property="og:description" content={metaDescription} />
         <meta property="og:image" content={metaImage} />
         <meta property="og:url" content={metaUrl} />
@@ -245,7 +246,7 @@ const ThankYou = () => {
         
         {/* Twitter Card tags */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Share & Get More Chances to Win $1,000 for Your Classroom!" />
+        <meta name="twitter:title" content={`Share & Get More Chances to Win ${campaign?.prize_amount || "$1,000"} for Your Classroom!`} />
         <meta name="twitter:description" content={metaDescription} />
         <meta name="twitter:image" content={metaImage} />
         
@@ -268,7 +269,7 @@ const ThankYou = () => {
             {isReturningUser ? (
               <span className="text-blue-500">Welcome Back!</span>
             ) : (
-              <span>🎉 Thank You for Entering!</span>
+              <span>{campaign?.thank_you_title || "🎉 Thank You for Entering!"}</span>
             )}
           </h1>
 
@@ -286,7 +287,7 @@ const ThankYou = () => {
               <span className="md:hidden text-blue-500 text-3xl">Give a Free Gift!</span>
             </h3>
             <p className="text-gray-600 mb-5 md:mb-6 text-sm md:text-base font-medium">
-              Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you'll earn an extra entry for every parent who activates the trial.
+              {campaign?.thank_you_description || "Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you'll earn an extra entry for every parent who activates the trial."}
             </p>
             
             <div className="bg-gray-50 p-3 md:p-4 rounded-lg mb-5 md:mb-6">
@@ -319,7 +320,7 @@ const ThankYou = () => {
                 <li className="flex items-start">
                   <span className="inline-block mr-2 text-blue-600">•</span>
                   <div>
-                    <span className="font-medium">A Gift for Parents:</span> Provide them with a valuable, no-cost resource to help their kids thrive in reading.
+                    <span className="font-medium">A Gift for {campaign?.target_audience || "Parents"}:</span> Provide them with a valuable, no-cost resource to help their kids thrive in reading.
                   </div>
                 </li>
                 <li className="flex items-start">

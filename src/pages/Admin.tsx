@@ -1,4 +1,3 @@
-
 import { Helmet } from 'react-helmet-async';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,7 +8,7 @@ import { useEffect, useState } from "react";
 import { Tables } from "@/integrations/supabase/types";
 import { ManualSyncButton } from "@/components/ManualSyncButton";
 import { Link } from 'react-router-dom';
-import { ExternalLink, Trash2, Users } from "lucide-react";
+import { ExternalLink, Trash2, Users, Settings } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
@@ -40,7 +39,6 @@ const Admin = () => {
       
       return data;
     },
-    // Force a refetch on component mount to ensure we have the latest data
     refetchOnMount: 'always'
   });
 
@@ -59,7 +57,6 @@ const Admin = () => {
       console.log("[AdminPage] Starting delete process for entry ID:", id);
       setIsDeleting(id);
       
-      // First, double-check that the entry exists
       const { data: checkData, error: checkError } = await supabase
         .from('entries')
         .select('id')
@@ -73,20 +70,16 @@ const Admin = () => {
       
       if (!checkData) {
         console.warn("[AdminPage] Entry already deleted or doesn't exist:", id);
-        // Update local state
         setEntries(prev => prev.filter(entry => entry.id !== id));
         return;
       }
       
       console.log("[AdminPage] Confirmed entry exists, proceeding with deletion");
       
-      // Clear React Query cache for this entry first
       queryClient.removeQueries({queryKey: ['entries', id]});
       
-      // Update UI optimistically
       setEntries(prev => prev.filter(entry => entry.id !== id));
       
-      // Call the secure-delete-entry Edge Function directly instead of using RPC
       const response = await supabase.functions.invoke('secure-delete-entry', {
         body: { id }
       });
@@ -98,7 +91,6 @@ const Admin = () => {
       
       console.log("[AdminPage] Entry successfully deleted from database, ID:", id);
       
-      // Update the cache to reflect the deletion
       await queryClient.invalidateQueries({queryKey: ['entries']});
       
       toast({
@@ -106,7 +98,6 @@ const Admin = () => {
         description: "The entry has been successfully deleted from the database.",
       });
       
-      // Manually refetch to verify deletion
       const { data: verifyData } = await supabase
         .from('entries')
         .select('id')
@@ -122,7 +113,6 @@ const Admin = () => {
     } catch (error) {
       console.error("[AdminPage] Error in delete process:", error);
       
-      // Revert optimistic UI update and refresh data from server
       await refetch();
       
       toast({
@@ -216,10 +206,16 @@ const Admin = () => {
       <div className="container mx-auto py-12">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <Link to="/admin/webhooks" className="text-sm flex items-center text-blue-500 hover:text-blue-700">
-            <ExternalLink size={14} className="mr-1.5" />
-            Webhook Status
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link to="/admin/campaign-content" className="text-sm flex items-center text-blue-500 hover:text-blue-700">
+              <Settings size={14} className="mr-1.5" />
+              Campaign Content
+            </Link>
+            <Link to="/admin/webhooks" className="text-sm flex items-center text-blue-500 hover:text-blue-700">
+              <ExternalLink size={14} className="mr-1.5" />
+              Webhook Status
+            </Link>
+          </div>
         </div>
 
         <Card className="mb-8 overflow-hidden border border-gray-100">

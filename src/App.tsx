@@ -1,108 +1,106 @@
+import React, { useEffect, useState } from 'react';
+import {
+  BrowserRouter as Router,
+  Route,
+  Routes,
+  Navigate
+} from "react-router-dom";
+import { ThemeProvider } from "@/components/theme-provider"
+import LandingPage from "@/pages/LandingPage";
+import ThankYou from "@/pages/ThankYou";
+import Admin from "@/pages/Admin";
+import Webhooks from "@/pages/Webhooks";
+import { Auth } from '@supabase/auth-ui-react'
+import { ThemeSupa } from '@supabase/auth-ui-shared'
+import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react'
+import { CampaignProvider } from '@/contexts/CampaignContext';
 
-import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
-import { HelmetProvider } from 'react-helmet-async';
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect } from "react";
-import Index from "./pages/Index";
-import ThankYou from "./pages/ThankYou";
-import TestLanding from "./pages/TestLanding";
-import Admin from "./pages/Admin";
-import AdminWebhookStatus from "./pages/AdminWebhookStatus";
-import AdminLogin from "./pages/AdminLogin";
-import Documentation from "./pages/Documentation";
-import Terms from "./pages/Terms";
-import Rules from "./pages/Rules";
-import TechStack from "./pages/TechStack";
-import NotFound from "./pages/NotFound";
-import { AuthProvider } from "./contexts/AuthContext";
-import { CampaignProvider } from "./contexts/CampaignContext";
-import ProtectedRoute from "./components/ProtectedRoute";
-import { useAnalytics } from "./hooks/use-analytics";
-import "./App.css";
-
-// Create a client
-const queryClient = new QueryClient();
-
-// Route change tracker component
-function RouteChangeTracker() {
-  const location = useLocation();
-  const analytics = useAnalytics();
-  
-  useEffect(() => {
-    // Track page view on route change
-    analytics.trackPageView();
-    
-    // Track engagement on new page
-    analytics.trackEvent('page_engagement', {
-      path: location.pathname
-    });
-  }, [location.pathname, analytics]);
-  
-  return null;
-}
+// Add the new import for AdminCampaignContent
+import AdminCampaignContent from "@/pages/AdminCampaignContent";
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <HelmetProvider>
-        <AuthProvider>
-          <Router>
-            <RouteChangeTracker />
-            <Routes>
-              <Route 
-                path="/" 
-                element={
-                  <CampaignProvider>
-                    <Index />
-                  </CampaignProvider>
-                } 
-              />
-              <Route 
-                path="/:slug" 
-                element={
-                  <CampaignProvider>
-                    <Index />
-                  </CampaignProvider>
-                } 
-              />
-              <Route 
-                path="/:slug/thank-you" 
-                element={
-                  <CampaignProvider>
-                    <ThankYou />
-                  </CampaignProvider>
-                } 
-              />
-              <Route path="/thank-you" element={<ThankYou />} />
-              <Route path="/test-landing" element={<TestLanding />} />
-              <Route path="/admin/login" element={<AdminLogin />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/rules" element={<Rules />} />
-              <Route path="/tech-stack" element={<TechStack />} />
-              <Route 
-                path="/admin" 
-                element={
-                  <ProtectedRoute>
-                    <Admin />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route
-                path="/admin/webhooks"
-                element={
-                  <ProtectedRoute>
-                    <AdminWebhookStatus />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/docs" element={<Documentation />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Router>
-        </AuthProvider>
-      </HelmetProvider>
-    </QueryClientProvider>
+    <ThemeProvider defaultTheme="system" storageKey="vite-react-ts-shadcn">
+      <Router>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/thank-you" element={<ThankYou />} />
+
+          {/* Dynamic route for campaign slugs */}
+          <Route path="/:slug" element={
+            <CampaignProvider>
+              <LandingPage />
+            </CampaignProvider>
+          } />
+          <Route path="/thank-you/:slug" element={
+            <CampaignProvider>
+              <ThankYou />
+            </CampaignProvider>
+          } />
+
+          <Route path="/admin" element={
+            <ProtectedRoute>
+              <Admin />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/webhooks" element={
+            <ProtectedRoute>
+              <Webhooks />
+            </ProtectedRoute>
+          } />
+
+          {/* Update the routes section to include our new page */}
+          <Route path="/admin/campaign-content" element={
+            <ProtectedRoute>
+              <AdminCampaignContent />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Router>
+    </ThemeProvider>
   );
+}
+
+function LoginPage() {
+  const session = useSession()
+  const supabase = useSupabaseClient()
+
+  return (
+    <div className="flex justify-center items-center min-h-screen bg-gray-100">
+      <div className="p-8 bg-white shadow-md rounded-md w-96">
+        {!session ? (
+          <Auth
+            supabaseClient={supabase}
+            appearance={{ theme: ThemeSupa }}
+            providers={['google']}
+            redirectTo={`${window.location.origin}/admin`}
+          />
+        ) : (
+          <Navigate to="/admin" />
+        )}
+      </div>
+    </div>
+  )
+}
+
+
+// A wrapper for <Route> that redirects to the login page
+// if you're not yet authenticated.
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const session = useSession();
+
+  if (!session) {
+    // Redirect them to the /login page, but save the current location they were
+    // trying to go to when they were redirected. This allows us to send them
+    // along to that page after they login, which is a nicer user experience
+    // than dropping them off on the home page.
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
 }
 
 export default App;
