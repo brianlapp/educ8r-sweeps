@@ -10,7 +10,7 @@ expect.extend(matchers);
 // Make vi accessible globally
 declare global {
   // eslint-disable-next-line no-var
-  var vi: typeof vi;
+  var vi: any; // Using 'any' to avoid the circular reference error
 }
 global.vi = vi;
 
@@ -18,4 +18,3 @@ global.vi = vi;
 afterEach(() => {
   cleanup();
 });
-
