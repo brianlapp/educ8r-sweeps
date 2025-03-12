@@ -1,7 +1,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Campaign, CampaignFormData, SupabaseCampaign } from "../types";
+import { Campaign, CampaignFormData, SupabaseCampaign, WhyShareItem } from "../types";
 import { toast } from "sonner";
 import { Json } from "@/integrations/supabase/types";
 
@@ -75,7 +75,22 @@ export function useCampaignMutations() {
       }
       
       console.log("[AdminCampaignsPage] Campaign updated successfully, returned data:", data);
-      return data as Campaign;
+      
+      // Transform the data back to Campaign type
+      const updatedCampaign: Campaign = {
+        ...data,
+        // Convert the why_share_items from Json back to WhyShareItem[]
+        why_share_items: data.why_share_items 
+          ? (Array.isArray(data.why_share_items) 
+              ? data.why_share_items as unknown as WhyShareItem[]
+              : typeof data.why_share_items === 'string'
+                ? JSON.parse(data.why_share_items)
+                : data.why_share_items as unknown as WhyShareItem[])
+          : undefined
+      };
+      
+      console.log("[AdminCampaignsPage] Transformed campaign data:", updatedCampaign);
+      return updatedCampaign;
     },
     onSuccess: (updatedCampaign) => {
       console.log("[AdminCampaignsPage] Update success callback with data:", updatedCampaign);
