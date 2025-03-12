@@ -21,7 +21,7 @@ interface Campaign {
   start_date: string;
   end_date: string;
   is_active: boolean;
-  // New fields for custom thank you page content
+  hero_image_url?: string;
   share_title?: string;
   share_description?: string;
   why_share_items?: WhyShareItem[];

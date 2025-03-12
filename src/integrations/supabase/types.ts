@@ -56,6 +56,7 @@ export type Database = {
           created_at: string | null
           email_template_id: string
           end_date: string
+          hero_image_url: string | null
           id: string
           is_active: boolean | null
           prize_amount: string
@@ -75,6 +76,7 @@ export type Database = {
           created_at?: string | null
           email_template_id: string
           end_date: string
+          hero_image_url?: string | null
           id?: string
           is_active?: boolean | null
           prize_amount: string
@@ -94,6 +96,7 @@ export type Database = {
           created_at?: string | null
           email_template_id?: string
           end_date?: string
+          hero_image_url?: string | null
           id?: string
           is_active?: boolean | null
           prize_amount?: string

@@ -1,4 +1,3 @@
-
 import { Helmet } from 'react-helmet-async';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -24,7 +23,6 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 
-// Campaign type definition
 interface Campaign {
   id: string;
   title: string;
@@ -41,6 +39,7 @@ interface Campaign {
   share_title?: string;
   share_description?: string;
   why_share_items?: Array<{title: string, description: string}>;
+  hero_image_url?: string;
 }
 
 const AdminCampaigns = () => {
@@ -60,13 +59,13 @@ const AdminCampaigns = () => {
     start_date: new Date().toISOString().split('T')[0],
     end_date: new Date(new Date().setMonth(new Date().getMonth() + 3)).toISOString().split('T')[0],
     share_title: 'Give Your Students\' Parents a Free Gift!',
-    share_description: 'Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you\'ll earn an extra entry for every parent who activates the trial.'
+    share_description: 'Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you\'ll earn an extra entry for every parent who activates the trial.',
+    hero_image_url: ''
   });
   const [formError, setFormError] = useState<string | null>(null);
   
   const queryClient = useQueryClient();
 
-  // Fetch campaigns
   const { isLoading: isLoadingCampaigns } = useQuery({
     queryKey: ['campaigns'],
     queryFn: async () => {
@@ -91,12 +90,10 @@ const AdminCampaigns = () => {
     refetchOnMount: 'always'
   });
 
-  // Create campaign mutation
   const createCampaign = useMutation({
     mutationFn: async (campaign: Partial<Campaign>) => {
       console.log("[AdminCampaignsPage] Creating new campaign:", campaign);
       
-      // Fix: Ensure the campaign object has all required fields before inserting
       if (!campaign.title || !campaign.slug || !campaign.email_template_id || 
           !campaign.prize_name || !campaign.prize_amount || !campaign.target_audience ||
           !campaign.thank_you_title || !campaign.thank_you_description ||
@@ -104,7 +101,6 @@ const AdminCampaigns = () => {
         throw new Error("Missing required fields for campaign creation");
       }
       
-      // Use a type assertion to tell TypeScript that this object has all the required fields
       const { data, error } = await supabase
         .from('campaigns')
         .insert({
@@ -121,7 +117,8 @@ const AdminCampaigns = () => {
           end_date: campaign.end_date,
           share_title: campaign.share_title,
           share_description: campaign.share_description,
-          why_share_items: campaign.why_share_items
+          why_share_items: campaign.why_share_items,
+          hero_image_url: campaign.hero_image_url
         })
         .select();
 
@@ -145,7 +142,6 @@ const AdminCampaigns = () => {
     }
   });
 
-  // Update campaign mutation
   const updateCampaign = useMutation({
     mutationFn: async (campaign: Partial<Campaign>) => {
       console.log("[AdminCampaignsPage] Updating campaign:", campaign);
@@ -187,7 +183,6 @@ const AdminCampaigns = () => {
     e.preventDefault();
     setFormError(null);
 
-    // Basic validation
     if (!formData.title || !formData.slug || !formData.email_template_id || 
         !formData.prize_name || !formData.prize_amount || !formData.target_audience ||
         !formData.thank_you_title || !formData.thank_you_description ||
@@ -219,7 +214,8 @@ const AdminCampaigns = () => {
       start_date: new Date().toISOString().split('T')[0],
       end_date: new Date(new Date().setMonth(new Date().getMonth() + 3)).toISOString().split('T')[0],
       share_title: 'Give Your Students\' Parents a Free Gift!',
-      share_description: 'Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you\'ll earn an extra entry for every parent who activates the trial.'
+      share_description: 'Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you\'ll earn an extra entry for every parent who activates the trial.',
+      hero_image_url: ''
     });
     setFormError(null);
   };
@@ -239,7 +235,8 @@ const AdminCampaigns = () => {
       start_date: campaign.start_date ? new Date(campaign.start_date).toISOString().split('T')[0] : '',
       end_date: campaign.end_date ? new Date(campaign.end_date).toISOString().split('T')[0] : '',
       share_title: campaign.share_title || 'Give Your Students\' Parents a Free Gift!',
-      share_description: campaign.share_description || 'Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you\'ll earn an extra entry for every parent who activates the trial.'
+      share_description: campaign.share_description || 'Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you\'ll earn an extra entry for every parent who activates the trial.',
+      hero_image_url: campaign.hero_image_url || ''
     });
     setIsFormOpen(true);
   };
@@ -319,7 +316,6 @@ const AdminCampaigns = () => {
           </CardContent>
         </Card>
 
-        {/* Campaign Form Modal */}
         <AlertDialog open={isFormOpen} onOpenChange={setIsFormOpen}>
           <AlertDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <AlertDialogHeader>
@@ -493,6 +489,18 @@ const AdminCampaigns = () => {
                 </label>
               </div>
 
+              <div className="space-y-2">
+                <label htmlFor="hero_image_url" className="text-sm font-medium">Landing Page Hero Image URL</label>
+                <Input
+                  id="hero_image_url"
+                  name="hero_image_url"
+                  value={formData.hero_image_url}
+                  onChange={handleInputChange}
+                  placeholder="e.g. https://example.com/hero-image.jpg"
+                />
+                <p className="text-sm text-gray-500">URL for the campaign landing page hero image</p>
+              </div>
+
               <AlertDialogFooter>
                 <AlertDialogCancel onClick={resetForm}>Cancel</AlertDialogCancel>
                 <AlertDialogAction type="submit">
@@ -508,3 +516,4 @@ const AdminCampaigns = () => {
 };
 
 export default AdminCampaigns;
+

@@ -6,11 +6,9 @@ import { useEffect } from "react";
 import { useCampaign } from "@/contexts/CampaignContext";
 
 const Index = () => {
-  // Setting the countdown target date to August 15, 2025
   const targetDate = new Date("August 15, 2025");
   const { campaign, isLoading } = useCampaign();
   
-  // Default meta data
   const defaultMeta = {
     title: "Win $1,000 for Your Classroom - Educ8r Sweepstakes",
     description: "Enter now to win $1,000 for your classroom supplies! Free entry for educators. Support your students with everything they need for a successful school year.",
@@ -18,18 +16,14 @@ const Index = () => {
     url: "https://educ8r.freeparentsearch.com"
   };
   
-  // Campaign-specific meta data if available
   const metaTitle = campaign ? `Win ${campaign.prize_amount} for ${campaign.prize_name} - Educ8r Sweepstakes` : defaultMeta.title;
   const metaDescription = campaign ? `Enter now to win ${campaign.prize_amount} for ${campaign.prize_name}! Free entry for ${campaign.target_audience}. Support your students with everything they need for a successful school year.` : defaultMeta.description;
   const metaImage = defaultMeta.image;
   const metaUrl = campaign ? `https://educ8r.freeparentsearch.com/${campaign.slug}` : defaultMeta.url;
 
-  // Add direct meta tags to the document head for better crawler detection
   useEffect(() => {
-    // Set basic meta tags directly in the document head
     document.title = metaTitle;
     
-    // Update or create meta description
     let metaDescEl = document.querySelector('meta[name="description"]');
     if (!metaDescEl) {
       metaDescEl = document.createElement('meta');
@@ -38,7 +32,6 @@ const Index = () => {
     }
     metaDescEl.setAttribute('content', metaDescription);
     
-    // Update or create Open Graph tags
     const ogTags = {
       'og:title': metaTitle,
       'og:description': metaDescription,
@@ -57,7 +50,6 @@ const Index = () => {
       ogTag.setAttribute('content', content);
     });
     
-    // Update or create Twitter Card tags
     const twitterTags = {
       'twitter:card': 'summary_large_image',
       'twitter:title': metaTitle,
@@ -76,7 +68,6 @@ const Index = () => {
     });
     
     return () => {
-      // Cleanup not necessary as we want to keep the meta tags
     };
   }, [metaTitle, metaDescription, metaImage, metaUrl]);
 
@@ -85,20 +76,17 @@ const Index = () => {
         <title>{metaTitle}</title>
         <meta name="description" content={metaDescription} />
         
-        {/* Open Graph tags for Facebook, LinkedIn, etc */}
         <meta property="og:title" content={metaTitle} />
         <meta property="og:description" content={metaDescription} />
         <meta property="og:image" content={metaImage} />
         <meta property="og:url" content={metaUrl} />
         <meta property="og:type" content="website" />
         
-        {/* Twitter Card tags */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={metaTitle} />
         <meta name="twitter:description" content={metaDescription} />
         <meta name="twitter:image" content={metaImage} />
         
-        {/* Additional SEO tags */}
         <link rel="canonical" href={metaUrl} />
         <meta name="keywords" content="teacher sweepstakes, classroom supplies, $1000 giveaway, education sweepstakes, free classroom supplies" />
       </Helmet>
@@ -120,7 +108,11 @@ const Index = () => {
           ) : (
             <div className="relative grid md:grid-cols-2 gap-0 items-center max-w-6xl mx-auto">
               <div className="order-1 md:order-1 md:pr-12 z-0 md:w-[calc(100%+3rem)]">
-                <img alt="Students collaborating on laptop" className="w-full animate-fadeIn transform hover:scale-[1.02] transition-transform duration-300 rounded-none" src="/lovable-uploads/308c0411-e546-4640-ab1a-b354a074f9c4.png" />
+                <img 
+                  alt="Campaign hero image" 
+                  className="w-full animate-fadeIn transform hover:scale-[1.02] transition-transform duration-300 rounded-none" 
+                  src={campaign?.hero_image_url || "/lovable-uploads/308c0411-e546-4640-ab1a-b354a074f9c4.png"} 
+                />
               </div>
               <div className="order-2 md:order-2 md:-ml-12 z-10 -mt-4 sm:-mt-8 md:mt-0">
                 <div className="bg-white p-6 md:p-8 rounded-xl shadow-md border border-blue-200 border-4  animate-slideUp">
@@ -186,4 +178,5 @@ const Index = () => {
       </footer>
     </div>;
 };
+
 export default Index;
