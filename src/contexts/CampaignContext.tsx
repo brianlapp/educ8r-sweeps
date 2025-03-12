@@ -36,7 +36,7 @@ export const CampaignProvider: React.FC<{children: React.ReactNode}> = ({ childr
         
         let { data, error: supabaseError } = slug 
           ? await supabase.from('campaigns').select('*').eq('slug', slug).single()
-          : await supabase.from('campaigns').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).single();
+          : await supabase.from('campaigns').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle();
         
         if (supabaseError) {
           console.error("Supabase error:", supabaseError);
@@ -44,11 +44,10 @@ export const CampaignProvider: React.FC<{children: React.ReactNode}> = ({ childr
         }
         
         console.log("Campaign data received:", data);
-        setCampaign(data);
+        setCampaign(data); // data can be null now which is fine
       } catch (err) {
         console.error('Error fetching campaign:', err);
         setError(err as Error);
-        // Even if there's an error, we should still exit loading state
       } finally {
         setIsLoading(false);
       }
@@ -57,7 +56,6 @@ export const CampaignProvider: React.FC<{children: React.ReactNode}> = ({ childr
     fetchCampaign();
   }, [slug]);
 
-  // Log the current state for debugging
   console.log("CampaignContext state:", { isLoading, campaign, error: error?.message });
 
   return (
