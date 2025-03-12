@@ -247,18 +247,18 @@ const AdminCampaignPreview = () => {
           </CardContent>
         </Card>
         
-        <Tabs defaultValue="preview" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="preview">Thank You Page Preview</TabsTrigger>
-            <TabsTrigger value="content">Dynamic Content</TabsTrigger>
-            <TabsTrigger value="email">Email Template</TabsTrigger>
+        <Tabs defaultValue="thank-you" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="thank-you">Thank You Page</TabsTrigger>
             <TabsTrigger value="landing">Landing Page</TabsTrigger>
+            <TabsTrigger value="email">Email Template</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="preview" className="space-y-4">
+          {/* Thank You Page Tab */}
+          <TabsContent value="thank-you" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg font-medium">Live Preview</CardTitle>
+                <CardTitle className="text-lg font-medium">Thank You Page Preview</CardTitle>
               </CardHeader>
               <CardContent className="p-0 overflow-hidden">
                 <div className="h-[600px] rounded-md border border-gray-200 overflow-hidden bg-white">
@@ -281,9 +281,7 @@ const AdminCampaignPreview = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-          
-          <TabsContent value="content" className="space-y-4">
+            
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg font-medium">Thank You Page Content</CardTitle>
@@ -387,6 +385,90 @@ const AdminCampaignPreview = () => {
             </Card>
           </TabsContent>
           
+          {/* Landing Page Tab */}
+          <TabsContent value="landing" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-medium">Landing Page Preview</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 overflow-hidden">
+                <div className="h-[600px] rounded-md border border-gray-200 overflow-hidden bg-white">
+                  <iframe 
+                    src={`/${campaign.slug}`} 
+                    className="w-full h-full" 
+                    title="Landing Page Preview"
+                  />
+                </div>
+                <div className="flex justify-end p-4">
+                  <Link 
+                    to={`/${campaign.slug}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    Open in new tab
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg font-medium">Landing Page Content</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h3 className="font-semibold mb-1">Thank You Title</h3>
+                  {isEditing ? (
+                    <Input
+                      name="thank_you_title"
+                      value={editableContent.thank_you_title || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                    />
+                  ) : (
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign.thank_you_title}
+                    </p>
+                  )}
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-1">Thank You Description</h3>
+                  {isEditing ? (
+                    <Textarea
+                      name="thank_you_description"
+                      value={editableContent.thank_you_description || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                      rows={3}
+                    />
+                  ) : (
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign.thank_you_description}
+                    </p>
+                  )}
+                </div>
+
+                {isEditing && (
+                  <div>
+                    <h3 className="font-semibold mb-1">Hero Image URL (Optional)</h3>
+                    <Input
+                      name="hero_image_url"
+                      value={editableContent.hero_image_url || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                      placeholder="https://example.com/image.jpg"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">URL for the campaign landing page hero image</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* Email Template Tab */}
           <TabsContent value="email" className="space-y-4">
             <Card>
               <CardHeader>
@@ -416,87 +498,37 @@ const AdminCampaignPreview = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-          
-          <TabsContent value="landing" className="space-y-4">
+
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg font-medium">Landing Page Preview</CardTitle>
+                <CardTitle className="text-lg font-medium">Email Template Configuration</CardTitle>
               </CardHeader>
-              <CardContent className="p-0 overflow-hidden">
-                <div className="h-[600px] rounded-md border border-gray-200 overflow-hidden bg-white">
-                  <iframe 
-                    src={`/${campaign.slug}`} 
-                    className="w-full h-full" 
-                    title="Landing Page Preview"
-                  />
+              <CardContent className="space-y-4">
+                <div>
+                  <h3 className="font-semibold mb-1">Email Template ID</h3>
+                  {isEditing ? (
+                    <Input
+                      name="email_template_id"
+                      value={editableContent.email_template_id || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                    />
+                  ) : (
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign.email_template_id}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">Use "default" if you don't have a specific template ID</p>
                 </div>
-                <div className="flex justify-end p-4">
-                  <Link 
-                    to={`/${campaign.slug}`} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    Open in new tab
-                  </Link>
+                
+                <div className="bg-blue-50 border border-blue-100 rounded p-4">
+                  <p className="text-sm text-blue-700">
+                    <span className="font-medium">Note:</span> Email templates are managed through the email template editor. 
+                    You can customize the email content that will be sent to users when they share or refer others.
+                  </p>
                 </div>
               </CardContent>
             </Card>
-            
-            {isEditing && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg font-medium">Landing Page Content</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold mb-1">Thank You Title</h3>
-                    <Input
-                      name="thank_you_title"
-                      value={editableContent.thank_you_title || ''}
-                      onChange={handleInputChange}
-                      className="w-full"
-                    />
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-semibold mb-1">Thank You Description</h3>
-                    <Textarea
-                      name="thank_you_description"
-                      value={editableContent.thank_you_description || ''}
-                      onChange={handleInputChange}
-                      className="w-full"
-                      rows={3}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            
-            {!isEditing && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg font-medium">Landing Page Content</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold mb-1">Thank You Title</h3>
-                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
-                      {campaign.thank_you_title}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-semibold mb-1">Thank You Description</h3>
-                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
-                      {campaign.thank_you_description}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </TabsContent>
         </Tabs>
       </div>
