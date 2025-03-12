@@ -63,6 +63,7 @@ export function useCampaignMutations() {
       return data;
     },
     onSuccess: () => {
+      // Ensure we fully invalidate the cache to force a refresh
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       toast.success("Campaign updated successfully!");
     },

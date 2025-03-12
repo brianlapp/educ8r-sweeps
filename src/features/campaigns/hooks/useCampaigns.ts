@@ -33,6 +33,8 @@ export function useCampaigns() {
       
       return campaigns;
     },
-    refetchOnMount: 'always'
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    staleTime: 0 // Consider data immediately stale to ensure fresh fetches
   });
 }

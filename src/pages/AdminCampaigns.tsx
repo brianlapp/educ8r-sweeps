@@ -17,7 +17,7 @@ const AdminCampaigns = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   
-  const { data: campaigns = [], isLoading } = useCampaigns();
+  const { data: campaigns = [], isLoading, refetch } = useCampaigns();
   const { createCampaign, updateCampaign } = useCampaignMutations();
 
   const handleSubmit = (formData: Omit<Campaign, 'id'>) => {
@@ -27,6 +27,10 @@ const AdminCampaigns = () => {
       createCampaign.mutate(formData);
     }
     resetForm();
+    // Force a refetch to ensure the UI shows the latest data
+    setTimeout(() => {
+      refetch();
+    }, 500); // Small delay to ensure the mutation has completed
   };
 
   const resetForm = () => {
