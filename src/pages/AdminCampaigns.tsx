@@ -1,4 +1,3 @@
-
 import { Helmet } from 'react-helmet-async';
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,9 +22,7 @@ const AdminCampaigns = () => {
   const { data: campaigns = [], isLoading, refetch } = useCampaigns();
   const { createCampaign, updateCampaign, toggleCampaignVisibility } = useCampaignMutations();
 
-  // Add this effect to ensure proper refetching after form operations
   useEffect(() => {
-    // This will run when the component mounts and should trigger a fresh fetch
     console.log("[AdminCampaigns] Component mounted, triggering refetch");
     refetch();
   }, [refetch]);
@@ -55,10 +52,8 @@ const AdminCampaigns = () => {
             console.log("[AdminCampaigns] Update mutation successful - forcing refetch");
             toast.success("Campaign updated successfully!");
             
-            // Close form immediately and clear editing state
             resetForm();
             
-            // Force a refetch with delay to ensure the UI shows the latest data
             setTimeout(() => {
               console.log("[AdminCampaigns] Executing delayed refetch");
               refetch().then(result => {
@@ -85,10 +80,23 @@ const AdminCampaigns = () => {
       trackEvent('admin_create_campaign');
       createCampaign.mutate(formData, {
         onSuccess: () => {
-          toast.success("Campaign created successfully!");
+          console.log("[AdminCampaigns] Create mutation successful - closing form");
           resetForm();
-          // Force a refetch to show the new campaign
-          setTimeout(() => refetch(), 500);
+          setTimeout(() => {
+            console.log("[AdminCampaigns] Executing delayed refetch after create");
+            refetch()
+              .then(result => {
+                console.log("[AdminCampaigns] Refetch completed after create with result:", result);
+              })
+              .catch(err => {
+                console.error("[AdminCampaigns] Refetch failed after create:", err);
+                toast.error("Error refreshing campaign list");
+              });
+          }, 500);
+        },
+        onError: (error: Error) => {
+          console.error("[AdminCampaigns] Create mutation failed:", error);
+          toast.error("Failed to create campaign: " + error.message);
         }
       });
     }
@@ -111,7 +119,6 @@ const AdminCampaigns = () => {
     toggleCampaignVisibility.mutate({ campaignId, visible: false }, {
       onSuccess: () => {
         toast.success("Campaign hidden successfully!");
-        // Force a refetch to ensure the UI shows the latest data
         setTimeout(() => refetch(), 500);
       }
     });

@@ -1,4 +1,3 @@
-
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Campaign, CampaignFormData, WhyShareItem } from "../types";
@@ -10,12 +9,13 @@ export function useCampaignMutations() {
 
   const createCampaign = useMutation({
     mutationFn: async (campaign: CampaignFormData) => {
-      console.log("[Mutations] Creating new campaign:", campaign);
+      console.log("[CREATE-CAMPAIGN] Starting campaign creation with data:", campaign);
       
       if (!campaign.title || !campaign.slug || !campaign.email_template_id || 
           !campaign.prize_name || !campaign.prize_amount || !campaign.target_audience ||
           !campaign.thank_you_title || !campaign.thank_you_description ||
           !campaign.start_date || !campaign.end_date) {
+        console.error("[CREATE-CAMPAIGN] Validation failed - missing required fields:", campaign);
         throw new Error("Missing required fields for campaign creation");
       }
       
@@ -26,21 +26,29 @@ export function useCampaignMutations() {
         visible_in_admin: true  // New campaigns are visible by default
       };
       
+      console.log("[CREATE-CAMPAIGN] Sending to Supabase:", campaignData);
+      
       const { data, error } = await supabase
         .from('campaigns')
         .insert(campaignData)
         .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("[CREATE-CAMPAIGN] Supabase error:", error);
+        throw error;
+      }
+
+      console.log("[CREATE-CAMPAIGN] Successfully created campaign:", data);
       return data;
     },
-    onSuccess: () => {
-      console.log("[Mutations] Campaign created successfully, invalidating cache");
+    onSuccess: (data) => {
+      console.log("[CREATE-CAMPAIGN] Success callback triggered, invalidating queries");
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      toast.success("Campaign created successfully!");
     },
-    onError: (error) => {
-      console.error("[Mutations] Create mutation error:", error);
-      toast.error("Failed to create campaign");
+    onError: (error: Error) => {
+      console.error("[CREATE-CAMPAIGN] Mutation error:", error);
+      toast.error("Failed to create campaign: " + error.message);
     }
   });
 
