@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
@@ -15,33 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useCampaignMutations } from "@/features/campaigns/hooks/useCampaignMutations";
 import { useAnalytics } from "@/hooks/use-analytics";
-
-interface WhyShareItem {
-  title: string;
-  description: string;
-}
-
-interface Campaign {
-  id: string;
-  slug: string;
-  title: string;
-  prize_name: string;
-  prize_amount: string;
-  target_audience: string;
-  thank_you_title: string;
-  thank_you_description: string;
-  start_date: string;
-  end_date: string;
-  is_active: boolean;
-  share_title: string;
-  share_description: string;
-  why_share_items: WhyShareItem[];
-  email_template_id: string;
-  hero_image_url?: string;
-  subtitle?: string;
-  mobile_subtitle?: string;
-  promotional_text?: string;
-}
+import { Campaign, WhyShareItem } from "@/features/campaigns/types";
 
 const AdminCampaignPreview = () => {
   const { id } = useParams<{ id: string }>();
