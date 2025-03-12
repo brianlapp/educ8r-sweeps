@@ -2,7 +2,7 @@
 import { Campaign } from "../types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Eye, Edit, Trash2 } from "lucide-react";
+import { Eye, Edit, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import { 
   AlertDialog,
@@ -12,24 +12,23 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger
+  AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
 
 interface CampaignListProps {
   campaigns: Campaign[];
   onEdit: (campaign: Campaign) => void;
-  onDelete: (campaignId: string) => void;
+  onHide: (campaignId: string) => void;
 }
 
-export function CampaignList({ campaigns, onEdit, onDelete }: CampaignListProps) {
-  const [campaignToDelete, setCampaignToDelete] = useState<string | null>(null);
+export function CampaignList({ campaigns, onEdit, onHide }: CampaignListProps) {
+  const [campaignToHide, setCampaignToHide] = useState<string | null>(null);
 
-  const handleDelete = () => {
-    if (campaignToDelete) {
-      onDelete(campaignToDelete);
-      setCampaignToDelete(null);
+  const handleHide = () => {
+    if (campaignToHide) {
+      onHide(campaignToHide);
+      setCampaignToHide(null);
     }
   };
   
@@ -67,10 +66,10 @@ export function CampaignList({ campaigns, onEdit, onDelete }: CampaignListProps)
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => setCampaignToDelete(campaign.id)}
+                    className="h-8 w-8 text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                    onClick={() => setCampaignToHide(campaign.id)}
                   >
-                    <Trash2 size={16} />
+                    <EyeOff size={16} />
                   </Button>
                 </div>
               </TableCell>
@@ -79,18 +78,18 @@ export function CampaignList({ campaigns, onEdit, onDelete }: CampaignListProps)
         </TableBody>
       </Table>
 
-      <AlertDialog open={!!campaignToDelete} onOpenChange={(open) => !open && setCampaignToDelete(null)}>
+      <AlertDialog open={!!campaignToHide} onOpenChange={(open) => !open && setCampaignToHide(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Campaign</AlertDialogTitle>
+            <AlertDialogTitle>Hide Campaign</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this campaign? This action cannot be undone.
+              This will hide the campaign from the admin interface. The campaign data and associated entries will be preserved. You can restore hidden campaigns later if needed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-              Delete
+            <AlertDialogAction onClick={handleHide} className="bg-slate-600 hover:bg-slate-700">
+              Hide Campaign
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

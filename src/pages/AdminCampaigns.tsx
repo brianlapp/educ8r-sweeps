@@ -18,7 +18,7 @@ const AdminCampaigns = () => {
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   
   const { data: campaigns = [], isLoading, refetch } = useCampaigns();
-  const { createCampaign, updateCampaign, deleteCampaign } = useCampaignMutations();
+  const { createCampaign, updateCampaign, toggleCampaignVisibility } = useCampaignMutations();
 
   const handleSubmit = (formData: Omit<Campaign, 'id'>) => {
     if (editingCampaign) {
@@ -43,8 +43,8 @@ const AdminCampaigns = () => {
     setIsFormOpen(true);
   };
 
-  const handleDelete = (campaignId: string) => {
-    deleteCampaign.mutate(campaignId);
+  const handleHideCampaign = (campaignId: string) => {
+    toggleCampaignVisibility.mutate({ campaignId, visible: false });
     // Force a refetch to ensure the UI shows the latest data
     setTimeout(() => {
       refetch();
@@ -91,7 +91,7 @@ const AdminCampaigns = () => {
               <CampaignList 
                 campaigns={campaigns} 
                 onEdit={openEditForm}
-                onDelete={handleDelete}
+                onHide={handleHideCampaign}
               />
             </div>
           </CardContent>
@@ -116,6 +116,6 @@ const AdminCampaigns = () => {
       </div>
     </div>
   );
-};
+}
 
 export default AdminCampaigns;

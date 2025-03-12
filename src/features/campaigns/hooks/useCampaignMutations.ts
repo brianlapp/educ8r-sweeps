@@ -1,4 +1,3 @@
-
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Campaign, CampaignFormData, SupabaseCampaign } from "../types";
@@ -73,6 +72,30 @@ export function useCampaignMutations() {
     }
   });
 
+  const toggleCampaignVisibility = useMutation({
+    mutationFn: async ({ campaignId, visible }: { campaignId: string; visible: boolean }) => {
+      console.log(`[AdminCampaignsPage] ${visible ? 'Showing' : 'Hiding'} campaign:`, campaignId);
+      
+      const { data, error } = await supabase
+        .from('campaigns')
+        .update({ visible_in_admin: visible })
+        .eq('id', campaignId)
+        .select();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      toast.success(`Campaign ${variables.visible ? 'restored' : 'hidden'} successfully!`);
+    },
+    onError: (error) => {
+      console.error("[AdminCampaignsPage] Visibility toggle error:", error);
+      toast.error("Failed to update campaign visibility");
+    }
+  });
+
+  // Keep the deleteCampaign mutation but it will now be unused
   const deleteCampaign = useMutation({
     mutationFn: async (campaignId: string) => {
       console.log("[AdminCampaignsPage] Deleting campaign:", campaignId);
@@ -108,5 +131,5 @@ export function useCampaignMutations() {
     }
   });
 
-  return { createCampaign, updateCampaign, deleteCampaign };
+  return { createCampaign, updateCampaign, deleteCampaign, toggleCampaignVisibility };
 }

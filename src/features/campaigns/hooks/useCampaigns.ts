@@ -3,15 +3,22 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Campaign, SupabaseCampaign } from "../types";
 
-export function useCampaigns() {
+export function useCampaigns(includeHidden: boolean = false) {
   return useQuery({
-    queryKey: ['campaigns'],
+    queryKey: ['campaigns', { includeHidden }],
     queryFn: async () => {
       console.log("[AdminCampaignsPage] Fetching campaigns from Supabase...");
-      const { data, error } = await supabase
+      
+      let query = supabase
         .from('campaigns')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
+        
+      // Only filter out invisible campaigns if includeHidden is false
+      if (!includeHidden) {
+        query = query.or('visible_in_admin.is.null,visible_in_admin.eq.true');
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) {
         console.error("[AdminCampaignsPage] Error fetching campaigns:", error);
