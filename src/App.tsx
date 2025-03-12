@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   BrowserRouter as Router,
@@ -17,13 +18,26 @@ import { CampaignProvider } from '@/contexts/CampaignContext';
 import AdminCampaignContent from "@/pages/AdminCampaignContent";
 
 function App() {
+  console.log("App component rendering");
   return (
     <ThemeProvider defaultTheme="system" storageKey="vite-react-ts-shadcn">
       <Router>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/thank-you" element={<ThankYou />} />
+          {/* Landing page routes */}
+          <Route path="/" element={
+            <CampaignProvider>
+              <LandingPage />
+            </CampaignProvider>
+          } />
+          
+          {/* Thank you routes */}
+          <Route path="/thank-you" element={
+            <CampaignProvider>
+              <ThankYou />
+            </CampaignProvider>
+          } />
 
+          {/* Routes with slug parameter */}
           <Route path="/:slug" element={
             <CampaignProvider>
               <LandingPage />
@@ -35,6 +49,7 @@ function App() {
             </CampaignProvider>
           } />
 
+          {/* Admin routes */}
           <Route path="/admin" element={
             <ProtectedRoute>
               <Admin />
@@ -45,13 +60,13 @@ function App() {
               <Webhooks />
             </ProtectedRoute>
           } />
-
           <Route path="/admin/campaign-content" element={
             <ProtectedRoute>
               <AdminCampaignContent />
             </ProtectedRoute>
           } />
 
+          {/* Auth and fallback routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
