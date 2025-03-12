@@ -38,11 +38,17 @@ export function useCampaignMutations() {
         throw error;
       }
 
+      if (!data || data.length === 0) {
+        console.error("[CREATE-CAMPAIGN] No data returned from Supabase after insert");
+        throw new Error("Failed to create campaign - no data returned");
+      }
+
       console.log("[CREATE-CAMPAIGN] Successfully created campaign:", data);
-      return data;
+      return data[0];
     },
     onSuccess: (data) => {
-      console.log("[CREATE-CAMPAIGN] Success callback triggered, invalidating queries");
+      console.log("[CREATE-CAMPAIGN] Success callback triggered with data:", data);
+      // Force invalidate all campaign queries to ensure fresh data
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       toast.success("Campaign created successfully!");
     },
