@@ -66,6 +66,33 @@
 - ✅ Test admin features
 - ✅ Deploy to production
 
+## ⚠️ BeehiiV Integration - Critical Implementation Notes
+- BeehiiV API requires `custom_fields` to be formatted as an array of objects with `name` and `value` properties
+- Example of correct format:
+  ```javascript
+  custom_fields: [
+    {
+      name: 'First Name',
+      value: firstName
+    },
+    {
+      name: 'Last Name',
+      value: lastName
+    },
+    {
+      name: 'referral_code',
+      value: entry.referral_code
+    }
+  ]
+  ```
+- Publication ID must remain `pub_4b47c3db-7b59-4c82-a18b-16cf10fc2d23` unless explicitly changed in BeehiiV dashboard
+- Two critical tags must be added to subscribers: 'comprendi' and 'sweeps'
+- The API requires sequential calls: (1) Create/update subscription, (2) Get subscriber, (3) Add tags to subscriber
+- BeehiiV endpoints:
+  - Subscription: `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`
+  - Get subscriber: `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions?email=${email}`
+  - Add tags: `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions/${subscriberId}/tags`
+
 ## 🔄 Multi-Sweepstakes Architecture
 - ⏳ Phase 1: Foundation (13-18 hours)
   - ⏳ Database schema creation for campaigns table
@@ -73,6 +100,11 @@
   - ⏳ Dynamic routing structure updates
   - ⏳ Migration strategy for existing entries
   - ⏳ Foundation testing and validation
+  - ⚠️ BeehiiV Integration Preservation:
+    - Maintain custom_fields array format
+    - Preserve existing publication_id
+    - Ensure all necessary tags are added
+    - Add campaign-specific fields to custom_fields without changing the structure
 
 - ⏳ Phase 2: Component Updates (16-22 hours)
   - ⏳ Campaign-aware Entry Form component
@@ -128,6 +160,7 @@
 - 🔄 In Progress
 - ⏳ Pending
 - ❌ Blocked
+- ⚠️ Critical Implementation Detail
 
 ## Notes
 - BeehiiV integration is working correctly with proper tagging
