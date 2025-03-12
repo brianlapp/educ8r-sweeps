@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,19 +9,17 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { useCampaign } from "@/contexts/CampaignContext";
 
-// Define an interface for the API response structure
 interface SubmitEntryResponse {
   success: boolean;
   data: {
     referral_code: string;
     id: string;
-    [key: string]: any; // For other properties that might be present
+    [key: string]: any;
   };
   isExisting: boolean;
   message: string;
 }
 
-// Common disposable email domains
 const DISPOSABLE_EMAIL_DOMAINS = [
   'mailinator.com',
   'tempmail.com',
@@ -63,21 +60,18 @@ export const EntryForm = () => {
   const { campaign, isLoading: campaignLoading } = useCampaign();
 
   const validateEmail = (email: string): boolean => {
-    // Basic regex check for email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setEmailError("Please enter a valid email address");
       return false;
     }
 
-    // Check for disposable email domains
     const domain = email.split('@')[1].toLowerCase();
     if (DISPOSABLE_EMAIL_DOMAINS.includes(domain)) {
       setEmailError("Please use a non-disposable email address");
       return false;
     }
 
-    // Clear error if validation passes
     setEmailError("");
     return true;
   };
@@ -85,14 +79,12 @@ export const EntryForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Track form submission attempt
     analytics.trackEvent('form_submission_attempt', {
       form: 'entry_form',
       has_referral: !!referredBy,
       campaign_slug: campaign?.slug
     });
     
-    // Validate email before submission
     if (!validateEmail(formData.email)) {
       analytics.trackEvent('form_validation_error', {
         form: 'entry_form',
@@ -117,20 +109,16 @@ export const EntryForm = () => {
     
     setIsSubmitting(true);
     
-    // Show immediate feedback toast
     toast({
       title: "Processing...",
       description: "Please wait while we process your entry.",
     });
     
     try {
-      // Set processing state in localStorage
       localStorage.setItem('referralCode', 'PROCESSING');
       localStorage.setItem('isReturningUser', 'false');
-      // Store the user's email for verification purposes
       localStorage.setItem('userEmail', formData.email);
       
-      // Start the form submission
       const { data, error } = await supabase.functions.invoke<SubmitEntryResponse>('submit-entry', {
         body: {
           ...formData,
@@ -148,13 +136,9 @@ export const EntryForm = () => {
         const referralCode = data.data.referral_code;
         console.log('Got referral code from response:', referralCode);
         
-        // Save the referral code to localStorage
         localStorage.setItem('referralCode', referralCode);
-        
-        // Set flag for returning user status
         localStorage.setItem('isReturningUser', data.isExisting ? 'true' : 'false');
         
-        // Track successful form submission
         analytics.trackFormSubmission('entry_form', true);
         analytics.trackEvent('sweepstakes_entry', {
           is_returning: data.isExisting,
@@ -168,7 +152,6 @@ export const EntryForm = () => {
         });
       }
       
-      // Navigate to thank you page
       if (campaign) {
         navigate(`/${campaign.slug}/thank-you`);
       } else {
@@ -195,7 +178,6 @@ export const EntryForm = () => {
     const email = e.target.value;
     setFormData({ ...formData, email });
     
-    // Only validate if there is some content (don't show errors while typing from scratch)
     if (email.length > 5) {
       validateEmail(email);
     } else {
@@ -203,7 +185,6 @@ export const EntryForm = () => {
     }
   };
 
-  // Customize form title based on campaign data
   const formTitle = campaign ? `Win ${campaign.prize_amount} for ${campaign.prize_name}!` : "Enter the Sweepstakes!";
   const buttonText = isSubmitting ? "Submitting..." : "Enter Now for FREE!";
 
@@ -214,7 +195,7 @@ export const EntryForm = () => {
       ) : (
         <>
           <h2 className="text-2xl md:text-3xl lg:text-4xl mb-3 text-center text-[#2C3E50] font-bold">
-            🏆 {formTitle}
+            {campaign?.title}
           </h2>
           <Input
             type="text"

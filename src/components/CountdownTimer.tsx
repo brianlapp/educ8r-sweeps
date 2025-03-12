@@ -1,10 +1,10 @@
-
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Rocket, Star, Gift, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { useCampaign } from "@/contexts/CampaignContext";
 
 interface CountdownTimerProps {
   targetDate: Date;
@@ -23,6 +23,7 @@ export const CountdownTimer = ({
   });
   
   const [progress, setProgress] = useState(15);
+  const { campaign } = useCampaign();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -79,8 +80,8 @@ export const CountdownTimer = ({
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-500">Prize Value</p>
-                  <p className="font-bold text-4xl md:text-5xl text-primary leading-tight">$1,000</p>
-                  <p className="text-sm text-gray-600 mt-1 font-medium">For your classroom supplies</p>
+                  <p className="font-bold text-4xl md:text-5xl text-primary leading-tight">{campaign?.prize_amount}</p>
+                  <p className="text-sm text-gray-600 mt-1 font-medium">{campaign?.prize_name}</p>
                 </div>
               </CardContent>
             </Card>
@@ -118,7 +119,6 @@ export const CountdownTimer = ({
     );
   }
 
-  // Original countdown timer display
   return (
     <div className="grid grid-cols-4 gap-1 md:gap-0.5 text-center max-w-2xl mx-auto">
       {Object.entries(timeLeft).map(([unit, value]) => (
