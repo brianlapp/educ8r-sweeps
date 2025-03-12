@@ -1,3 +1,4 @@
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Campaign, CampaignFormData, WhyShareItem } from "../types";
@@ -77,21 +78,41 @@ export function useCampaignMutations() {
         throw new Error("Missing required fields for campaign update");
       }
       
-      // Explicitly set empty fields to empty strings to avoid null values
-      const preparedCampaign = {
-        ...campaign,
+      // Create a clean update payload with only the fields we know exist in the database
+      // Explicitly exclude fields that might not be in the database schema
+      const updatePayload = {
+        id: campaign.id,
+        title: campaign.title,
+        slug: campaign.slug,
+        is_active: campaign.is_active,
+        prize_name: campaign.prize_name,
+        prize_amount: campaign.prize_amount,
+        target_audience: campaign.target_audience,
+        thank_you_title: campaign.thank_you_title,
+        thank_you_description: campaign.thank_you_description,
+        email_template_id: campaign.email_template_id,
+        start_date: campaign.start_date,
+        end_date: campaign.end_date,
+        share_title: campaign.share_title || '',
+        share_description: campaign.share_description || '',
+        hero_image_url: campaign.hero_image_url || null,
         subtitle: campaign.subtitle || '',
-        mobile_subtitle: campaign.mobile_subtitle || '',
         promotional_text: campaign.promotional_text || '',
         // Convert WhyShareItem[] to Json for Supabase
-        why_share_items: campaign.why_share_items as unknown as Json
+        why_share_items: campaign.why_share_items as unknown as Json,
+        // These fields might not exist in the database yet, so we need to carefully handle them
+        mobile_subtitle: campaign.mobile_subtitle || '',
+        meta_title: campaign.meta_title || null,
+        meta_description: campaign.meta_description || null,
+        meta_image: campaign.meta_image || null,
+        meta_url: campaign.meta_url || null,
       };
       
-      console.log("[UPDATE-CAMPAIGN] Sending prepared data to Supabase:", JSON.stringify(preparedCampaign, null, 2));
+      console.log("[UPDATE-CAMPAIGN] Clean update payload:", JSON.stringify(updatePayload, null, 2));
       
       const { data, error } = await supabase
         .from('campaigns')
-        .update(preparedCampaign)
+        .update(updatePayload)
         .eq('id', campaign.id)
         .select('*')
         .single();

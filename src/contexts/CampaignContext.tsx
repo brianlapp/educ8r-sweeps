@@ -40,9 +40,12 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           why_share_items: typeof data.why_share_items === 'string' 
             ? JSON.parse(data.why_share_items) 
             : data.why_share_items,
+          // Ensure these optional fields have default values
           subtitle: data.subtitle || '',
           mobile_subtitle: data.mobile_subtitle || '',
-          promotional_text: data.promotional_text || ''
+          promotional_text: data.promotional_text || '',
+          share_title: data.share_title || '',
+          share_description: data.share_description || ''
         };
         setCampaign(processedData);
       }
