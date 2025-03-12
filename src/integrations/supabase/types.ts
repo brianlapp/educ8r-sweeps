@@ -51,60 +51,8 @@ export type Database = {
         }
         Relationships: []
       }
-      campaigns: {
-        Row: {
-          created_at: string | null
-          email_template_id: string
-          end_date: string
-          id: string
-          is_active: boolean | null
-          prize_amount: string
-          prize_name: string
-          slug: string
-          start_date: string
-          target_audience: string
-          thank_you_description: string
-          thank_you_title: string
-          title: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          email_template_id: string
-          end_date: string
-          id?: string
-          is_active?: boolean | null
-          prize_amount: string
-          prize_name: string
-          slug: string
-          start_date: string
-          target_audience: string
-          thank_you_description: string
-          thank_you_title: string
-          title: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          email_template_id?: string
-          end_date?: string
-          id?: string
-          is_active?: boolean | null
-          prize_amount?: string
-          prize_name?: string
-          slug?: string
-          start_date?: string
-          target_audience?: string
-          thank_you_description?: string
-          thank_you_title?: string
-          title?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       entries: {
         Row: {
-          campaign_id: string | null
           created_at: string | null
           email: string
           entry_count: number | null
@@ -118,7 +66,6 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          campaign_id?: string | null
           created_at?: string | null
           email: string
           entry_count?: number | null
@@ -132,7 +79,6 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          campaign_id?: string | null
           created_at?: string | null
           email?: string
           entry_count?: number | null
@@ -146,13 +92,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "entries_campaign_id_fkey"
-            columns: ["campaign_id"]
-            isOneToOne: false
-            referencedRelation: "campaigns"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "entries_referred_by_fkey"
             columns: ["referred_by"]

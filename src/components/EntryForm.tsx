@@ -20,11 +20,6 @@ interface SubmitEntryResponse {
   message: string;
 }
 
-// Interface for the EntryForm props
-interface EntryFormProps {
-  campaignId?: string;
-}
-
 // Common disposable email domains
 const DISPOSABLE_EMAIL_DOMAINS = [
   'mailinator.com',
@@ -49,7 +44,7 @@ const DISPOSABLE_EMAIL_DOMAINS = [
   'mailforspam.com'
 ];
 
-export const EntryForm = ({ campaignId }: EntryFormProps) => {
+export const EntryForm = () => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -90,16 +85,14 @@ export const EntryForm = ({ campaignId }: EntryFormProps) => {
     // Track form submission attempt
     analytics.trackEvent('form_submission_attempt', {
       form: 'entry_form',
-      has_referral: !!referredBy,
-      campaign_id: campaignId || 'default'
+      has_referral: !!referredBy
     });
     
     // Validate email before submission
     if (!validateEmail(formData.email)) {
       analytics.trackEvent('form_validation_error', {
         form: 'entry_form',
-        error_type: 'invalid_email',
-        campaign_id: campaignId || 'default'
+        error_type: 'invalid_email'
       });
       return;
     }
@@ -107,8 +100,7 @@ export const EntryForm = ({ campaignId }: EntryFormProps) => {
     if (!agreed) {
       analytics.trackEvent('form_validation_error', {
         form: 'entry_form',
-        error_type: 'terms_not_accepted',
-        campaign_id: campaignId || 'default'
+        error_type: 'terms_not_accepted'
       });
       
       toast({
@@ -138,8 +130,7 @@ export const EntryForm = ({ campaignId }: EntryFormProps) => {
       const { data, error } = await supabase.functions.invoke<SubmitEntryResponse>('submit-entry', {
         body: {
           ...formData,
-          referredBy,
-          campaignId // Pass the campaign ID to the edge function
+          referredBy
         }
       });
       
@@ -162,14 +153,12 @@ export const EntryForm = ({ campaignId }: EntryFormProps) => {
         analytics.trackFormSubmission('entry_form', true);
         analytics.trackEvent('sweepstakes_entry', {
           is_returning: data.isExisting,
-          has_referral: !!referredBy,
-          campaign_id: campaignId || 'default'
+          has_referral: !!referredBy
         });
       } else {
         console.error('Missing referral code in response:', data);
         analytics.trackEvent('api_response_error', {
-          error_type: 'missing_referral_code',
-          campaign_id: campaignId || 'default'
+          error_type: 'missing_referral_code'
         });
       }
       
@@ -180,8 +169,7 @@ export const EntryForm = ({ campaignId }: EntryFormProps) => {
       console.error('Error submitting entry:', error);
       analytics.trackEvent('form_submission_error', {
         form: 'entry_form',
-        error: String(error),
-        campaign_id: campaignId || 'default'
+        error: String(error)
       });
       
       toast({

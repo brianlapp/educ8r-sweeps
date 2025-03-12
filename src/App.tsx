@@ -15,10 +15,8 @@ import Rules from "./pages/Rules";
 import TechStack from "./pages/TechStack";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
-import { CampaignProvider } from "./contexts/CampaignContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAnalytics } from "./hooks/use-analytics";
-import CampaignLanding from "./pages/CampaignLanding";
 import "./App.css";
 
 // Create a client
@@ -47,40 +45,36 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <HelmetProvider>
         <AuthProvider>
-          <CampaignProvider>
-            <Router>
-              <RouteChangeTracker />
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/thank-you" element={<ThankYou />} />
-                <Route path="/test-landing" element={<TestLanding />} />
-                <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route path="/rules" element={<Rules />} />
-                <Route path="/tech-stack" element={<TechStack />} />
-                <Route 
-                  path="/admin" 
-                  element={
-                    <ProtectedRoute>
-                      <Admin />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route
-                  path="/admin/webhooks"
-                  element={
-                    <ProtectedRoute>
-                      <AdminWebhookStatus />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route path="/docs" element={<Documentation />} />
-                {/* New dynamic campaign route */}
-                <Route path="/:campaignSlug" element={<CampaignLanding />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Router>
-          </CampaignProvider>
+          <Router>
+            <RouteChangeTracker />
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/thank-you" element={<ThankYou />} />
+              <Route path="/test-landing" element={<TestLanding />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/rules" element={<Rules />} />
+              <Route path="/tech-stack" element={<TechStack />} />
+              <Route 
+                path="/admin" 
+                element={
+                  <ProtectedRoute>
+                    <Admin />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route
+                path="/admin/webhooks"
+                element={
+                  <ProtectedRoute>
+                    <AdminWebhookStatus />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/docs" element={<Documentation />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Router>
         </AuthProvider>
       </HelmetProvider>
     </QueryClientProvider>
