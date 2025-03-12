@@ -2,20 +2,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
 
-interface Campaign {
-  id: string;
-  title: string;
-  slug: string;
-  prize_name: string;
-  prize_amount: string;
-  start_date: string;
-  end_date: string;
-  thank_you_title: string;
-  thank_you_description: string;
-  target_audience: string;
-  is_active: boolean;
-}
+type Campaign = Database['public']['Tables']['campaigns']['Row'];
 
 interface CampaignContextType {
   campaign: Campaign | null;
@@ -42,16 +31,15 @@ export const CampaignProvider: React.FC<{children: React.ReactNode}> = ({ childr
       try {
         setIsLoading(true);
         
-        let query = supabase.from('campaigns').select('*');
+        const query = supabase
+          .from('campaigns')
+          .select('*');
         
-        if (slug) {
-          query = query.eq('slug', slug).single();
-        } else {
-          // Default to the first active campaign if no slug is provided
-          query = query.eq('is_active', true).order('created_at', { ascending: false }).limit(1).single();
-        }
+        const finalQuery = slug 
+          ? query.eq('slug', slug).single()
+          : query.eq('is_active', true).order('created_at', { ascending: false }).limit(1).single();
         
-        const { data, error: supabaseError } = await query;
+        const { data, error: supabaseError } = await finalQuery;
         
         if (supabaseError) throw new Error(supabaseError.message);
         
