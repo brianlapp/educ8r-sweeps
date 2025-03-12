@@ -59,6 +59,10 @@ export type Database = {
           hero_image_url: string | null
           id: string
           is_active: boolean | null
+          meta_description: string | null
+          meta_image: string | null
+          meta_title: string | null
+          meta_url: string | null
           prize_amount: string
           prize_name: string
           promotional_text: string | null
@@ -82,6 +86,10 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           is_active?: boolean | null
+          meta_description?: string | null
+          meta_image?: string | null
+          meta_title?: string | null
+          meta_url?: string | null
           prize_amount: string
           prize_name: string
           promotional_text?: string | null
@@ -105,6 +113,10 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           is_active?: boolean | null
+          meta_description?: string | null
+          meta_image?: string | null
+          meta_title?: string | null
+          meta_url?: string | null
           prize_amount?: string
           prize_name?: string
           promotional_text?: string | null

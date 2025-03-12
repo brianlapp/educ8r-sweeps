@@ -1,4 +1,3 @@
-
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Helmet } from 'react-helmet-async';
@@ -17,10 +16,10 @@ const Index = () => {
     url: "https://educ8r.freeparentsearch.com"
   };
   
-  const metaTitle = campaign ? `Win ${campaign.prize_amount} for ${campaign.prize_name} - Educ8r Sweepstakes` : defaultMeta.title;
-  const metaDescription = campaign ? `Enter now to win ${campaign.prize_amount} for ${campaign.prize_name}! Free entry for ${campaign.target_audience}. Support your students with everything they need for a successful school year.` : defaultMeta.description;
-  const metaImage = defaultMeta.image;
-  const metaUrl = campaign ? `https://educ8r.freeparentsearch.com/${campaign.slug}` : defaultMeta.url;
+  const metaTitle = campaign?.meta_title || defaultMeta.title;
+  const metaDescription = campaign?.meta_description || defaultMeta.description;
+  const metaImage = campaign?.meta_image || defaultMeta.image;
+  const metaUrl = campaign?.meta_url || defaultMeta.url;
 
   useEffect(() => {
     document.title = metaTitle;
@@ -67,9 +66,6 @@ const Index = () => {
       }
       twitterTag.setAttribute('content', content);
     });
-    
-    return () => {
-    };
   }, [metaTitle, metaDescription, metaImage, metaUrl]);
 
   return <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">

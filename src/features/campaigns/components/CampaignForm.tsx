@@ -1,5 +1,5 @@
 import { Campaign, CampaignFormData } from "../types";
-import { Input } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { useState } from "react";
@@ -20,14 +20,18 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
     target_audience: initialData?.target_audience || '',
     thank_you_title: initialData?.thank_you_title || '',
     thank_you_description: initialData?.thank_you_description || '',
-    email_template_id: initialData?.email_template_id || 'default', // Provide a default value
+    email_template_id: initialData?.email_template_id || 'default',
     start_date: initialData?.start_date || new Date().toISOString().split('T')[0],
     end_date: initialData?.end_date || new Date(new Date().setMonth(new Date().getMonth() + 3)).toISOString().split('T')[0],
     share_title: initialData?.share_title || 'Give Your Students\' Parents a Free Gift!',
     share_description: initialData?.share_description || 'Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you\'ll earn an extra entry for every parent who activates the trial.',
     hero_image_url: initialData?.hero_image_url || '',
     subtitle: initialData?.subtitle || 'Support Your Students and Stock Up on Classroom Supplies',
-    promotional_text: initialData?.promotional_text || 'Enter for a chance to win $200 to spend on everything on your Anything from Amazon list - from backpacks and notebooks to markers and more! Get ready for a successful school year.'
+    promotional_text: initialData?.promotional_text || 'Enter for a chance to win $200 to spend on everything on your Anything from Amazon list - from backpacks and notebooks to markers and more! Get ready for a successful school year.',
+    meta_title: initialData?.meta_title || '',
+    meta_description: initialData?.meta_description || '',
+    meta_image: initialData?.meta_image || '',
+    meta_url: initialData?.meta_url || ''
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -341,6 +345,60 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
           placeholder="e.g. https://example.com/hero-image.jpg"
         />
         <p className="text-sm text-gray-500">URL for the campaign landing page hero image</p>
+      </div>
+
+      <div className="mt-8 border-t pt-8">
+        <h2 className="text-lg font-semibold mb-4">SEO & Social Sharing Metadata</h2>
+        
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="meta_title" className="text-sm font-medium">Meta Title</label>
+            <Input
+              id="meta_title"
+              name="meta_title"
+              value={formData.meta_title}
+              onChange={handleInputChange}
+              placeholder="e.g. Win $1,000 for Your Classroom - Educ8r Sweepstakes"
+            />
+            <p className="text-xs text-gray-500">The title that appears in search results and social shares</p>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="meta_description" className="text-sm font-medium">Meta Description</label>
+            <Textarea
+              id="meta_description"
+              name="meta_description"
+              value={formData.meta_description}
+              onChange={handleInputChange}
+              placeholder="Enter a compelling description for search results and social shares..."
+              rows={3}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="meta_image" className="text-sm font-medium">Meta Image URL</label>
+            <Input
+              id="meta_image"
+              name="meta_image"
+              value={formData.meta_image}
+              onChange={handleInputChange}
+              placeholder="https://example.com/share-image.jpg"
+            />
+            <p className="text-xs text-gray-500">The image that appears when sharing on social media</p>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="meta_url" className="text-sm font-medium">Meta URL</label>
+            <Input
+              id="meta_url"
+              name="meta_url"
+              value={formData.meta_url}
+              onChange={handleInputChange}
+              placeholder="https://educ8r.freeparentsearch.com/your-campaign"
+            />
+            <p className="text-xs text-gray-500">The canonical URL for this campaign</p>
+          </div>
+        </div>
       </div>
 
       <AlertDialogFooter>
