@@ -26,6 +26,7 @@ export interface Campaign {
   created_at?: string;
   updated_at?: string;
   visible_in_admin?: boolean;
+  subtitle?: string;
 }
 
 export interface CampaignFormData {
@@ -46,6 +47,7 @@ export interface CampaignFormData {
   why_share_items?: WhyShareItem[];
   hero_image_url?: string;
   visible_in_admin?: boolean;
+  subtitle?: string;
 }
 
 export interface SupabaseCampaign {
@@ -68,4 +70,5 @@ export interface SupabaseCampaign {
   created_at?: string;
   updated_at?: string;
   visible_in_admin?: boolean;
+  subtitle?: string;
 }

@@ -26,7 +26,8 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
     end_date: initialData?.end_date || new Date(new Date().setMonth(new Date().getMonth() + 3)).toISOString().split('T')[0],
     share_title: initialData?.share_title || 'Give Your Students\' Parents a Free Gift!',
     share_description: initialData?.share_description || 'Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you\'ll earn an extra entry for every parent who activates the trial.',
-    hero_image_url: initialData?.hero_image_url || ''
+    hero_image_url: initialData?.hero_image_url || '',
+    subtitle: initialData?.subtitle || 'Support Your Students and Stock Up on Classroom Supplies'
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -142,6 +143,18 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
             <p className="text-xs text-red-500 mt-1">{fieldErrors.slug}</p>
           )}
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="subtitle" className="text-sm font-medium">Form Subtitle</label>
+        <Input
+          id="subtitle"
+          name="subtitle"
+          value={formData.subtitle}
+          onChange={handleInputChange}
+          placeholder="e.g. Support Your Students and Stock Up on Classroom Supplies"
+        />
+        <p className="text-xs text-gray-500 mt-1">This appears as a subtitle below the main form title</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

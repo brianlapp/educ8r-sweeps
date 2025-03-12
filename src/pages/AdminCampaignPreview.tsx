@@ -37,6 +37,7 @@ interface Campaign {
   why_share_items: WhyShareItem[];
   email_template_id: string;
   hero_image_url?: string;
+  subtitle?: string;
 }
 
 const AdminCampaignPreview = () => {
@@ -75,6 +76,7 @@ const AdminCampaignPreview = () => {
         setEditableContent({
           title: processedData.title,
           prize_name: processedData.prize_name,
+          subtitle: processedData.subtitle
         });
         setWhyShareItems(processedData.why_share_items || []);
       } catch (error) {
@@ -149,6 +151,7 @@ const AdminCampaignPreview = () => {
       setEditableContent({
         title: campaign.title,
         prize_name: campaign.prize_name,
+        subtitle: campaign.subtitle
       });
       setWhyShareItems(campaign.why_share_items || []);
     }
@@ -294,6 +297,26 @@ const AdminCampaignPreview = () => {
                       {campaign?.title}
                     </p>
                   )}
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-1">Form Subtitle</h3>
+                  {isEditing ? (
+                    <Input
+                      name="subtitle"
+                      value={editableContent.subtitle || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                      placeholder="Support Your Students and Stock Up on Classroom Supplies"
+                    />
+                  ) : (
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign?.subtitle || 'No subtitle set'}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    This text appears below the main form title
+                  </p>
                 </div>
                 
                 <div>
@@ -517,3 +540,4 @@ const AdminCampaignPreview = () => {
 };
 
 export default AdminCampaignPreview;
+

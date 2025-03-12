@@ -197,6 +197,12 @@ export const EntryForm = () => {
           <h2 className="text-2xl md:text-3xl lg:text-4xl mb-3 text-center text-[#2C3E50] font-bold">
             {campaign?.title}
           </h2>
+          {campaign?.subtitle && (
+            <p className="text-lg md:text-xl mb-6 text-center text-gray-600">
+              <span className="hidden md:inline">{campaign.subtitle}</span>
+              <span className="md:hidden">{campaign.subtitle.split(' ').slice(0, 4).join(' ')}</span>
+            </p>
+          )}
           <Input
             type="text"
             placeholder="First Name"
