@@ -1,7 +1,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Campaign } from "../types";
+import { Campaign, SupabaseCampaign } from "../types";
 
 export function useCampaigns() {
   return useQuery({
@@ -19,7 +19,19 @@ export function useCampaigns() {
       }
 
       console.log(`[AdminCampaignsPage] Retrieved ${data?.length} campaigns from Supabase`);
-      return data as Campaign[];
+      
+      // Transform data from Supabase format to our Campaign type
+      const campaigns: Campaign[] = (data as SupabaseCampaign[]).map(campaign => ({
+        ...campaign,
+        // Parse why_share_items if it exists and is a string or JSON object
+        why_share_items: campaign.why_share_items 
+          ? (typeof campaign.why_share_items === 'string' 
+              ? JSON.parse(campaign.why_share_items as string) 
+              : campaign.why_share_items as unknown as any[])
+          : undefined
+      }));
+      
+      return campaigns;
     },
     refetchOnMount: 'always'
   });
