@@ -77,6 +77,19 @@ export function useCampaignMutations() {
     mutationFn: async (campaignId: string) => {
       console.log("[AdminCampaignsPage] Deleting campaign:", campaignId);
       
+      // First check if campaign has any entries
+      const { data: entries, error: checkError } = await supabase
+        .from('entries')
+        .select('id')
+        .eq('campaign_id', campaignId)
+        .limit(1);
+
+      if (checkError) throw checkError;
+      
+      if (entries && entries.length > 0) {
+        throw new Error("Cannot delete campaign that has entries. Please delete all entries first.");
+      }
+
       const { error } = await supabase
         .from('campaigns')
         .delete()
@@ -89,9 +102,9 @@ export function useCampaignMutations() {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       toast.success("Campaign deleted successfully!");
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error("[AdminCampaignsPage] Delete error:", error);
-      toast.error("Failed to delete campaign");
+      toast.error(error.message || "Failed to delete campaign");
     }
   });
 
