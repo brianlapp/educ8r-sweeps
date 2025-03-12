@@ -3,16 +3,26 @@ import { CountdownTimer } from "@/components/CountdownTimer";
 import { Helmet } from 'react-helmet-async';
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
+import { useCampaign } from "@/contexts/CampaignContext";
 
 const Index = () => {
   // Setting the countdown target date to August 15, 2025
   const targetDate = new Date("August 15, 2025");
+  const { campaign, isLoading } = useCampaign();
   
-  // Meta description for better SEO and social sharing
-  const metaDescription = "Enter now to win $1,000 for your classroom supplies! Free entry for educators. Support your students with everything they need for a successful school year.";
-  const metaTitle = "Win $1,000 for Your Classroom - Educ8r Sweepstakes";
-  const metaImage = "https://educ8r.freeparentsearch.com/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png";
-  const metaUrl = "https://educ8r.freeparentsearch.com";
+  // Default meta data
+  const defaultMeta = {
+    title: "Win $1,000 for Your Classroom - Educ8r Sweepstakes",
+    description: "Enter now to win $1,000 for your classroom supplies! Free entry for educators. Support your students with everything they need for a successful school year.",
+    image: "https://educ8r.freeparentsearch.com/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png",
+    url: "https://educ8r.freeparentsearch.com"
+  };
+  
+  // Campaign-specific meta data if available
+  const metaTitle = campaign ? `Win ${campaign.prize_amount} for ${campaign.prize_name} - Educ8r Sweepstakes` : defaultMeta.title;
+  const metaDescription = campaign ? `Enter now to win ${campaign.prize_amount} for ${campaign.prize_name}! Free entry for ${campaign.target_audience}. Support your students with everything they need for a successful school year.` : defaultMeta.description;
+  const metaImage = defaultMeta.image;
+  const metaUrl = campaign ? `https://educ8r.freeparentsearch.com/${campaign.slug}` : defaultMeta.url;
 
   // Add direct meta tags to the document head for better crawler detection
   useEffect(() => {
@@ -68,7 +78,7 @@ const Index = () => {
     return () => {
       // Cleanup not necessary as we want to keep the meta tags
     };
-  }, []);
+  }, [metaTitle, metaDescription, metaImage, metaUrl]);
 
   return <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
       <Helmet>
@@ -103,33 +113,34 @@ const Index = () => {
 
       <main className="flex-grow">
         <div className="container mx-auto px-2 sm:px-4 py-6 md:py-12">
-          <div className="relative grid md:grid-cols-2 gap-0 items-center max-w-6xl mx-auto">
-            <div className="order-1 md:order-1 md:pr-12 z-0 md:w-[calc(100%+3rem)]">
-              <img alt="Students collaborating on laptop" className="w-full animate-fadeIn transform hover:scale-[1.02] transition-transform duration-300 rounded-none" src="/lovable-uploads/308c0411-e546-4640-ab1a-b354a074f9c4.png" />
+          {isLoading ? (
+            <div className="text-center py-12">
+              <p className="text-xl">Loading campaign...</p>
             </div>
-            <div className="order-2 md:order-2 md:-ml-12 z-10 -mt-4 sm:-mt-8 md:mt-0">
-              <div className="bg-white p-6 md:p-8 rounded-xl shadow-md border border-blue-200 border-4  animate-slideUp">
-                <h2 className="text-2xl md:text-3xl lg:text-4xl mb-3 text-center text-[#2C3E50] font-bold">🏆 Win $1,000 for Your Classroom!</h2>
-                <p className="text-lg md:text-xl mb-6 text-center text-gray-600">
-                  <span className="hidden md:inline">Support Your Students and Stock Up on Classroom Supplies</span>
-                  <span className="md:hidden">Support Your Students Success</span>
-                </p>
-                <EntryForm />
-                <p className="text-center text-xs text-gray-500 mt-4">In partnership with Comprendi™ by Dr. Marion's Learning Lab – Because tackling the reading crisis is a team effort.</p>
+          ) : (
+            <div className="relative grid md:grid-cols-2 gap-0 items-center max-w-6xl mx-auto">
+              <div className="order-1 md:order-1 md:pr-12 z-0 md:w-[calc(100%+3rem)]">
+                <img alt="Students collaborating on laptop" className="w-full animate-fadeIn transform hover:scale-[1.02] transition-transform duration-300 rounded-none" src="/lovable-uploads/308c0411-e546-4640-ab1a-b354a074f9c4.png" />
+              </div>
+              <div className="order-2 md:order-2 md:-ml-12 z-10 -mt-4 sm:-mt-8 md:mt-0">
+                <div className="bg-white p-6 md:p-8 rounded-xl shadow-md border border-blue-200 border-4  animate-slideUp">
+                  <EntryForm />
+                  <p className="text-center text-xs text-gray-500 mt-4">In partnership with Comprendi™ by Dr. Marion's Learning Lab – Because tackling the reading crisis is a team effort.</p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="mt-12 bg-white p-4 sm:p-8 rounded-xl shadow-md border border-gray-100 mx-0">
             <div className="w-full mx-auto">
               <h2 className="text-2xl font-semibold mb-2 text-center">⏰ Limited Time Opportunity!</h2>
               <p className="text-center font-semibold text-gray-800 mb-6 text-lg">
-                Be Among the First 500 Teachers to Enter!
+                Be Among the First 500 {campaign?.target_audience || "Teachers"} to Enter!
               </p>
               <CountdownTimer targetDate={targetDate} displayMode="launch-phase" />
               
               <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed mt-6 text-center">
-                Enter for a chance to win $1,000 to spend on everything on your school supply list - from backpacks and notebooks to markers and more! Get ready for a successful school year.
+                Enter for a chance to win {campaign?.prize_amount || "$1,000"} to spend on everything on your {campaign?.prize_name || "school supply"} list - from backpacks and notebooks to markers and more! Get ready for a successful school year.
               </p>
 
               <div className="mt-8 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-8 rounded-2xl border border-blue-100">
@@ -160,7 +171,7 @@ const Index = () => {
           </div>
 
           <div className="mt-12 text-center text-sm text-gray-500 max-w-2xl mx-auto">
-            <p>No purchase necessary. Void where prohibited. Must be 18 years or older to enter. See <Link to="/rules" className="text-primary hover:underline">official rules</Link> for complete details. Prize valued at approximately $1000.</p>
+            <p>No purchase necessary. Void where prohibited. Must be 18 years or older to enter. See <Link to="/rules" className="text-primary hover:underline">official rules</Link> for complete details. Prize valued at approximately {campaign?.prize_amount || "$1000"}.</p>
           </div>
         </div>
       </main>

@@ -21,8 +21,8 @@ serve(async (req) => {
   }
 
   try {
-    const { firstName, lastName, email, referredBy } = await req.json()
-    console.log('Received submission with referral:', { firstName, lastName, email, referredBy })
+    const { firstName, lastName, email, referredBy, campaignId } = await req.json()
+    console.log('Received submission with referral:', { firstName, lastName, email, referredBy, campaignId })
 
     // Initialize Supabase client
     const supabaseClient = createClient(
@@ -31,6 +31,25 @@ serve(async (req) => {
     )
     
     console.log(`Supabase client initialized in ${Date.now() - startTime}ms`)
+
+    // Get default campaign if none is provided
+    let campaign_id = campaignId;
+    
+    if (!campaign_id) {
+      console.log('No campaign ID provided, fetching default campaign')
+      const { data: defaultCampaign, error: campaignError } = await supabaseClient
+        .from('campaigns')
+        .select('id')
+        .eq('slug', 'classroom-supplies-2025')
+        .maybeSingle();
+      
+      if (campaignError) {
+        console.error('Error fetching default campaign:', campaignError)
+      } else if (defaultCampaign) {
+        campaign_id = defaultCampaign.id;
+        console.log('Using default campaign:', campaign_id)
+      }
+    }
 
     // First check if the email already exists
     const { data: existingEntry, error: lookupError } = await supabaseClient
@@ -167,7 +186,8 @@ serve(async (req) => {
         last_name: lastName,
         email: email,
         referred_by: validReferral ? referredBy : null,
-        entry_count: 1
+        entry_count: 1,
+        campaign_id: campaign_id
       })
       .select()
       .single()

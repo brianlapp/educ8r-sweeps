@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAnalytics } from "@/hooks/use-analytics";
+import { useCampaign } from "@/contexts/CampaignContext";
 
 // Define an interface for the API response structure
 interface SubmitEntryResponse {
@@ -58,6 +60,7 @@ export const EntryForm = () => {
   const navigate = useNavigate();
   const referredBy = searchParams.get("ref");
   const analytics = useAnalytics();
+  const { campaign, isLoading: campaignLoading } = useCampaign();
 
   const validateEmail = (email: string): boolean => {
     // Basic regex check for email format
@@ -85,7 +88,8 @@ export const EntryForm = () => {
     // Track form submission attempt
     analytics.trackEvent('form_submission_attempt', {
       form: 'entry_form',
-      has_referral: !!referredBy
+      has_referral: !!referredBy,
+      campaign_slug: campaign?.slug
     });
     
     // Validate email before submission
@@ -130,7 +134,8 @@ export const EntryForm = () => {
       const { data, error } = await supabase.functions.invoke<SubmitEntryResponse>('submit-entry', {
         body: {
           ...formData,
-          referredBy
+          referredBy,
+          campaignId: campaign?.id
         }
       });
       
@@ -153,7 +158,8 @@ export const EntryForm = () => {
         analytics.trackFormSubmission('entry_form', true);
         analytics.trackEvent('sweepstakes_entry', {
           is_returning: data.isExisting,
-          has_referral: !!referredBy
+          has_referral: !!referredBy,
+          campaign_slug: campaign?.slug
         });
       } else {
         console.error('Missing referral code in response:', data);
@@ -163,7 +169,11 @@ export const EntryForm = () => {
       }
       
       // Navigate to thank you page
-      navigate('/thank-you');
+      if (campaign) {
+        navigate(`/${campaign.slug}/thank-you`);
+      } else {
+        navigate('/thank-you');
+      }
       
     } catch (error) {
       console.error('Error submitting entry:', error);
@@ -193,94 +203,107 @@ export const EntryForm = () => {
     }
   };
 
+  // Customize form title based on campaign data
+  const formTitle = campaign ? `Win ${campaign.prize_amount} for ${campaign.prize_name}!` : "Enter the Sweepstakes!";
+  const buttonText = isSubmitting ? "Submitting..." : "Enter Now for FREE!";
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-md mx-auto">
-      <Input
-        type="text"
-        placeholder="First Name"
-        required
-        value={formData.firstName}
-        onChange={e => setFormData({ ...formData, firstName: e.target.value })}
-        disabled={isSubmitting}
-        className="w-full bg-slate-50"
-      />
-      <Input
-        type="text"
-        placeholder="Last Name"
-        required
-        value={formData.lastName}
-        onChange={e => setFormData({ ...formData, lastName: e.target.value })}
-        disabled={isSubmitting}
-        className="w-full bg-slate-50"
-      />
-      <div className="space-y-2">
-        <Input
-          type="email"
-          placeholder="Email Address"
-          required
-          value={formData.email}
-          onChange={handleEmailChange}
-          disabled={isSubmitting}
-          className={`w-full bg-slate-50 ${emailError ? "border-red-500" : ""}`}
-        />
-        {emailError && (
-          <Alert variant="destructive" className="py-2 text-sm">
-            <AlertDescription>{emailError}</AlertDescription>
-          </Alert>
-        )}
-      </div>
-      <div className="flex items-start space-x-2">
-        <Checkbox
-          id="terms"
-          checked={agreed}
-          onCheckedChange={checked => setAgreed(checked as boolean)}
-          disabled={isSubmitting}
-        />
-        <label
-          htmlFor="terms"
-          className="text-sm text-gray-600 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-        >
-          By entering your information and clicking Enter to Win, you agree to our{" "}
-          <a
-            href="https://freeparentsearch.com/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary hover:underline"
+      {campaignLoading ? (
+        <div className="text-center py-2">Loading campaign...</div>
+      ) : (
+        <>
+          <h2 className="text-2xl md:text-3xl lg:text-4xl mb-3 text-center text-[#2C3E50] font-bold">
+            🏆 {formTitle}
+          </h2>
+          <Input
+            type="text"
+            placeholder="First Name"
+            required
+            value={formData.firstName}
+            onChange={e => setFormData({ ...formData, firstName: e.target.value })}
+            disabled={isSubmitting}
+            className="w-full bg-slate-50"
+          />
+          <Input
+            type="text"
+            placeholder="Last Name"
+            required
+            value={formData.lastName}
+            onChange={e => setFormData({ ...formData, lastName: e.target.value })}
+            disabled={isSubmitting}
+            className="w-full bg-slate-50"
+          />
+          <div className="space-y-2">
+            <Input
+              type="email"
+              placeholder="Email Address"
+              required
+              value={formData.email}
+              onChange={handleEmailChange}
+              disabled={isSubmitting}
+              className={`w-full bg-slate-50 ${emailError ? "border-red-500" : ""}`}
+            />
+            {emailError && (
+              <Alert variant="destructive" className="py-2 text-sm">
+                <AlertDescription>{emailError}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+          <div className="flex items-start space-x-2">
+            <Checkbox
+              id="terms"
+              checked={agreed}
+              onCheckedChange={checked => setAgreed(checked as boolean)}
+              disabled={isSubmitting}
+            />
+            <label
+              htmlFor="terms"
+              className="text-sm text-gray-600 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              By entering your information and clicking Enter to Win, you agree to our{" "}
+              <a
+                href="https://freeparentsearch.com/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Privacy Policy
+              </a>
+              ,{" "}
+              <a
+                href="https://freeparentsearch.com/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Terms and Conditions
+              </a>{" "}
+              and our{" "}
+              <Link
+                to="/rules"
+                className="text-primary hover:underline"
+              >
+                Rules and Regulations
+              </Link>
+              .
+              Unsubscribe at any time.
+            </label>
+          </div>
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full text-white font-medium rounded-lg transition-colors duration-200 bg-green-500 hover:bg-green-400 text-2xl py-[28px]"
+            onClick={() => {
+              if (!isSubmitting) {
+                analytics.trackButtonClick('entry_submit_button');
+              }
+            }}
           >
-            Privacy Policy
-          </a>
-          ,{" "}
-          <a
-            href="https://freeparentsearch.com/terms"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary hover:underline"
-          >
-            Terms and Conditions
-          </a>{" "}
-          and our{" "}
-          <Link
-            to="/rules"
-            className="text-primary hover:underline"
-          >
-            Rules and Regulations
-          </Link>
-          .
-          Unsubscribe at any time.
-        </label>
-      </div>
-      <Button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full text-white font-medium rounded-lg transition-colors duration-200 bg-green-500 hover:bg-green-400 text-2xl py-[28px]"
-        onClick={() => {
-          if (!isSubmitting) {
-            analytics.trackButtonClick('entry_submit_button');
-          }
-        }}
-      >
-        {isSubmitting ? "Submitting..." : "Enter Now for FREE!"}
-      </Button>
+            {buttonText}
+          </Button>
+        </>
+      )}
     </form>
   );
 };
