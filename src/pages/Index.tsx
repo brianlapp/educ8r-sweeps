@@ -1,4 +1,3 @@
-
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Helmet } from 'react-helmet-async';
@@ -11,6 +10,7 @@ import { OptimizedImage } from "@/components/OptimizedImage";
 const Index = () => {
   const targetDate = new Date("August 15, 2025");
   const { campaign, isLoading } = useCampaign();
+  const currentYear = new Date().getFullYear();
   
   const defaultMeta = {
     title: "Win $1,000 for Your Classroom - Educ8r Sweepstakes",
@@ -190,7 +190,7 @@ const Index = () => {
               maxWidth={160}
               quality={0.85}
             />
-            <p className="text-sm text-gray-600">© 2024 All rights reserved.</p>
+            <p className="text-sm text-gray-600">© {currentYear} All rights reserved.</p>
           </div>
         </div>
       </footer>
