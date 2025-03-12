@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { useEffect } from "react";
 import { useCampaign } from "@/contexts/CampaignContext";
 import { PartnershipBanner } from "@/components/PartnershipBanner";
+import { OptimizedImage } from "@/components/OptimizedImage";
 
 const Index = () => {
   const targetDate = new Date("August 15, 2025");
@@ -93,7 +94,13 @@ const Index = () => {
       <header className="w-full bg-[#f3f3f3] py-1 border-b border-gray-200">
         <div className="container mx-auto px-4">
           <div className="flex justify-center items-center">
-            <img src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" alt="FPS Logo" className="h-12 w-auto" />
+            <OptimizedImage 
+              src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" 
+              alt="FPS Logo" 
+              className="h-12 w-auto"
+              maxWidth={200}
+              quality={0.85}
+            />
           </div>
         </div>
       </header>
@@ -109,10 +116,12 @@ const Index = () => {
           ) : (
             <div className="relative grid md:grid-cols-2 gap-0 items-center max-w-6xl mx-auto">
               <div className="order-1 md:order-1 md:pr-12 z-0 md:w-[calc(100%+3rem)]">
-                <img 
+                <OptimizedImage 
                   alt="Campaign hero image" 
                   className="w-full animate-fadeIn transform hover:scale-[1.02] transition-transform duration-300 rounded-none" 
-                  src={campaign?.hero_image_url || "/lovable-uploads/308c0411-e546-4640-ab1a-b354a074f9c4.png"} 
+                  src={campaign?.hero_image_url || "/lovable-uploads/308c0411-e546-4640-ab1a-b354a074f9c4.png"}
+                  maxWidth={800}
+                  quality={0.8}
                 />
               </div>
               <div className="order-2 md:order-2 md:-ml-12 z-10 -mt-4 sm:-mt-8 md:mt-0">
@@ -138,10 +147,12 @@ const Index = () => {
 
               <div className="mt-8 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-8 rounded-2xl border border-blue-100">
                 <div className="flex flex-col items-center mb-6">
-                  <img 
+                  <OptimizedImage 
                     src="https://i0.wp.com/dmlearninglab.com/wp-content/uploads/2024/03/Comprendi-Logo-5.png?fit=580%2C327&ssl=1" 
                     alt="Comprendi Logo" 
-                    className="h-16 object-contain mb-4" 
+                    className="h-16 object-contain mb-4"
+                    maxWidth={400}
+                    quality={0.9}
                   />
                   <div className="flex items-center gap-3">
                     <span className="text-blue-600 text-2xl">📚</span>
@@ -172,7 +183,13 @@ const Index = () => {
       <footer className="w-full bg-[#f3f3f3] py-6 border-t border-gray-200">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center gap-4">
-            <img src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" alt="FPS Logo" className="h-8 w-auto" />
+            <OptimizedImage 
+              src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" 
+              alt="FPS Logo" 
+              className="h-8 w-auto" 
+              maxWidth={160}
+              quality={0.85}
+            />
             <p className="text-sm text-gray-600">© 2024 All rights reserved.</p>
           </div>
         </div>
