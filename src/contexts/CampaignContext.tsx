@@ -39,7 +39,9 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           ...data,
           why_share_items: typeof data.why_share_items === 'string' 
             ? JSON.parse(data.why_share_items) 
-            : data.why_share_items
+            : data.why_share_items,
+          subtitle: data.subtitle || '',
+          mobile_subtitle: data.mobile_subtitle || ''
         };
         setCampaign(processedData);
       }
