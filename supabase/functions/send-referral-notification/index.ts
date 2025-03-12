@@ -77,7 +77,7 @@ const handler = async (req: Request): Promise<Response> => {
     const today = new Date();
     const formattedDate = `${today.toLocaleString('default', { month: 'long' })} ${today.getDate()}, ${today.getFullYear()}`;
 
-    // Define email variables as object (reverting back to working format)
+    // Define email variables as object (original working format)
     const emailVariables = {
       first_name: payload.firstName,
       referral_code: payload.referralCode,
