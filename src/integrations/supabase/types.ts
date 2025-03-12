@@ -63,6 +63,7 @@ export type Database = {
           meta_image: string | null
           meta_title: string | null
           meta_url: string | null
+          mobile_subtitle: string | null
           prize_amount: string
           prize_name: string
           promotional_text: string | null
@@ -90,6 +91,7 @@ export type Database = {
           meta_image?: string | null
           meta_title?: string | null
           meta_url?: string | null
+          mobile_subtitle?: string | null
           prize_amount: string
           prize_name: string
           promotional_text?: string | null
@@ -117,6 +119,7 @@ export type Database = {
           meta_image?: string | null
           meta_title?: string | null
           meta_url?: string | null
+          mobile_subtitle?: string | null
           prize_amount?: string
           prize_name?: string
           promotional_text?: string | null
