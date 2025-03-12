@@ -16,6 +16,7 @@ import { ThemeSupa } from '@supabase/auth-ui-shared'
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react'
 import { CampaignProvider } from '@/contexts/CampaignContext';
 import AdminCampaignContent from "@/pages/AdminCampaignContent";
+import { Toaster } from "@/components/ui/toaster";
 
 function App() {
   console.log("App component rendering");
@@ -70,6 +71,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        <Toaster />
       </Router>
     </ThemeProvider>
   );

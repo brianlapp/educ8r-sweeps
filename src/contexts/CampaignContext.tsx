@@ -30,16 +30,18 @@ export const CampaignProvider: React.FC<{children: React.ReactNode}> = ({ childr
 
   useEffect(() => {
     const fetchCampaign = async () => {
-      console.log("Starting fetchCampaign with slug:", slug);
       try {
         setIsLoading(true);
         setError(null);
         
+        console.log("Starting fetchCampaign with slug:", slug);
         console.log("Executing Supabase query for:", slug ? `slug: ${slug}` : "active campaign");
         
-        let { data, error: supabaseError } = slug 
-          ? await supabase.from('campaigns').select('*').eq('slug', slug).maybeSingle()
-          : await supabase.from('campaigns').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle();
+        let query = slug 
+          ? supabase.from('campaigns').select('*').eq('slug', slug).maybeSingle()
+          : supabase.from('campaigns').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1).maybeSingle();
+        
+        const { data, error: supabaseError } = await query;
         
         if (supabaseError) {
           console.error("Supabase error:", supabaseError);
@@ -47,10 +49,10 @@ export const CampaignProvider: React.FC<{children: React.ReactNode}> = ({ childr
         }
         
         console.log("Campaign data received:", data);
-        setCampaign(data); // data can be null now which is fine
+        setCampaign(data);
       } catch (err) {
         console.error('Error in fetchCampaign:', err);
-        setError(err as Error);
+        setError(err instanceof Error ? err : new Error('Unknown error occurred'));
       } finally {
         console.log("Setting isLoading to false");
         setIsLoading(false);
