@@ -104,9 +104,25 @@ const AdminCampaigns = () => {
         throw new Error("Missing required fields for campaign creation");
       }
       
+      // Use a type assertion to tell TypeScript that this object has all the required fields
       const { data, error } = await supabase
         .from('campaigns')
-        .insert(campaign)  // Now passing a single object, not an array
+        .insert({
+          title: campaign.title,
+          slug: campaign.slug,
+          is_active: campaign.is_active,
+          prize_name: campaign.prize_name,
+          prize_amount: campaign.prize_amount,
+          target_audience: campaign.target_audience,
+          thank_you_title: campaign.thank_you_title,
+          thank_you_description: campaign.thank_you_description,
+          email_template_id: campaign.email_template_id,
+          start_date: campaign.start_date,
+          end_date: campaign.end_date,
+          share_title: campaign.share_title,
+          share_description: campaign.share_description,
+          why_share_items: campaign.why_share_items
+        })
         .select();
 
       if (error) {
