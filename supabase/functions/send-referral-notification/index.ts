@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.1.1";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -8,23 +9,25 @@ interface EmailPayload {
   email: string;
   firstName: string;
   referralCode: string;
-  campaignId?: string; // Make this optional to support both new and old flows
+  campaignId?: string;
+}
+
+interface CustomField {
+  key: string;
+  value: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
   console.log("=== Send Referral Notification Handler Started ===");
   
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Log incoming request payload
     const payload: EmailPayload = await req.json();
     console.log("Received notification request:", JSON.stringify(payload));
     
-    // Validate input and log any issues
     if (!payload.email || !payload.firstName || !payload.referralCode) {
       console.error("Missing required fields:", { 
         hasEmail: !!payload.email, 
@@ -43,17 +46,14 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Log BeehiiV API key presence (not the actual key)
     const apiKey = Deno.env.get("BEEHIIV_API_KEY");
     console.log("BeehiiV API Key present:", !!apiKey);
     
-    // Initialize Supabase client
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Get campaign-specific information if campaign ID is provided
     let campaign = null;
     let shareText = "I just entered to win $1,000 for classroom supplies! You can enter too!";
     let thankYouTitle = "Thanks for Sharing!";
@@ -75,33 +75,30 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Generate the share URL
     const shareUrl = campaign 
       ? `https://educ8r.freeparentsearch.com/${campaign.slug}?ref=${payload.referralCode}`
       : `https://educ8r.freeparentsearch.com/?ref=${payload.referralCode}`;
 
-    // Format the current date
     const today = new Date();
     const formattedDate = `${today.toLocaleString('default', { month: 'long' })} ${today.getDate()}, ${today.getFullYear()}`;
 
-    // Define email variables
-    const emailVariables = {
-      first_name: payload.firstName,
-      referral_code: payload.referralCode,
-      referral_link: shareUrl,
-      share_text: shareText,
-      thank_you_title: thankYouTitle,
-      current_date: formattedDate,
-      campaign_name: campaign?.title || "$1,000 Classroom Sweepstakes",
-      prize_amount: campaign?.prize_amount || "$1,000",
-      prize_name: campaign?.prize_name || "classroom supplies"
-    };
+    // Convert email variables to array format as required by BeehiiV
+    const customFields: CustomField[] = [
+      { key: "first_name", value: payload.firstName },
+      { key: "referral_code", value: payload.referralCode },
+      { key: "referral_link", value: shareUrl },
+      { key: "share_text", value: shareText },
+      { key: "thank_you_title", value: thankYouTitle },
+      { key: "current_date", value: formattedDate },
+      { key: "campaign_name", value: campaign?.title || "$1,000 Classroom Sweepstakes" },
+      { key: "prize_amount", value: campaign?.prize_amount || "$1,000" },
+      { key: "prize_name", value: campaign?.prize_name || "classroom supplies" }
+    ];
 
-    // Log BeehiiV request attempt
-    console.log("Attempting BeehiiV API request with email:", payload.email);
+    console.log("Attempting BeehiiV API request with custom fields:", JSON.stringify(customFields));
     
     const BEEHIIV_API_KEY = Deno.env.get("BEEHIIV_API_KEY");
-    const publicationId = "pub_26e1c2a3-8da8-49b1-a07c-1b42adb5dad2"; // FPS BeehiiV publication
+    const publicationId = "pub_26e1c2a3-8da8-49b1-a07c-1b42adb5dad2";
 
     const beehiivResponse = await fetch(
       `https://api.beehiiv.com/v2/publications/${publicationId}/subscriptions`,
@@ -118,13 +115,12 @@ const handler = async (req: Request): Promise<Response> => {
           utm_source: "sweepstakes-referral",
           utm_medium: "email",
           utm_campaign: campaign?.slug || "classroom-1000",
-          custom_fields: emailVariables,
-          tags: ["sweeps", "comprendi"], // Add any campaign-specific tags if needed
+          custom_fields: customFields,
+          tags: ["sweeps", "comprendi"],
         }),
       }
     );
 
-    // Log BeehiiV response details
     const responseStatus = beehiivResponse.status;
     console.log("BeehiiV API Response Status:", responseStatus);
     
@@ -167,5 +163,4 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
-// Main serve function
 serve(handler);
