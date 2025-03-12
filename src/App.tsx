@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import {
   BrowserRouter as Router,
   Route,
@@ -14,8 +14,6 @@ import { Auth } from '@supabase/auth-ui-react'
 import { ThemeSupa } from '@supabase/auth-ui-shared'
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react'
 import { CampaignProvider } from '@/contexts/CampaignContext';
-
-// Add the new import for AdminCampaignContent
 import AdminCampaignContent from "@/pages/AdminCampaignContent";
 
 function App() {
@@ -26,7 +24,6 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/thank-you" element={<ThankYou />} />
 
-          {/* Dynamic route for campaign slugs */}
           <Route path="/:slug" element={
             <CampaignProvider>
               <LandingPage />
@@ -49,7 +46,6 @@ function App() {
             </ProtectedRoute>
           } />
 
-          {/* Update the routes section to include our new page */}
           <Route path="/admin/campaign-content" element={
             <ProtectedRoute>
               <AdminCampaignContent />
@@ -86,17 +82,10 @@ function LoginPage() {
   )
 }
 
-
-// A wrapper for <Route> that redirects to the login page
-// if you're not yet authenticated.
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const session = useSession();
 
   if (!session) {
-    // Redirect them to the /login page, but save the current location they were
-    // trying to go to when they were redirected. This allows us to send them
-    // along to that page after they login, which is a nicer user experience
-    // than dropping them off on the home page.
     return <Navigate to="/login" replace />;
   }
 
