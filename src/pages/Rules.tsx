@@ -1,7 +1,18 @@
-
 import { Helmet } from 'react-helmet-async';
+import { useCampaign } from '@/contexts/CampaignContext';
+import { format } from 'date-fns';
 
 const Rules = () => {
+  const { campaign } = useCampaign();
+
+  if (!campaign) {
+    return <div>Loading...</div>;
+  }
+
+  // Format dates for display
+  const startDate = format(new Date(campaign.start_date), 'MMMM d, yyyy');
+  const endDate = format(new Date(campaign.end_date), 'MMMM d, yyyy');
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
       <Helmet>
@@ -19,7 +30,7 @@ const Rules = () => {
         <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-md">
           <h1 className="text-3xl font-bold mb-6">OFFICIAL RULES</h1>
           <div className="prose prose-gray max-w-none">
-            <p className="text-xl font-semibold">$1,000 School Supply Giveaway ("Sweepstakes")</p>
+            <p className="text-xl font-semibold">{campaign.title} ("Sweepstakes")</p>
             <p className="font-bold mt-4">INITIAL ENTRY: NO PURCHASE NECESSARY.</p>
             <p>Additional entries available through referral program as described below.</p>
 
@@ -30,7 +41,7 @@ const Rules = () => {
             <p>The Sweepstakes is sponsored by Free Parent Search ("Sponsor"), [Full Legal Address].</p>
 
             <h2 className="text-xl font-semibold mt-6 mb-3">3. SWEEPSTAKES PERIOD</h2>
-            <p>The Sweepstakes begins on [START DATE] at 12:00:01 a.m. Eastern Time ("ET") and ends on [END DATE] at 11:59:59 p.m. ET (the "Sweepstakes Period").</p>
+            <p>The Sweepstakes begins on {startDate} at 12:00:01 a.m. Eastern Time ("ET") and ends on {endDate} at 11:59:59 p.m. ET (the "Sweepstakes Period").</p>
 
             <h2 className="text-xl font-semibold mt-6 mb-3">4. HOW TO ENTER</h2>
             <p>There are two methods of entry:</p>
@@ -40,7 +51,7 @@ const Rules = () => {
             <p>After completing your initial entry, you will receive a unique referral link. You can earn one (1) additional entry each time someone you referred activates a Free Trial of Comprendi Reading lessons through your unique referral link during the Sweepstakes Period. There is no limit to the number of additional entries that can be earned through successful referrals.</p>
 
             <h2 className="text-xl font-semibold mt-6 mb-3">5. PRIZE</h2>
-            <p>One (1) Grand Prize: $1,000 CAD worth of school supplies, delivered in the form of [gift cards/specific retailers/etc.]. Approximate Retail Value ("ARV"): $1,000 CAD.</p>
+            <p>One (1) Grand Prize: {campaign.prize_amount} CAD worth of {campaign.prize_name}, delivered in the form of [gift cards/specific retailers/etc.]. Approximate Retail Value ("ARV"): {campaign.prize_amount} CAD.</p>
 
             <h2 className="text-xl font-semibold mt-6 mb-3">6. WINNER SELECTION AND NOTIFICATION</h2>
             <p>The potential winner will be selected in a random drawing from among all eligible entries received during the Sweepstakes Period, including both initial entries and additional entries earned through referrals. The drawing will be conducted by Sponsor or its designated representatives on [DATE] at [TIME] ET. Odds of winning depend on the total number of eligible entries received.</p>
