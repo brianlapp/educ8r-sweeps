@@ -175,29 +175,9 @@ export function OptimizedImage({
   const imgHeight = dimensions.height || propHeight;
   const hasExplicitDimensions = Boolean(imgWidth && imgHeight);
 
-  // Fix fetchPriority casing - defining HTML attributes with correct casing
-  const imgAttributes: React.ImgHTMLAttributes<HTMLImageElement> = {
-    src: isIntersecting || isLCP ? optimizedSrc : placeholderSrc,
-    alt: alt,
-    className: `${className} ${isLoading ? 'hidden' : ''}`,
-    loading: loadingStrategy,
-    decoding: decodingStrategy,
-    fetchPriority: isLCP ? "high" : (priority === 'auto' ? (eager ? "high" : "auto") : priority) as any,
-    srcSet: srcSet,
-    sizes: srcSet ? sizes : undefined,
-    width: imgWidth,
-    height: imgHeight,
-    style: {
-      aspectRatio: hasExplicitDimensions ? `${imgWidth} / ${imgHeight}` : undefined,
-      ...props.style
-    },
-    onError: () => {
-      setError(true);
-      setOptimizedSrc(src); // Fallback to original source on error
-    },
-    ...props
-  };
-
+  // Fix TypeScript errors by using the correct attribute name
+  const fetchPriorityValue = isLCP ? "high" : (priority === 'auto' ? (eager ? "high" : "auto") : priority);
+  
   return (
     <>
       {isLoading && (
@@ -222,7 +202,30 @@ export function OptimizedImage({
           />
         </div>
       )}
-      <img ref={imgRef} {...imgAttributes} />
+      <img 
+        ref={imgRef}
+        src={isIntersecting || isLCP ? optimizedSrc : placeholderSrc}
+        alt={alt}
+        className={`${className} ${isLoading ? 'hidden' : ''}`}
+        loading={loadingStrategy}
+        decoding={decodingStrategy}
+        // @ts-ignore - fetchPriority is valid but TypeScript doesn't recognize it yet
+        fetchPriority={fetchPriorityValue}
+        srcSet={srcSet}
+        sizes={srcSet ? sizes : undefined}
+        width={imgWidth}
+        height={imgHeight}
+        style={{
+          aspectRatio: hasExplicitDimensions ? `${imgWidth} / ${imgHeight}` : undefined,
+          objectFit: 'contain', // Ensure the image maintains its aspect ratio
+          ...props.style
+        }}
+        onError={() => {
+          setError(true);
+          setOptimizedSrc(src); // Fallback to original source on error
+        }}
+        {...props}
+      />
     </>
   );
 }

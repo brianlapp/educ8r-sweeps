@@ -1,148 +1,127 @@
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-// Types for different scheduling strategies
-type TaskScheduler = (callback: () => void, options?: any) => number;
-type TaskCanceller = (id: number) => void;
-
-interface SchedulerOptions {
-  timeout?: number;
-  priority?: 'user-blocking' | 'user-visible' | 'background';
+/**
+ * Custom interface for the IdleDeadline that includes the didTimeout property
+ */
+interface IdleDeadline {
+  readonly didTimeout: boolean;
+  timeRemaining: () => number;
 }
 
 /**
- * Custom hook for deferring non-critical tasks
- * @param task The function to execute when time allows
- * @param dependencies Dependencies array that triggers the task to be scheduled again
- * @param options Configuration options
- * @returns Object containing execution state and control functions
+ * Options for a deferred task
  */
-export function useDeferredTask<T>(
-  task: () => Promise<T> | T,
-  dependencies: React.DependencyList = [],
-  options: {
-    timeout?: number;
-    executeImmediately?: boolean;
-    retryOnError?: boolean;
-    maxRetries?: number;
-    retryDelay?: number;
-    onSuccess?: (result: T) => void;
-    onError?: (error: Error) => void;
-  } = {}
+export interface DeferredTaskOptions {
+  timeout?: number;
+  signal?: AbortSignal;
+}
+
+/**
+ * Hook that provides a way to defer non-critical tasks
+ * @param callback The task to run when the browser is idle
+ * @param deps Dependencies array for the callback
+ * @param options Options for the deferred task
+ * @returns A function to manually trigger the task
+ */
+export function useDeferredTask<T extends (...args: any[]) => any>(
+  callback: T,
+  deps: React.DependencyList = [],
+  options: DeferredTaskOptions = {}
 ) {
-  const {
-    timeout = 5000,
-    executeImmediately = false,
-    retryOnError = false,
-    maxRetries = 3,
-    retryDelay = 1000,
-    onSuccess,
-    onError,
-  } = options;
+  const { timeout = 2000, signal } = options;
+  const callbackRef = useRef(callback);
 
-  const [isExecuting, setIsExecuting] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const [result, setResult] = useState<T | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const [taskId, setTaskId] = useState<number | null>(null);
-
-  // Determine which scheduling API to use
-  const getScheduler = useCallback((): [TaskScheduler, TaskCanceller] => {
-    // Use requestIdleCallback for low priority tasks when available
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      return [
-        (callback, options) => 
-          window.requestIdleCallback(callback as IdleRequestCallback, 
-            options as IdleRequestOptions),
-        window.cancelIdleCallback
-      ];
-    }
-    
-    // Fallback to setTimeout
-    return [
-      (callback, options) => window.setTimeout(callback, options?.timeout || 1),
-      window.clearTimeout
-    ];
-  }, []);
-
-  const executeTask = useCallback(async () => {
-    setIsExecuting(true);
-    setError(null);
-    
-    try {
-      const taskResult = await task();
-      setResult(taskResult);
-      setIsCompleted(true);
-      onSuccess?.(taskResult);
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err));
-      setError(error);
-      onError?.(error);
-      
-      if (retryOnError && retryCount < maxRetries) {
-        setRetryCount(prev => prev + 1);
-        const [scheduler] = getScheduler();
-        scheduler(() => executeTask(), { timeout: retryDelay });
-      }
-    } finally {
-      setIsExecuting(false);
-    }
-  }, [task, retryOnError, retryCount, maxRetries, retryDelay, onSuccess, onError]);
-
-  // Polyfill types for IdleCallback
-  interface IdleRequestOptions {
-    timeout?: number;
-  }
-
-  interface IdleDeadline {
-    readonly didTimeout: boolean; // Add 'readonly' modifier to fix error
-    timeRemaining: () => number;
-  }
-
-  type IdleRequestCallback = (deadline: IdleDeadline) => void;
-
-  // Schedule the task execution
+  // Update the callback ref when the callback changes
   useEffect(() => {
-    // Skip scheduling if we're already executing
-    if (isExecuting) return;
-    
-    // Reset states when dependencies change
-    setIsCompleted(false);
-    setError(null);
-    setRetryCount(0);
-    
-    // Clean up any pending task
-    const [scheduler, canceller] = getScheduler();
-    if (taskId !== null) {
-      canceller(taskId);
-    }
-    
-    // Execute immediately or schedule for later
-    if (executeImmediately) {
-      executeTask();
-    } else {
-      const id = scheduler(() => {
-        executeTask();
-      }, { timeout });
-      
-      setTaskId(id);
-    }
-    
-    // Cleanup function
-    return () => {
-      if (taskId !== null) {
-        canceller(taskId);
-      }
-    };
-  }, [...dependencies, executeImmediately]);
+    callbackRef.current = callback;
+  }, [callback]);
 
-  return {
-    isExecuting,
-    isCompleted,
-    error,
-    result,
-    retry: executeTask,
-    retryCount
-  };
+  // Wrapper function to run the callback
+  const runCallback = useCallback(
+    (...args: Parameters<T>) => {
+      return callbackRef.current(...args);
+    },
+    [...deps]
+  );
+
+  // Schedule the task to run when the browser is idle
+  const scheduleTask = useCallback(
+    (...args: Parameters<T>) => {
+      // Skip if the signal is aborted
+      if (signal?.aborted) return;
+
+      // Use requestIdleCallback if available, otherwise use setTimeout
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        const idleCallbackId = (window as any).requestIdleCallback(
+          (deadline: IdleDeadline) => {
+            // Run the callback if we have time or we timed out
+            if (deadline.timeRemaining() > 0 || deadline.didTimeout) {
+              runCallback(...args);
+            } else {
+              // Reschedule if we don't have time
+              scheduleTask(...args);
+            }
+          },
+          { timeout }
+        );
+
+        // Cancel the task if the signal is aborted
+        if (signal) {
+          signal.addEventListener('abort', () => {
+            (window as any).cancelIdleCallback(idleCallbackId);
+          });
+        }
+      } else {
+        // Fallback to setTimeout
+        const timeoutId = setTimeout(() => {
+          runCallback(...args);
+        }, 1);
+
+        // Cancel the task if the signal is aborted
+        if (signal) {
+          signal.addEventListener('abort', () => {
+            clearTimeout(timeoutId);
+          });
+        }
+      }
+    },
+    [runCallback, timeout, signal]
+  );
+
+  return scheduleTask;
+}
+
+// Polyfill for requestIdleCallback and cancelIdleCallback
+if (typeof window !== 'undefined') {
+  window.requestIdleCallback =
+    window.requestIdleCallback ||
+    function (cb) {
+      const start = Date.now();
+      return setTimeout(function () {
+        cb({
+          didTimeout: false,
+          timeRemaining: function () {
+            return Math.max(0, 50 - (Date.now() - start));
+          },
+        });
+      }, 1);
+    };
+
+  window.cancelIdleCallback =
+    window.cancelIdleCallback ||
+    function (id) {
+      clearTimeout(id);
+    };
+}
+
+// Declare these global functions to fix TypeScript errors
+declare global {
+  interface Window {
+    requestIdleCallback: (
+      callback: (deadline: IdleDeadline) => void,
+      options?: { timeout: number }
+    ) => number;
+    cancelIdleCallback: (handle: number) => void;
+  }
 }

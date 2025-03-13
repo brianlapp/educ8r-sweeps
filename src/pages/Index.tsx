@@ -97,12 +97,13 @@ const Index = () => {
             <OptimizedImage 
               src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" 
               alt="FPS Logo" 
-              className="h-12 w-auto"
+              className="h-12 w-auto" 
               maxWidth={200}
               quality={0.85}
               width={160}
               height={48}
               eager={true}
+              style={{ objectFit: 'contain' }}
             />
           </div>
         </div>
@@ -202,6 +203,7 @@ const Index = () => {
               quality={0.85}
               width={120}
               height={36}
+              style={{ objectFit: 'contain' }}
             />
             <p className="text-sm text-gray-600">© {currentYear} All rights reserved.</p>
           </div>
