@@ -47,7 +47,19 @@ export default defineConfig(({ mode }) => ({
         // Optimize chunk size
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
-        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
+        assetFileNames: ({name}) => {
+          // Apply hash to all assets and organize by type
+          if (/\.(gif|jpe?g|png|svg|webp)$/.test(name ?? '')) {
+            return 'assets/images/[name]-[hash][extname]';
+          }
+          if (/\.(woff2?|eot|ttf|otf)$/.test(name ?? '')) {
+            return 'assets/fonts/[name]-[hash][extname]';
+          }
+          if (/\.css$/.test(name ?? '')) {
+            return 'assets/css/[name]-[hash][extname]';
+          }
+          return 'assets/[ext]/[name]-[hash].[ext]';
+        }
       }
     },
     // Improve CSS optimization
@@ -60,8 +72,28 @@ export default defineConfig(({ mode }) => ({
     terserOptions: {
       compress: {
         drop_console: mode === 'production',
-        drop_debugger: mode === 'production'
+        drop_debugger: mode === 'production',
+        pure_funcs: mode === 'production' ? ['console.log', 'console.debug'] : undefined
       }
+    },
+    // Add additional optimizations
+    reportCompressedSize: true,
+    modulePreload: {
+      polyfill: true,
+    }
+  },
+  // Enhanced caching for dev mode
+  cacheDir: '.vite-cache',
+  // Optimize dependency pre-bundling
+  optimizeDeps: {
+    include: [
+      'react', 
+      'react-dom', 
+      'react-router-dom',
+      '@tanstack/react-query'
+    ],
+    esbuildOptions: {
+      target: 'es2020'
     }
   }
 }));

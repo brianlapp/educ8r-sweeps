@@ -55,23 +55,43 @@ serve(async (req) => {
     if (existingEntry) {
       console.log('Found existing entry with referral code:', existingEntry.referral_code);
       
-      try {
-        // Create BeehiiV subscriber data for existing user
-        const subscriberData = createBeehiivSubscriberData(
-          email, 
-          firstName, 
-          lastName, 
-          existingEntry.referral_code,
-          campaign_slug
-        );
-
-        console.log('DIAGNOSTIC - BeehiiV payload for existing user:', JSON.stringify(subscriberData));
-        console.log('DIAGNOSTIC - custom_fields type:', Array.isArray(subscriberData.custom_fields) ? 'Array' : typeof subscriberData.custom_fields);
-        
-        // Update subscription for existing user
-        await subscribeToBeehiiv(subscriberData);
-      } catch (beehiivError) {
-        console.error('[BeehiiV] Error processing BeehiiV actions for existing user:', beehiivError);
+      // Use Edge Runtime's waitUntil for background tasks that shouldn't block response
+      if (typeof EdgeRuntime !== 'undefined' && 'waitUntil' in EdgeRuntime) {
+        // @ts-ignore: EdgeRuntime might not be typed
+        EdgeRuntime.waitUntil((async () => {
+          try {
+            // Create BeehiiV subscriber data for existing user
+            const subscriberData = createBeehiivSubscriberData(
+              email, 
+              firstName, 
+              lastName, 
+              existingEntry.referral_code,
+              campaign_slug
+            );
+            
+            // Update subscription for existing user
+            await subscribeToBeehiiv(subscriberData);
+          } catch (beehiivError) {
+            console.error('[BeehiiV] Error processing BeehiiV actions for existing user:', beehiivError);
+          }
+        })());
+      } else {
+        // If no background task support, do it synchronously
+        try {
+          // Create BeehiiV subscriber data for existing user
+          const subscriberData = createBeehiivSubscriberData(
+            email, 
+            firstName, 
+            lastName, 
+            existingEntry.referral_code,
+            campaign_slug
+          );
+          
+          // Update subscription for existing user
+          await subscribeToBeehiiv(subscriberData);
+        } catch (beehiivError) {
+          console.error('[BeehiiV] Error processing BeehiiV actions for existing user:', beehiivError);
+        }
       }
       
       return new Response(
@@ -84,7 +104,8 @@ serve(async (req) => {
         {
           headers: {
             ...corsHeaders,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Cache-Control': 'private, no-cache'
           }
         }
       );
@@ -105,26 +126,59 @@ serve(async (req) => {
     });
     console.log(`Database insert completed at ${Date.now() - startTime}ms`);
 
-    // Create BeehiiV subscriber data for new user
-    const subscriberData = createBeehiivSubscriberData(
-      email, 
-      firstName, 
-      lastName, 
-      entry.referral_code,
-      campaign_slug
-    );
+    // Background processing for non-critical tasks
+    if (typeof EdgeRuntime !== 'undefined' && 'waitUntil' in EdgeRuntime) {
+      // @ts-ignore: EdgeRuntime might not be typed
+      EdgeRuntime.waitUntil((async () => {
+        try {
+          // Create BeehiiV subscriber data for new user
+          const subscriberData = createBeehiivSubscriberData(
+            email, 
+            firstName, 
+            lastName, 
+            entry.referral_code,
+            campaign_slug
+          );
+          
+          // Subscribe new user to BeehiiV
+          await subscribeToBeehiiv(subscriberData);
+          
+          // Add tags to BeehiiV subscriber
+          await addTagsToBeehiivSubscriber(email);
 
-    console.log('DIAGNOSTIC - BeehiiV payload for new user:', JSON.stringify(subscriberData));
-    
-    // Subscribe new user to BeehiiV
-    await subscribeToBeehiiv(subscriberData);
-    
-    // Add tags to BeehiiV subscriber
-    await addTagsToBeehiivSubscriber(email);
+          // Log referral if valid
+          if (validReferral) {
+            await logReferral(supabaseClient, email, referredBy, entry.referral_code);
+          }
+        } catch (error) {
+          console.error('Error in background processing:', error);
+        }
+      })());
+    } else {
+      // If no background task support, do it synchronously
+      try {
+        // Create BeehiiV subscriber data for new user
+        const subscriberData = createBeehiivSubscriberData(
+          email, 
+          firstName, 
+          lastName, 
+          entry.referral_code,
+          campaign_slug
+        );
+        
+        // Subscribe new user to BeehiiV
+        await subscribeToBeehiiv(subscriberData);
+        
+        // Add tags to BeehiiV subscriber
+        await addTagsToBeehiivSubscriber(email);
 
-    // Log referral if valid
-    if (validReferral) {
-      await logReferral(supabaseClient, email, referredBy, entry.referral_code);
+        // Log referral if valid
+        if (validReferral) {
+          await logReferral(supabaseClient, email, referredBy, entry.referral_code);
+        }
+      } catch (error) {
+        console.error('Error in synchronous processing:', error);
+      }
     }
 
     console.log(`Total processing time: ${Date.now() - startTime}ms`);
@@ -139,7 +193,8 @@ serve(async (req) => {
       { 
         headers: { 
           ...corsHeaders,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Cache-Control': 'private, no-cache'
         } 
       }
     );
@@ -155,7 +210,8 @@ serve(async (req) => {
         status: 400,
         headers: { 
           ...corsHeaders,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store'
         }
       }
     );

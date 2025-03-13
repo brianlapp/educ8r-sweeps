@@ -96,3 +96,56 @@ img {
   content-visibility: auto;
   contain-intrinsic-size: auto 300px;
 }
+
+/* Optimize CSS for image loading to prevent layout shifts */
+.img-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.img-container img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.img-container.fixed-ratio {
+  height: 0;
+  width: 100%;
+}
+
+/* Common aspect ratios */
+.ratio-16-9 {
+  padding-top: 56.25%; /* 16:9 */
+}
+
+.ratio-4-3 {
+  padding-top: 75%; /* 4:3 */
+}
+
+.ratio-1-1 {
+  padding-top: 100%; /* Square */
+}
+
+/* Blur-up image loading effect */
+.blur-up {
+  filter: blur(5px);
+  transition: filter 0.3s ease-in-out;
+}
+
+.blur-up.loaded {
+  filter: blur(0);
+}
+
+/* Performance optimizations for images */
+@media (min-width: 768px) {
+  .lcp-image {
+    content-visibility: auto;
+    display: block;
+  }
+  
+  /* Prevent font swap layout shifts */
+  h1, h2, h3, .heading {
+    font-display: optional;
+  }
+}

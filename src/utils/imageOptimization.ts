@@ -1,5 +1,6 @@
 
-// Remove the huggingface transformer import as it's not being used and adds to bundle size
+// ImageOptimization utility with performance optimizations
+
 const MAX_IMAGE_DIMENSION = 1024;
 
 // Enhanced cache for optimized images with LRU capabilities
@@ -49,9 +50,22 @@ class ImageCache {
 
 const imageCache = new ImageCache();
 
+// Preload cache for commonly used images
+const PRELOAD_IMAGES: string[] = [
+  "/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png", // Logo
+  "/lovable-uploads/308c0411-e546-4640-ab1a-b354a074f9c4.png"  // Hero
+];
+
+// Dimensions cache to prevent layout shifts
+const dimensionsCache = new Map<string, {width: number, height: number}>();
+
 function resizeImageIfNeeded(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, image: HTMLImageElement) {
   let width = image.naturalWidth;
   let height = image.naturalHeight;
+
+  // Store original dimensions in cache
+  const imageUrl = image.src.split('?')[0]; // Remove query params
+  dimensionsCache.set(imageUrl, {width, height});
 
   // Check if resizing is needed
   if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
@@ -69,6 +83,14 @@ function resizeImageIfNeeded(canvas: HTMLCanvasElement, ctx: CanvasRenderingCont
   ctx.drawImage(image, 0, 0, width, height);
   return { width, height };
 }
+
+/**
+ * Gets cached image dimensions if available
+ */
+export const getImageDimensions = (src: string): {width?: number, height?: number} => {
+  const imageUrl = src.split('?')[0]; // Remove query params
+  return dimensionsCache.get(imageUrl) || {};
+};
 
 /**
  * Loads an image from a URL
@@ -105,6 +127,22 @@ function getWebPSupport() {
   return webPSupportPromise;
 }
 
+// Preload common images
+if (typeof window !== 'undefined') {
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      PRELOAD_IMAGES.forEach(async (imgSrc) => {
+        try {
+          await optimizeImage(imgSrc, { quality: 0.85, preferCache: true });
+          console.log(`Preloaded image: ${imgSrc}`);
+        } catch (e) {
+          // Silently fail preloading
+        }
+      });
+    }, 1000); // Delay preloading to not compete with critical resources
+  });
+}
+
 /**
  * Compresses and optimizes an image
  * @param imageUrl URL of the image to optimize
@@ -116,10 +154,16 @@ export const optimizeImage = async (
   options: { 
     quality?: number,
     maxWidth?: number,
-    preferWebP?: boolean
+    preferWebP?: boolean,
+    preferCache?: boolean
   } = {}
 ): Promise<string> => {
-  const { quality = 0.7, maxWidth = 800, preferWebP = true } = options;
+  const { 
+    quality = 0.7, 
+    maxWidth = 800, 
+    preferWebP = true,
+    preferCache = false 
+  } = options;
   
   // Don't optimize SVGs
   if (imageUrl.endsWith('.svg')) {
@@ -139,8 +183,19 @@ export const optimizeImage = async (
       return imageUrl;
     }
 
+    // Skip external URLs if preferCache is true (except for first load)
+    if (preferCache && imageUrl.startsWith('http') && !PRELOAD_IMAGES.includes(imageUrl)) {
+      return imageUrl;
+    }
+
     // Load the image
     const image = await loadImage(imageUrl);
+    
+    // Store dimensions in cache for future reference
+    dimensionsCache.set(imageUrl.split('?')[0], {
+      width: image.naturalWidth,
+      height: image.naturalHeight
+    });
     
     // Create a canvas to draw the image
     const canvas = document.createElement('canvas');
