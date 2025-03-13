@@ -170,9 +170,13 @@ export function OptimizedImage({
   const loadingStrategy = eager || isLCP ? "eager" : "lazy";
   const decodingStrategy = eager || isLCP ? "sync" : "async";
   
+  // Ensure we have width and height - critical for preventing layout shifts
+  const imgWidth = dimensions.width || propWidth;
+  const imgHeight = dimensions.height || propHeight;
+  const hasExplicitDimensions = Boolean(imgWidth && imgHeight);
+
   // Fix fetchPriority casing - defining HTML attributes with correct casing
   const imgAttributes: React.ImgHTMLAttributes<HTMLImageElement> = {
-    ref: imgRef,
     src: isIntersecting || isLCP ? optimizedSrc : placeholderSrc,
     alt: alt,
     className: `${className} ${isLoading ? 'hidden' : ''}`,
@@ -193,11 +197,6 @@ export function OptimizedImage({
     },
     ...props
   };
-
-  // Ensure we have width and height - critical for preventing layout shifts
-  const imgWidth = dimensions.width || propWidth;
-  const imgHeight = dimensions.height || propHeight;
-  const hasExplicitDimensions = Boolean(imgWidth && imgHeight);
 
   return (
     <>
@@ -223,7 +222,7 @@ export function OptimizedImage({
           />
         </div>
       )}
-      <img {...imgAttributes} />
+      <img ref={imgRef} {...imgAttributes} />
     </>
   );
 }
