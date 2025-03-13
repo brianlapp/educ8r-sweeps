@@ -92,10 +92,22 @@ export function useDeferredTask<T extends (...args: any[]) => any>(
   return scheduleTask;
 }
 
+// Define the global types first, before adding polyfills
+declare global {
+  interface Window {
+    requestIdleCallback: (
+      callback: (deadline: IdleDeadline) => void,
+      options?: { timeout?: number }
+    ) => number;
+    cancelIdleCallback: (handle: number) => void;
+  }
+}
+
 // Only add polyfills if needed
-if (typeof window !== 'undefined' && !window.requestIdleCallback) {
+if (typeof window !== 'undefined' && !('requestIdleCallback' in window)) {
   window.requestIdleCallback = function(callback, options) {
     const start = Date.now();
+    // Explicitly convert setTimeout's return value to number
     return setTimeout(function() {
       callback({
         didTimeout: false,
@@ -103,21 +115,10 @@ if (typeof window !== 'undefined' && !window.requestIdleCallback) {
           return Math.max(0, 50 - (Date.now() - start));
         }
       });
-    }, options?.timeout || 1);
+    }, options?.timeout || 1) as unknown as number; // Cast to number to match the expected type
   };
 
   window.cancelIdleCallback = function(id) {
     clearTimeout(id);
   };
-}
-
-// Declare these global functions to fix TypeScript errors
-declare global {
-  interface Window {
-    requestIdleCallback: (
-      callback: (deadline: IdleDeadline) => void,
-      options?: { timeout: number }
-    ) => number;
-    cancelIdleCallback: (handle: number) => void;
-  }
 }
