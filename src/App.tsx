@@ -8,10 +8,19 @@ import { useAnalytics } from "./hooks/use-analytics";
 import { AuthProvider } from "./contexts/AuthContext";
 import { CampaignProvider } from "./contexts/CampaignContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ErrorBoundary from "./components/ErrorBoundary";
 import "./App.css";
 
 // Create a client
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
 
 // Lazy load components
 const Index = lazy(() => import("./pages/Index"));
@@ -56,106 +65,129 @@ function RouteChangeTracker() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <HelmetProvider>
-        <AuthProvider>
-          <Router>
-            <RouteChangeTracker />
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route 
-                  path="/" 
-                  element={
-                    <CampaignProvider>
-                      <Index />
-                    </CampaignProvider>
-                  } 
-                />
-                <Route 
-                  path="/:slug" 
-                  element={
-                    <CampaignProvider>
-                      <Index />
-                    </CampaignProvider>
-                  } 
-                />
-                <Route 
-                  path="/:slug/thank-you" 
-                  element={
-                    <CampaignProvider>
-                      <ThankYou />
-                    </CampaignProvider>
-                  } 
-                />
-                <Route path="/thank-you" element={<ThankYou />} />
-                <Route path="/test-landing" element={<TestLanding />} />
-                <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/terms" element={<Terms />} />
-                <Route 
-                  path="/rules" 
-                  element={
-                    <CampaignProvider>
-                      <Rules />
-                    </CampaignProvider>
-                  } 
-                />
-                <Route 
-                  path="/:slug/rules" 
-                  element={
-                    <CampaignProvider>
-                      <Rules />
-                    </CampaignProvider>
-                  } 
-                />
-                <Route path="/tech-stack" element={<TechStack />} />
-                <Route 
-                  path="/admin" 
-                  element={
-                    <ProtectedRoute>
-                      <Admin />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route
-                  path="/admin/campaigns"
-                  element={
-                    <ProtectedRoute>
-                      <AdminCampaigns />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/entries"
-                  element={
-                    <ProtectedRoute>
-                      <AdminEntries />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/webhooks"
-                  element={
-                    <ProtectedRoute>
-                      <AdminWebhookStatus />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin/campaign/:id"
-                  element={
-                    <ProtectedRoute>
-                      <AdminCampaignPreview />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route path="/docs" element={<Documentation />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
-          </Router>
-        </AuthProvider>
-      </HelmetProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <HelmetProvider>
+          <AuthProvider>
+            <Router>
+              <RouteChangeTracker />
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route 
+                    path="/" 
+                    element={
+                      <ErrorBoundary>
+                        <CampaignProvider>
+                          <Index />
+                        </CampaignProvider>
+                      </ErrorBoundary>
+                    } 
+                  />
+                  <Route 
+                    path="/:slug" 
+                    element={
+                      <ErrorBoundary>
+                        <CampaignProvider>
+                          <Index />
+                        </CampaignProvider>
+                      </ErrorBoundary>
+                    } 
+                  />
+                  {/* Add ErrorBoundary to other routes */}
+                  <Route 
+                    path="/:slug/thank-you" 
+                    element={
+                      <ErrorBoundary>
+                        <CampaignProvider>
+                          <ThankYou />
+                        </CampaignProvider>
+                      </ErrorBoundary>
+                    } 
+                  />
+                  <Route path="/thank-you" element={<ErrorBoundary><ThankYou /></ErrorBoundary>} />
+                  <Route path="/test-landing" element={<ErrorBoundary><TestLanding /></ErrorBoundary>} />
+                  <Route path="/admin/login" element={<ErrorBoundary><AdminLogin /></ErrorBoundary>} />
+                  <Route path="/terms" element={<ErrorBoundary><Terms /></ErrorBoundary>} />
+                  <Route 
+                    path="/rules" 
+                    element={
+                      <ErrorBoundary>
+                        <CampaignProvider>
+                          <Rules />
+                        </CampaignProvider>
+                      </ErrorBoundary>
+                    } 
+                  />
+                  <Route 
+                    path="/:slug/rules" 
+                    element={
+                      <ErrorBoundary>
+                        <CampaignProvider>
+                          <Rules />
+                        </CampaignProvider>
+                      </ErrorBoundary>
+                    } 
+                  />
+                  <Route path="/tech-stack" element={<ErrorBoundary><TechStack /></ErrorBoundary>} />
+                  <Route 
+                    path="/admin" 
+                    element={
+                      <ProtectedRoute>
+                        <ErrorBoundary>
+                          <Admin />
+                        </ErrorBoundary>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route
+                    path="/admin/campaigns"
+                    element={
+                      <ProtectedRoute>
+                        <ErrorBoundary>
+                          <AdminCampaigns />
+                        </ErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/entries"
+                    element={
+                      <ProtectedRoute>
+                        <ErrorBoundary>
+                          <AdminEntries />
+                        </ErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/webhooks"
+                    element={
+                      <ProtectedRoute>
+                        <ErrorBoundary>
+                          <AdminWebhookStatus />
+                        </ErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/campaign/:id"
+                    element={
+                      <ProtectedRoute>
+                        <ErrorBoundary>
+                          <AdminCampaignPreview />
+                        </ErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/docs" element={<ErrorBoundary><Documentation /></ErrorBoundary>} />
+                  <Route path="*" element={<ErrorBoundary><NotFound /></ErrorBoundary>} />
+                </Routes>
+              </Suspense>
+            </Router>
+          </AuthProvider>
+        </HelmetProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

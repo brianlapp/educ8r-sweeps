@@ -11,9 +11,11 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
   },
   plugins: [
-    react(),
-    mode === 'development' &&
-    componentTagger(),
+    react({
+      // Optimize React refresh
+      fastRefresh: true,
+    }),
+    mode === 'development' && componentTagger(),
   ].filter(Boolean),
   resolve: {
     alias: {
@@ -42,7 +44,17 @@ export default defineConfig(({ mode }) => ({
             'clsx',
             'tailwind-merge'
           ],
-          charts: ['recharts']
+          charts: ['recharts'],
+          // Add more specific chunks
+          forms: [
+            'react-hook-form',
+            '@hookform/resolvers',
+            'zod'
+          ],
+          utils: [
+            'date-fns',
+            'sonner'
+          ]
         },
         // Optimize chunk size
         chunkFileNames: 'assets/js/[name]-[hash].js',
@@ -73,14 +85,32 @@ export default defineConfig(({ mode }) => ({
       compress: {
         drop_console: mode === 'production',
         drop_debugger: mode === 'production',
-        pure_funcs: mode === 'production' ? ['console.log', 'console.debug'] : undefined
+        pure_funcs: mode === 'production' ? ['console.log', 'console.debug'] : undefined,
+        passes: 2, // Additional optimization pass
+        sequences: true,
+        dead_code: true,
+        conditionals: true,
+        booleans: true,
+        unused: true,
+        if_return: true,
+        join_vars: true,
+        keep_infinity: true // to properly compare infinities
+      },
+      mangle: {
+        safari10: true, // for Safari 10 compatibility
+      },
+      format: {
+        comments: false, // Remove comments
+        preserve_annotations: true, // Keep important annotations
       }
     },
     // Add additional optimizations
     reportCompressedSize: true,
     modulePreload: {
       polyfill: true,
-    }
+    },
+    // Add browser targeting
+    target: 'es2018', // Balance between modern features and browser support
   },
   // Enhanced caching for dev mode
   cacheDir: '.vite-cache',
@@ -90,10 +120,25 @@ export default defineConfig(({ mode }) => ({
       'react', 
       'react-dom', 
       'react-router-dom',
-      '@tanstack/react-query'
+      '@tanstack/react-query',
+      'clsx',
+      'tailwind-merge',
+      'react-hook-form',
+      'sonner'
     ],
     esbuildOptions: {
       target: 'es2020'
     }
+  },
+  // Additional performance configurations
+  preview: {
+    port: 4173,
+    host: true,
+    strictPort: true,
+  },
+  // Add explicit environment variables support
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(mode),
+    'import.meta.env.MODE': JSON.stringify(mode)
   }
 }));

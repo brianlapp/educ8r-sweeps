@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -14,6 +13,13 @@
     <link rel="preconnect" href="https://epfzraejquaxqrfmkmyx.supabase.co" crossorigin />
     <link rel="dns-prefetch" href="https://epfzraejquaxqrfmkmyx.supabase.co" />
     
+    <!-- Preload critical JavaScript -->
+    <link rel="modulepreload" href="/src/main.tsx" />
+    
+    <!-- Connection optimization for analytics -->
+    <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
+    <link rel="preconnect" href="https://www.google-analytics.com" crossorigin />
+    
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://educ8r.freeparentsearch.com" />
@@ -28,20 +34,29 @@
     <meta name="twitter:description" content="Enter now to win $1,000 for your classroom supplies! Free entry for educators. Support your students with everything they need for a successful school year." />
     <meta name="twitter:image" content="https://educ8r.freeparentsearch.com/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png" />
     
-    <!-- Google Analytics: First load Google Tag Manager -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-7ZWHGLBHFM"></script>
+    <!-- Deferred analytics loading -->
     <script>
+      // Initialize dataLayer
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-
-      // Configure with enhanced measurement & SPA settings
+      
+      // Set initial configuration
       gtag('config', 'G-7ZWHGLBHFM', {
-        send_page_view: false,  // We'll handle page views manually for SPA
+        send_page_view: false,
         custom_map: {
           'dimension1': 'device_type',
           'dimension2': 'user_agent'
         }
+      });
+      
+      // Load analytics script after page content
+      document.addEventListener('DOMContentLoaded', function() {
+        const script = document.createElement('script');
+        script.src = 'https://www.googletagmanager.com/gtag/js?id=G-7ZWHGLBHFM';
+        script.async = true;
+        script.setAttribute('fetchpriority', 'low'); // Lower priority than content
+        document.head.appendChild(script);
       });
       
       // Track initial page view
@@ -53,49 +68,45 @@
         user_agent: navigator.userAgent
       });
       
-      // Listen for SPA route changes via history API
-      let lastUrl = window.location.href;
+      // Optimize SPA route change tracking
       const handleRouteChange = () => {
-        const newUrl = window.location.href;
-        if (newUrl !== lastUrl) {
-          lastUrl = newUrl;
+        const currentUrl = window.location.href;
+        if (currentUrl !== window.lastTrackedUrl) {
+          window.lastTrackedUrl = currentUrl;
           
           // Send page view for new route
           gtag('event', 'page_view', {
             page_title: document.title,
-            page_location: newUrl,
+            page_location: currentUrl,
             page_path: window.location.pathname,
             device_type: /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
             user_agent: navigator.userAgent
           });
-          
-          // Also send a standard engagement event
-          gtag('event', 'engagement', {
-            engagement_type: 'page_change'
-          });
         }
       };
       
-      // Monitor for history changes
-      ['pushState', 'replaceState'].forEach(method => {
-        const original = window.history[method];
-        window.history[method] = function() {
-          const result = original.apply(this, arguments);
-          const event = new Event('locationchange');
-          window.dispatchEvent(event);
-          return result;
-        };
+      // Use more efficient event delegation for engagement tracking
+      window.addEventListener('DOMContentLoaded', () => {
+        document.body.addEventListener('click', () => {
+          gtag('event', 'user_engagement');
+        }, { once: true, passive: true });
       });
+      
+      // Optimize history API monitoring
+      const originalPushState = history.pushState;
+      const originalReplaceState = history.replaceState;
+      
+      history.pushState = function() {
+        originalPushState.apply(this, arguments);
+        handleRouteChange();
+      };
+      
+      history.replaceState = function() {
+        originalReplaceState.apply(this, arguments);
+        handleRouteChange();
+      };
       
       window.addEventListener('popstate', handleRouteChange);
-      window.addEventListener('locationchange', handleRouteChange);
-      
-      // Track user engagement
-      ['mousedown', 'touchstart', 'keydown', 'scroll'].forEach(event => {
-        window.addEventListener(event, () => {
-          gtag('event', 'user_engagement');
-        }, { once: true });  // Fire only once per session
-      });
     </script>
     
     <!-- Favicon -->
@@ -116,6 +127,7 @@
 
   <body>
     <div id="root"></div>
+    <!-- Keep GPT Engineer script tag required for functionality -->
     <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>

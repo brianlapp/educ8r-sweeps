@@ -149,3 +149,85 @@ img {
     font-display: optional;
   }
 }
+
+/* Error boundary styling */
+.error-boundary {
+  border: 1px solid #ff5555;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  background-color: #fff5f5;
+}
+
+.error-boundary-heading {
+  color: #e53e3e;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
+}
+
+.error-boundary-message {
+  color: #4a5568;
+  margin-bottom: 1rem;
+}
+
+.error-boundary-retry {
+  background-color: #fff;
+  color: #e53e3e;
+  border: 1px solid #e53e3e;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+
+.error-boundary-retry:hover {
+  background-color: #fff8f8;
+}
+
+/* Add styles for skeleton loading states */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Optimize main content layout for better CLS */
+main {
+  min-height: 50vh; /* Ensure minimum height to reduce layout shifts */
+  transition: min-height 0.1s ease-out;
+}
+
+/* Optimize for print - hide unnecessary elements */
+@media print {
+  header, footer, nav, .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: white;
+    font-size: 12pt;
+    color: black;
+  }
+  
+  main {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  
+  a[href]:after {
+    content: " (" attr(href) ")";
+  }
+}

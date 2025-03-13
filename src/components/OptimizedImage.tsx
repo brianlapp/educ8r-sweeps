@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { optimizeImage } from '@/utils/imageOptimization';
 
@@ -169,6 +168,8 @@ export function OptimizedImage({
   // Determine proper loading strategy
   const loadingStrategy = eager || isLCP ? "eager" : "lazy";
   const decodingStrategy = eager || isLCP ? "sync" : "async";
+  
+  // Fix fetchPriority casing
   const fetchPriorityStrategy = isLCP ? "high" : (priority === 'auto' 
     ? (eager ? "high" : "auto") 
     : priority);
@@ -209,7 +210,7 @@ export function OptimizedImage({
         className={`${className} ${isLoading ? 'hidden' : ''}`}
         loading={loadingStrategy}
         decoding={decodingStrategy}
-        fetchPriority={fetchPriorityStrategy}
+        fetchpriority={fetchPriorityStrategy}
         srcSet={srcSet}
         sizes={srcSet ? sizes : undefined}
         width={imgWidth}
