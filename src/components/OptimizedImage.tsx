@@ -163,6 +163,11 @@ export function OptimizedImage({
     };
   }, [src, quality, maxWidth, isIntersecting, isLCP, propWidth, propHeight]);
 
+  // Ensure we have width and height - critical for preventing layout shifts
+  const imgWidth = dimensions.width || propWidth;
+  const imgHeight = dimensions.height || propHeight;
+  const hasExplicitDimensions = Boolean(imgWidth && imgHeight);
+
   const srcSet = generateSrcSet(optimizedSrc);
   const sizes = `(max-width: 768px) 100vw, ${maxWidth}px`;
 
@@ -170,12 +175,30 @@ export function OptimizedImage({
   const loadingStrategy = eager || isLCP ? "eager" : "lazy";
   const decodingStrategy = eager || isLCP ? "sync" : "async";
   
-  // Ensure we have width and height - critical for preventing layout shifts
-  const imgWidth = dimensions.width || propWidth;
-  const imgHeight = dimensions.height || propHeight;
-  const hasExplicitDimensions = Boolean(imgWidth && imgHeight);
+  // Fix TypeScript errors by using the correct attribute name and type
+  const imgAttributes: React.ImgHTMLAttributes<HTMLImageElement> = {
+    src: isIntersecting || isLCP ? optimizedSrc : placeholderSrc,
+    alt,
+    className: `${className} ${isLoading ? 'hidden' : ''}`,
+    loading: loadingStrategy as "eager" | "lazy",
+    decoding: decodingStrategy as "sync" | "async",
+    srcSet: srcSet,
+    sizes: srcSet ? sizes : undefined,
+    width: imgWidth,
+    height: imgHeight,
+    style: {
+      aspectRatio: hasExplicitDimensions ? `${imgWidth} / ${imgHeight}` : undefined,
+      objectFit: 'contain', // Ensure the image maintains its aspect ratio
+      ...(props.style || {})
+    },
+    onError: () => {
+      setError(true);
+      setOptimizedSrc(src); // Fallback to original source on error
+    },
+    ...props
+  };
 
-  // Fix TypeScript errors by using the correct attribute name
+  // Use a data attribute for fetchPriority since TypeScript doesn't recognize it yet
   const fetchPriorityValue = isLCP ? "high" : (priority === 'auto' ? (eager ? "high" : "auto") : priority);
   
   return (
@@ -204,27 +227,8 @@ export function OptimizedImage({
       )}
       <img 
         ref={imgRef}
-        src={isIntersecting || isLCP ? optimizedSrc : placeholderSrc}
-        alt={alt}
-        className={`${className} ${isLoading ? 'hidden' : ''}`}
-        loading={loadingStrategy}
-        decoding={decodingStrategy}
-        // @ts-ignore - fetchPriority is valid but TypeScript doesn't recognize it yet
-        fetchPriority={fetchPriorityValue}
-        srcSet={srcSet}
-        sizes={srcSet ? sizes : undefined}
-        width={imgWidth}
-        height={imgHeight}
-        style={{
-          aspectRatio: hasExplicitDimensions ? `${imgWidth} / ${imgHeight}` : undefined,
-          objectFit: 'contain', // Ensure the image maintains its aspect ratio
-          ...props.style
-        }}
-        onError={() => {
-          setError(true);
-          setOptimizedSrc(src); // Fallback to original source on error
-        }}
-        {...props}
+        {...imgAttributes}
+        data-fetchpriority={fetchPriorityValue}
       />
     </>
   );

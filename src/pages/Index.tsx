@@ -204,6 +204,7 @@ const Index = () => {
               width={120}
               height={36}
               style={{ objectFit: 'contain' }}
+              eager={true}
             />
             <p className="text-sm text-gray-600">© {currentYear} All rights reserved.</p>
           </div>

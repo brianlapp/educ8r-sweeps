@@ -53,7 +53,7 @@ export function useDeferredTask<T extends (...args: any[]) => any>(
 
       // Use requestIdleCallback if available, otherwise use setTimeout
       if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-        const idleCallbackId = (window as any).requestIdleCallback(
+        const idleCallbackId = window.requestIdleCallback(
           (deadline: IdleDeadline) => {
             // Run the callback if we have time or we timed out
             if (deadline.timeRemaining() > 0 || deadline.didTimeout) {
@@ -69,7 +69,7 @@ export function useDeferredTask<T extends (...args: any[]) => any>(
         // Cancel the task if the signal is aborted
         if (signal) {
           signal.addEventListener('abort', () => {
-            (window as any).cancelIdleCallback(idleCallbackId);
+            window.cancelIdleCallback(idleCallbackId);
           });
         }
       } else {
@@ -92,27 +92,23 @@ export function useDeferredTask<T extends (...args: any[]) => any>(
   return scheduleTask;
 }
 
-// Polyfill for requestIdleCallback and cancelIdleCallback
-if (typeof window !== 'undefined') {
-  window.requestIdleCallback =
-    window.requestIdleCallback ||
-    function (cb) {
-      const start = Date.now();
-      return setTimeout(function () {
-        cb({
-          didTimeout: false,
-          timeRemaining: function () {
-            return Math.max(0, 50 - (Date.now() - start));
-          },
-        });
-      }, 1);
-    };
+// Only add polyfills if needed
+if (typeof window !== 'undefined' && !window.requestIdleCallback) {
+  window.requestIdleCallback = function(callback, options) {
+    const start = Date.now();
+    return setTimeout(function() {
+      callback({
+        didTimeout: false,
+        timeRemaining: function() {
+          return Math.max(0, 50 - (Date.now() - start));
+        }
+      });
+    }, options?.timeout || 1);
+  };
 
-  window.cancelIdleCallback =
-    window.cancelIdleCallback ||
-    function (id) {
-      clearTimeout(id);
-    };
+  window.cancelIdleCallback = function(id) {
+    clearTimeout(id);
+  };
 }
 
 // Declare these global functions to fix TypeScript errors
