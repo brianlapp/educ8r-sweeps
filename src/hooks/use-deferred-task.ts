@@ -94,7 +94,7 @@ declare global {
   }
 
   interface IdleDeadline {
-    didTimeout: boolean;
+    readonly didTimeout: boolean; // Add 'readonly' modifier to fix error
     timeRemaining: () => number;
   }
 

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { optimizeImage } from '@/utils/imageOptimization';
 
@@ -169,10 +170,29 @@ export function OptimizedImage({
   const loadingStrategy = eager || isLCP ? "eager" : "lazy";
   const decodingStrategy = eager || isLCP ? "sync" : "async";
   
-  // Fix fetchPriority casing
-  const fetchPriorityStrategy = isLCP ? "high" : (priority === 'auto' 
-    ? (eager ? "high" : "auto") 
-    : priority);
+  // Fix fetchPriority casing - defining HTML attributes with correct casing
+  const imgAttributes: React.ImgHTMLAttributes<HTMLImageElement> = {
+    ref: imgRef,
+    src: isIntersecting || isLCP ? optimizedSrc : placeholderSrc,
+    alt: alt,
+    className: `${className} ${isLoading ? 'hidden' : ''}`,
+    loading: loadingStrategy,
+    decoding: decodingStrategy,
+    fetchPriority: isLCP ? "high" : (priority === 'auto' ? (eager ? "high" : "auto") : priority) as any,
+    srcSet: srcSet,
+    sizes: srcSet ? sizes : undefined,
+    width: imgWidth,
+    height: imgHeight,
+    style: {
+      aspectRatio: hasExplicitDimensions ? `${imgWidth} / ${imgHeight}` : undefined,
+      ...props.style
+    },
+    onError: () => {
+      setError(true);
+      setOptimizedSrc(src); // Fallback to original source on error
+    },
+    ...props
+  };
 
   // Ensure we have width and height - critical for preventing layout shifts
   const imgWidth = dimensions.width || propWidth;
@@ -203,30 +223,7 @@ export function OptimizedImage({
           />
         </div>
       )}
-      <img
-        ref={imgRef}
-        src={isIntersecting || isLCP ? optimizedSrc : placeholderSrc}
-        alt={alt}
-        className={`${className} ${isLoading ? 'hidden' : ''}`}
-        loading={loadingStrategy}
-        decoding={decodingStrategy}
-        fetchpriority={fetchPriorityStrategy}
-        srcSet={srcSet}
-        sizes={srcSet ? sizes : undefined}
-        width={imgWidth}
-        height={imgHeight}
-        style={{
-          aspectRatio: hasExplicitDimensions 
-            ? `${imgWidth} / ${imgHeight}` 
-            : undefined,
-          ...props.style
-        }}
-        onError={() => {
-          setError(true);
-          setOptimizedSrc(src); // Fallback to original source on error
-        }}
-        {...props}
-      />
+      <img {...imgAttributes} />
     </>
   );
 }
