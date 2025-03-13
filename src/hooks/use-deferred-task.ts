@@ -17,6 +17,17 @@ export interface DeferredTaskOptions {
   signal?: AbortSignal;
 }
 
+// Define the global types first, before adding polyfills
+declare global {
+  interface Window {
+    requestIdleCallback: (
+      callback: (deadline: IdleDeadline) => void,
+      options?: { timeout?: number }
+    ) => number;
+    cancelIdleCallback: (handle: number) => void;
+  }
+}
+
 /**
  * Hook that provides a way to defer non-critical tasks
  * @param callback The task to run when the browser is idle
@@ -92,33 +103,26 @@ export function useDeferredTask<T extends (...args: any[]) => any>(
   return scheduleTask;
 }
 
-// Define the global types first, before adding polyfills
-declare global {
-  interface Window {
-    requestIdleCallback: (
-      callback: (deadline: IdleDeadline) => void,
-      options?: { timeout?: number }
-    ) => number;
-    cancelIdleCallback: (handle: number) => void;
+// Only add polyfills if needed in browser environments
+if (typeof window !== 'undefined') {
+  if (!('requestIdleCallback' in window)) {
+    (window as Window).requestIdleCallback = function(callback, options) {
+      const start = Date.now();
+      // Explicitly convert setTimeout's return value to number
+      return setTimeout(function() {
+        callback({
+          didTimeout: false,
+          timeRemaining: function() {
+            return Math.max(0, 50 - (Date.now() - start));
+          }
+        });
+      }, options?.timeout || 1) as unknown as number; // Cast to number to match the expected type
+    };
   }
-}
 
-// Only add polyfills if needed
-if (typeof window !== 'undefined' && !('requestIdleCallback' in window)) {
-  window.requestIdleCallback = function(callback, options) {
-    const start = Date.now();
-    // Explicitly convert setTimeout's return value to number
-    return setTimeout(function() {
-      callback({
-        didTimeout: false,
-        timeRemaining: function() {
-          return Math.max(0, 50 - (Date.now() - start));
-        }
-      });
-    }, options?.timeout || 1) as unknown as number; // Cast to number to match the expected type
-  };
-
-  window.cancelIdleCallback = function(id) {
-    clearTimeout(id);
-  };
+  if (!('cancelIdleCallback' in window)) {
+    (window as Window).cancelIdleCallback = function(id) {
+      clearTimeout(id);
+    };
+  }
 }
