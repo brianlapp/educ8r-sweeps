@@ -99,6 +99,21 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Set Poppins as the default font */
+  html {
+    font-family: 'Poppins', sans-serif;
+  }
+}
+
+@layer components {
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 /* Performance optimized animations */
@@ -146,3 +161,5 @@
     transition: none !important;
   }
 }
+
+/* ... keep existing code (from line 234 onwards, which includes various utility classes, optimizations, and responsive designs) */

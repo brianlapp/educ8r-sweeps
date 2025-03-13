@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -194,13 +195,12 @@ export const EntryForm = () => {
         <div className="text-center py-2">Loading campaign...</div>
       ) : (
         <>
-          <h2 className="text-2xl md:text-3xl lg:text-4xl mb-3 text-center text-[#2C3E50] font-bold">
+          <h2 className="text-2xl md:text-3xl lg:text-4xl mb-3 text-center text-[#2C3E50] font-bold font-poppins line-clamp-2 min-h-[64px]">
             {campaign?.title}
           </h2>
           {campaign?.subtitle && (
-            <p className="text-lg md:text-xl mb-6 text-center text-gray-600">
-              <span className="hidden md:inline">{campaign.subtitle}</span>
-              <span className="md:hidden">{campaign.subtitle.split(' ').slice(0, 4).join(' ')}</span>
+            <p className="text-lg md:text-xl mb-6 text-center text-gray-600 font-poppins line-clamp-2">
+              {campaign.subtitle}
             </p>
           )}
           <Input
@@ -210,7 +210,7 @@ export const EntryForm = () => {
             value={formData.firstName}
             onChange={e => setFormData({ ...formData, firstName: e.target.value })}
             disabled={isSubmitting}
-            className="w-full bg-slate-50"
+            className="w-full bg-slate-50 font-poppins"
           />
           <Input
             type="text"
@@ -219,7 +219,7 @@ export const EntryForm = () => {
             value={formData.lastName}
             onChange={e => setFormData({ ...formData, lastName: e.target.value })}
             disabled={isSubmitting}
-            className="w-full bg-slate-50"
+            className="w-full bg-slate-50 font-poppins"
           />
           <div className="space-y-2">
             <Input
@@ -229,11 +229,11 @@ export const EntryForm = () => {
               value={formData.email}
               onChange={handleEmailChange}
               disabled={isSubmitting}
-              className={`w-full bg-slate-50 ${emailError ? "border-red-500" : ""}`}
+              className={`w-full bg-slate-50 font-poppins ${emailError ? "border-red-500" : ""}`}
             />
             {emailError && (
               <Alert variant="destructive" className="py-2 text-sm">
-                <AlertDescription>{emailError}</AlertDescription>
+                <AlertDescription className="font-poppins">{emailError}</AlertDescription>
               </Alert>
             )}
           </div>
@@ -246,7 +246,7 @@ export const EntryForm = () => {
             />
             <label
               htmlFor="terms"
-              className="text-sm text-gray-600 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              className="text-sm text-gray-600 leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 font-poppins"
             >
               By entering your information and clicking Enter to Win, you agree to our{" "}
               <a
@@ -280,7 +280,7 @@ export const EntryForm = () => {
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="w-full text-white font-medium rounded-lg transition-colors duration-200 bg-green-500 hover:bg-green-400 text-2xl py-[28px]"
+            className="w-full text-white font-medium rounded-lg transition-colors duration-200 bg-green-500 hover:bg-green-400 text-2xl py-[28px] font-poppins"
             onClick={() => {
               if (!isSubmitting) {
                 analytics.trackButtonClick('entry_submit_button');

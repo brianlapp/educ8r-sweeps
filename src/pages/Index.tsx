@@ -1,3 +1,4 @@
+
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Helmet } from 'react-helmet-async';
@@ -71,7 +72,7 @@ const Index = () => {
     });
   }, [metaTitle, metaDescription, metaImage, metaUrl]);
 
-  return <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
+  return <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white font-poppins">
       <Helmet>
         <title>{metaTitle}</title>
         <meta name="description" content={metaDescription} />
@@ -115,7 +116,7 @@ const Index = () => {
         <div className="container mx-auto px-2 sm:px-4 pt-0 md:pt-6">
           {isLoading ? (
             <div className="text-center py-12">
-              <p className="text-xl">Loading campaign...</p>
+              <p className="text-xl font-poppins">Loading campaign...</p>
             </div>
           ) : (
             <div className="relative grid md:grid-cols-2 gap-0 items-center max-w-6xl mx-auto">
@@ -134,9 +135,9 @@ const Index = () => {
                 />
               </div>
               <div className="order-2 md:order-2 md:-ml-12 z-10 -mt-4 sm:-mt-8 md:mt-0">
-                <div className="bg-white p-6 md:p-8 rounded-xl shadow-md border border-blue-200 border-4  animate-slideUp">
+                <div className="bg-white p-6 md:p-8 rounded-xl shadow-md border border-blue-200 border-4 animate-slideUp">
                   <EntryForm />
-                  <p className="text-center text-xs text-gray-500 mt-4">In partnership with Comprendi™ by Dr. Marion's Learning Lab – Because tackling the reading crisis is a team effort.</p>
+                  <p className="text-center text-xs text-gray-500 mt-4 font-poppins">In partnership with Comprendi™ by Dr. Marion's Learning Lab – Because tackling the reading crisis is a team effort.</p>
                 </div>
               </div>
             </div>
@@ -144,13 +145,13 @@ const Index = () => {
 
           <div className="mt-12 bg-white p-4 sm:p-8 rounded-xl shadow-md border border-gray-100 mx-0">
             <div className="w-full mx-auto">
-              <h2 className="text-2xl font-semibold mb-2 text-center">⏰ Limited Time Opportunity!</h2>
-              <p className="text-center font-semibold text-gray-800 mb-6 text-lg">
+              <h2 className="text-2xl font-semibold mb-2 text-center font-poppins">⏰ Limited Time Opportunity!</h2>
+              <p className="text-center font-semibold text-gray-800 mb-6 text-lg font-poppins">
                 Be Among the First 500 {campaign?.target_audience || "Teachers"} to Enter!
               </p>
               <CountdownTimer targetDate={targetDate} displayMode="launch-phase" />
               
-              <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed mt-6 text-center">
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed mt-6 text-center font-poppins">
                 {campaign?.promotional_text || `Enter for a chance to win ${campaign?.prize_amount || "$1,000"} to spend on everything on your ${campaign?.prize_name || "school supply"} list - from backpacks and notebooks to markers and more! Get ready for a successful school year.`}
               </p>
 
@@ -168,17 +169,17 @@ const Index = () => {
                   />
                   <div className="flex items-center gap-3">
                     <span className="text-blue-600 text-2xl">📚</span>
-                    <h3 className="text-xl font-semibold text-blue-800">About Comprendi</h3>
+                    <h3 className="text-xl font-semibold text-blue-800 font-poppins">About Comprendi</h3>
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <p className="text-gray-700">
+                  <p className="text-gray-700 font-poppins">
                     Dr. Marion Blank and her team at Dr. Marion's Learning Lab have developed Comprendi™, a research-backed reading comprehension program that not only helps kids improve their reading skills but also makes reading fun and engaging.
                   </p>
-                  <p className="text-gray-700">
+                  <p className="text-gray-700 font-poppins">
                     We believe reading is a team effort, and that's why we're offering a free trial of Comprendi™—a gift you can share with your students (and their parents) just for entering our sweepstakes!
                   </p>
-                  <p className="font-medium text-blue-700 mt-4">
+                  <p className="font-medium text-blue-700 mt-4 font-poppins">
                     Bonus: Earn extra sweepstakes entries for every student who enrolls—help your students thrive while increasing your chances to win!
                   </p>
                 </div>
@@ -186,7 +187,7 @@ const Index = () => {
             </div>
           </div>
 
-          <div className="mt-12 text-center text-sm text-gray-500 max-w-2xl mx-auto">
+          <div className="mt-12 text-center text-sm text-gray-500 max-w-2xl mx-auto font-poppins">
             <p>No purchase necessary. Void where prohibited. Must be 18 years or older to enter. See <Link to="/rules" className="text-primary hover:underline">official rules</Link> for complete details. Prize valued at approximately {campaign?.prize_amount || "$1000"}.</p>
           </div>
         </div>
@@ -206,7 +207,7 @@ const Index = () => {
               style={{ objectFit: 'contain' }}
               eager={true}
             />
-            <p className="text-sm text-gray-600">© {currentYear} All rights reserved.</p>
+            <p className="text-sm text-gray-600 font-poppins">© {currentYear} All rights reserved.</p>
           </div>
         </div>
       </footer>
