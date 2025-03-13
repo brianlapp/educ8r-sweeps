@@ -87,9 +87,9 @@ const Index = () => {
       <header className="w-full bg-[#f3f3f3] py-1 border-b border-gray-200">
         <div className="container mx-auto px-4">
           <div className="flex justify-center items-center">
-            <OptimizedImage src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" alt="FPS Logo" className="h-12 w-auto" maxWidth={200} quality={0.85} width={160} height={48} eager={true} style={{
+            <OptimizedImage src="/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" alt="FPS Logo" maxWidth={200} quality={0.85} width={160} height={48} eager={true} style={{
             objectFit: 'contain'
-          }} />
+          }} className="h-12 w-auto py-1" />
           </div>
         </div>
       </header>
