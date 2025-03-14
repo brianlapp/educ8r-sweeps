@@ -54,11 +54,6 @@ export type Database = {
       campaigns: {
         Row: {
           created_at: string | null
-          email_cta_text: string | null
-          email_footer_message: string | null
-          email_heading: string | null
-          email_referral_message: string | null
-          email_subject: string | null
           email_template_id: string
           end_date: string
           hero_image_url: string | null
@@ -87,11 +82,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          email_cta_text?: string | null
-          email_footer_message?: string | null
-          email_heading?: string | null
-          email_referral_message?: string | null
-          email_subject?: string | null
           email_template_id: string
           end_date: string
           hero_image_url?: string | null
@@ -120,11 +110,6 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          email_cta_text?: string | null
-          email_footer_message?: string | null
-          email_heading?: string | null
-          email_referral_message?: string | null
-          email_subject?: string | null
           email_template_id?: string
           end_date?: string
           hero_image_url?: string | null

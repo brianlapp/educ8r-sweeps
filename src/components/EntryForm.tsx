@@ -12,15 +12,13 @@ import { useCampaign } from "@/contexts/CampaignContext";
 
 interface SubmitEntryResponse {
   success: boolean;
-  data?: {
+  data: {
     referral_code: string;
     id: string;
     [key: string]: any;
   };
-  isExisting?: boolean;
-  message?: string;
-  error?: string;
-  details?: any;
+  isExisting: boolean;
+  message: string;
 }
 
 const DISPOSABLE_EMAIL_DOMAINS = [
@@ -55,7 +53,6 @@ export const EntryForm = () => {
   const [emailError, setEmailError] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState("");
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -82,7 +79,6 @@ export const EntryForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError("");
     
     analytics.trackEvent('form_submission_attempt', {
       form: 'entry_form',
@@ -120,17 +116,11 @@ export const EntryForm = () => {
     });
     
     try {
-      console.log("Submitting form with data:", {
-        ...formData,
-        referredBy,
-        campaignId: campaign?.id
-      });
-      
       localStorage.setItem('referralCode', 'PROCESSING');
       localStorage.setItem('isReturningUser', 'false');
       localStorage.setItem('userEmail', formData.email);
       
-      const response = await supabase.functions.invoke<SubmitEntryResponse>('submit-entry', {
+      const { data, error } = await supabase.functions.invoke<SubmitEntryResponse>('submit-entry', {
         body: {
           ...formData,
           referredBy,
@@ -138,22 +128,12 @@ export const EntryForm = () => {
         }
       });
       
-      console.log("Edge function response:", response);
-      
-      if (response.error) {
+      if (error) {
         analytics.trackFormSubmission('entry_form', false);
-        console.error("Supabase function error:", response.error);
-        throw new Error(`Function error: ${response.error.message}`);
+        throw error;
       }
       
-      const data = response.data;
-      
-      if (!data || !data.success) {
-        analytics.trackFormSubmission('entry_form', false);
-        throw new Error(data?.error || 'Unknown error occurred');
-      }
-      
-      if (data.data && data.data.referral_code) {
+      if (data && data.data && data.data.referral_code) {
         const referralCode = data.data.referral_code;
         console.log('Got referral code from response:', referralCode);
         
@@ -166,18 +146,17 @@ export const EntryForm = () => {
           has_referral: !!referredBy,
           campaign_slug: campaign?.slug
         });
-        
-        if (campaign) {
-          navigate(`/${campaign.slug}/thank-you`);
-        } else {
-          navigate('/thank-you');
-        }
       } else {
         console.error('Missing referral code in response:', data);
         analytics.trackEvent('api_response_error', {
           error_type: 'missing_referral_code'
         });
-        throw new Error('Missing referral code in response');
+      }
+      
+      if (campaign) {
+        navigate(`/${campaign.slug}/thank-you`);
+      } else {
+        navigate('/thank-you');
       }
       
     } catch (error) {
@@ -186,8 +165,6 @@ export const EntryForm = () => {
         form: 'entry_form',
         error: String(error)
       });
-      
-      setFormError(error instanceof Error ? error.message : String(error));
       
       toast({
         title: "Error",
@@ -226,13 +203,6 @@ export const EntryForm = () => {
               {campaign.subtitle}
             </p>
           )}
-          
-          {formError && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription className="font-poppins">{formError}</AlertDescription>
-            </Alert>
-          )}
-          
           <Input
             type="text"
             placeholder="First Name"

@@ -1,156 +1,140 @@
 
-// Initialize Supabase client
-export async function initializeSupabaseClient() {
-  const { createClient } = await import('@supabase/supabase-js');
-  
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-  
-  return createClient(supabaseUrl, supabaseServiceKey);
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+export interface EntryData {
+  first_name: string;
+  last_name: string;
+  email: string;
+  referred_by: string | null;
+  entry_count: number;
+  campaign_id: string;
 }
 
-// Get default campaign if no campaign ID is provided
-export async function getDefaultCampaign(supabaseClient) {
-  const { data, error } = await supabaseClient
+export interface EntryResponse {
+  id: string;
+  referral_code: string;
+  [key: string]: any;
+}
+
+export interface CampaignData {
+  id: string;
+  slug: string;
+}
+
+export async function initializeSupabaseClient() {
+  return createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
+}
+
+export async function getDefaultCampaign(supabaseClient: any): Promise<CampaignData | null> {
+  console.log('No campaign ID provided, fetching default campaign');
+  
+  const { data: defaultCampaign, error: campaignError } = await supabaseClient
     .from('campaigns')
     .select('id, slug')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+    .eq('slug', 'classroom-supplies-2025')
+    .maybeSingle();
   
-  if (error) {
-    console.error('Error fetching default campaign:', error);
+  if (campaignError) {
+    console.error('Error fetching default campaign:', campaignError);
     return null;
+  } 
+  
+  if (defaultCampaign) {
+    console.log('Using default campaign:', defaultCampaign.id, 'with slug:', defaultCampaign.slug);
+    return defaultCampaign;
   }
   
-  return data;
+  return null;
 }
 
-// Make sure the getCampaignByID function also selects the email template fields
-export async function getCampaignByID(supabaseClient, campaignId) {
-  if (!campaignId) return null;
-  
-  const { data, error } = await supabaseClient
+export async function getCampaignByID(supabaseClient: any, campaignId: string): Promise<string | null> {
+  const { data: campaignData, error: campaignError } = await supabaseClient
     .from('campaigns')
-    .select('slug, title, prize_name, prize_amount, email_subject, email_heading, email_referral_message, email_cta_text, email_footer_message')
+    .select('slug')
     .eq('id', campaignId)
-    .single();
-  
-  if (error) {
-    console.error('Error fetching campaign by ID:', error);
+    .maybeSingle();
+    
+  if (campaignError || !campaignData) {
     return null;
   }
   
-  return data;
+  return campaignData.slug;
 }
 
-// Check if user has already entered with this email
-export async function getExistingEntry(supabaseClient, email) {
-  if (!email) {
-    console.error('No email provided to getExistingEntry');
-    return null;
-  }
-  
-  const { data, error } = await supabaseClient
+export async function getExistingEntry(supabaseClient: any, email: string): Promise<EntryResponse | null> {
+  const { data: existingEntry, error: lookupError } = await supabaseClient
     .from('entries')
-    .select('id, email, referral_code, entry_count, referral_count, total_entries, campaign_id')
-    .eq('email', email.toLowerCase())
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
-  
-  if (error) {
-    if (error.code === 'PGRST116') {
-      // No matching record found - this is expected for new entries
-      return null;
-    }
-    console.error('Error checking for existing entry:', error);
-    return null;
+    .select('referral_code, entry_count, created_at')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (lookupError) {
+    console.error('Error checking for existing entry:', lookupError);
+    throw new Error(lookupError.message);
   }
-  
-  return data;
+
+  return existingEntry;
 }
 
-// Verify if the referral code exists
-export async function verifyReferralCode(supabaseClient, referralCode) {
+export async function verifyReferralCode(supabaseClient: any, referralCode: string): Promise<boolean> {
   if (!referralCode) {
     return false;
   }
   
-  const { data, error } = await supabaseClient
+  const { data: referrerEntry, error: referrerError } = await supabaseClient
     .from('entries')
-    .select('id')
+    .select('referral_code')
     .eq('referral_code', referralCode)
-    .limit(1)
-    .single();
-  
-  if (error || !data) {
-    console.log('Invalid referral code or not found:', referralCode);
+    .maybeSingle();
+
+  if (referrerError) {
+    console.error('Error verifying referral code:', referrerError);
+    console.log('Invalid referral code provided:', referralCode);
     return false;
-  }
+  } 
   
-  return true;
+  if (referrerEntry) {
+    console.log('Valid referral code found:', referralCode);
+    return true;
+  } 
+  
+  console.log('Referral code not found in database:', referralCode);
+  return false;
 }
 
-// Create new entry
-export async function createEntry(supabaseClient, entryData) {
-  const { data, error } = await supabaseClient
+export async function createEntry(
+  supabaseClient: any, 
+  entryData: EntryData
+): Promise<EntryResponse> {
+  const { data: entry, error: supabaseError } = await supabaseClient
     .from('entries')
-    .insert([
-      {
-        first_name: entryData.first_name,
-        last_name: entryData.last_name,
-        email: entryData.email.toLowerCase(),
-        referred_by: entryData.referred_by,
-        entry_count: entryData.entry_count || 1,
-        total_entries: entryData.entry_count || 1,
-        campaign_id: entryData.campaign_id
-      }
-    ])
+    .insert(entryData)
     .select()
     .single();
-  
-  if (error) {
-    console.error('Error creating entry:', error);
-    throw error;
+
+  if (supabaseError) {
+    console.error('Supabase error:', supabaseError);
+    throw new Error(supabaseError.message);
   }
-  
-  return data;
+
+  console.log('Successfully created entry with referral code:', entry.referral_code);
+  return entry;
 }
 
-// Log referral relationship for debugging
-export async function logReferral(supabaseClient, email, referredBy, referralCode) {
-  try {
-    // Get referrer email
-    const { data: referrerData, error: referrerError } = await supabaseClient
-      .from('entries')
-      .select('email')
-      .eq('referral_code', referredBy)
-      .single();
-    
-    if (referrerError) {
-      console.error('Error getting referrer email:', referrerError);
-      return;
-    }
-    
-    // Log the referral relationship
-    const { error } = await supabaseClient
-      .from('referral_debug')
-      .insert([
-        {
-          email,
-          referrer_email: referrerData?.email,
-          referred_by: referredBy,
-          referral_code: referralCode
-        }
-      ]);
-    
-    if (error) {
-      console.error('Error logging referral debug:', error);
-    }
-  } catch (error) {
-    console.error('Error in logReferral function:', error);
+export async function logReferral(supabaseClient: any, email: string, referralCode: string, entryReferralCode: string) {
+  const { error: debugError } = await supabaseClient
+    .from('referral_debug')
+    .insert({
+      email: email,
+      referrer_email: null,
+      referred_by: referralCode,
+      referral_code: entryReferralCode
+    });
+
+  if (debugError) {
+    console.error('Error creating debug entry:', debugError);
   }
 }

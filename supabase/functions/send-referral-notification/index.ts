@@ -19,16 +19,6 @@ interface ReferralNotificationRequest {
   firstName: string;
   totalEntries: number;
   referralCode: string;
-  campaignId?: string; // Add campaign ID for fetching campaign-specific template
-  // Optional campaign data if provided directly
-  campaignTitle?: string;
-  campaignPrizeAmount?: string;
-  campaignPrizeName?: string;
-  emailSubject?: string;
-  emailHeading?: string;
-  emailReferralMessage?: string;
-  emailCtaText?: string;
-  emailFooterMessage?: string;
 }
 
 serve(async (req) => {
@@ -148,35 +138,11 @@ serve(async (req) => {
                         payload.referralCode || payload.referral_code ||
                         payload.ref || notificationData.ref;
     
-    // Get campaign data if available
-    const campaignId = notificationData.campaignId || payload.campaignId;
-    const campaignTitle = notificationData.campaignTitle || payload.campaignTitle;
-    const campaignPrizeAmount = notificationData.campaignPrizeAmount || payload.campaignPrizeAmount || "$1,000";
-    const campaignPrizeName = notificationData.campaignPrizeName || payload.campaignPrizeName || "Classroom Supplies";
-    const emailSubject = notificationData.emailSubject || payload.emailSubject || "Congratulations! You earned a Sweepstakes entry!";
-    const emailHeading = notificationData.emailHeading || payload.emailHeading || "You just earned an extra Sweepstakes entry!";
-    let emailReferralMessage = notificationData.emailReferralMessage || payload.emailReferralMessage || 
-                              "Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the {{prize_amount}} {{prize_name}} Sweepstakes!";
-    const emailCtaText = notificationData.emailCtaText || payload.emailCtaText || "Visit Comprendi Reading";
-    const emailFooterMessage = notificationData.emailFooterMessage || payload.emailFooterMessage || 
-                              "Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!";
-    
     // Detailed logging of what was extracted
     console.log('Extracted email:', email, typeof email);
     console.log('Extracted firstName:', firstName, typeof firstName);
     console.log('Extracted totalEntries:', totalEntries, typeof totalEntries);
     console.log('Extracted referralCode:', referralCode, typeof referralCode);
-    console.log('Extracted campaignId:', campaignId, typeof campaignId);
-    console.log('Extracted campaign data:', {
-      title: campaignTitle,
-      prizeAmount: campaignPrizeAmount,
-      prizeName: campaignPrizeName,
-      emailSubject,
-      emailHeading,
-      emailReferralMessage,
-      emailCtaText,
-      emailFooterMessage
-    });
     
     // Validate that we have all required fields
     const missingFields = [];
@@ -208,12 +174,6 @@ serve(async (req) => {
     // Create the referral link using the referral code
     const referralLink = `https://dmlearninglab.com/homesc/?utm_source=sweeps&oid=1987&sub1=${referralCode}`;
     
-    // Replace dynamic placeholders in the email content
-    emailReferralMessage = emailReferralMessage
-      .replace(/{{totalEntries}}/g, String(totalEntries))
-      .replace(/{{prize_amount}}/g, campaignPrizeAmount)
-      .replace(/{{prize_name}}/g, campaignPrizeName);
-    
     // Send the email notification
     console.log('Sending email to:', email);
     console.log('Email payload:', {
@@ -221,18 +181,13 @@ serve(async (req) => {
       firstName: firstName,
       totalEntries: totalEntries,
       referralCode: referralCode,
-      referralLink,
-      subject: emailSubject,
-      heading: emailHeading,
-      referralMessage: emailReferralMessage,
-      ctaText: emailCtaText,
-      footerMessage: emailFooterMessage
+      referralLink
     });
     
     const emailResult = await resend.emails.send({
       from: 'School Supplies Sweepstakes <noreply@educ8r.freeparentsearch.com>',
       to: email,
-      subject: emailSubject,
+      subject: 'Congratulations! You earned a Sweepstakes entry!',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
           <div style="text-align: center; margin-bottom: 20px;">
@@ -242,9 +197,9 @@ serve(async (req) => {
           <h1 style="color: #2C3E50; text-align: center; margin-bottom: 20px;">Congratulations, ${firstName}!</h1>
           
           <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #3b82f6;">
-            <h2 style="color: #3b82f6; margin-top: 0;">${emailHeading}</h2>
+            <h2 style="color: #3b82f6; margin-top: 0;">You just earned an extra Sweepstakes entry!</h2>
             <p style="font-size: 16px; line-height: 1.5;">
-              ${emailReferralMessage}
+              Great news! One of your referrals just tried Comprendi™, and you now have <strong>${totalEntries} entries</strong> in the $1,000 Classroom Sweepstakes!
             </p>
           </div>
           
@@ -257,11 +212,11 @@ serve(async (req) => {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${referralLink}" style="display: inline-block; background-color: #16a34a; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; font-size: 16px;">${emailCtaText}</a>
+            <a href="${referralLink}" style="display: inline-block; background-color: #16a34a; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; font-size: 16px;">Visit Comprendi Reading</a>
           </div>
           
           <p style="font-size: 16px; line-height: 1.5;">
-            ${emailFooterMessage}
+            Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!
           </p>
           
           <p style="font-size: 16px; line-height: 1.5; margin-top: 30px;">
