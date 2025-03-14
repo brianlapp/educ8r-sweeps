@@ -54,7 +54,9 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           email_heading: data.email_heading || 'You just earned an extra Sweepstakes entry!',
           email_referral_message: data.email_referral_message || 'Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the {{prize_amount}} {{prize_name}} Sweepstakes!',
           email_cta_text: data.email_cta_text || 'Visit Comprendi Reading',
-          email_footer_message: data.email_footer_message || 'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!'
+          email_footer_message: data.email_footer_message || 'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!',
+          // Ensure source_id is always defined
+          source_id: data.source_id || ''
         };
         setCampaign(processedData);
       }

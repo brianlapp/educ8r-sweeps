@@ -29,7 +29,6 @@ export function useCampaigns(includeHidden: boolean = false) {
       const campaigns: Campaign[] = (data as SupabaseCampaign[]).map(campaign => {
         console.log("[CAMPAIGNS-FETCH] Processing campaign:", campaign.title);
         
-        // IMPROVED: Ensure all fields are properly transformed
         return {
           ...campaign,
           // Transform JSON fields
@@ -46,7 +45,7 @@ export function useCampaigns(includeHidden: boolean = false) {
           email_cta_text: campaign.email_cta_text || 'Visit Comprendi Reading',
           email_footer_message: campaign.email_footer_message || 
             'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!',
-          // Ensure source_id is present (even if empty)
+          // Ensure source_id is always defined (even if null or empty)
           source_id: campaign.source_id || ''
         };
       });
