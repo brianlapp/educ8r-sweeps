@@ -45,7 +45,10 @@ serve(async (req) => {
         campaign_slug = defaultCampaign.slug;
       }
     } else {
-      campaign_slug = await getCampaignByID(supabaseClient, campaign_id) || '';
+      const campaign = await getCampaignByID(supabaseClient, campaign_id);
+      if (campaign) {
+        campaign_slug = campaign.slug;
+      }
     }
 
     // Check for existing entry
