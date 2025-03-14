@@ -1,12 +1,25 @@
 
-import { serve } from "http/server.ts"
+// Logging imports and configuration to help debug
+console.log("==== STARTING FUNCTION INITIALIZATION ====");
+console.log("Import map location:", import.meta.resolve ? "Available" : "Not available");
+console.log("Environment:", Deno.env.get("ENVIRONMENT") || "Not set");
+
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { Resend } from "npm:resend@2.0.0"
 import { initJwtBypass, getJwtVerificationState } from "../_shared/jwt-cache.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
+console.log("==== IMPORTS LOADED SUCCESSFULLY ====");
+
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"))
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || ""
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
+
+console.log("API configurations loaded:", {
+  resendKeyAvailable: !!Deno.env.get("RESEND_API_KEY"),
+  supabaseUrlAvailable: !!supabaseUrl,
+  supabaseKeyAvailable: !!supabaseKey
+});
 
 // Enhanced CORS headers for maximum compatibility
 const corsHeaders = {
