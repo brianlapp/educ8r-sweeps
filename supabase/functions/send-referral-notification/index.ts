@@ -39,6 +39,7 @@ interface ReferralNotificationRequest {
 }
 
 interface CampaignEmailTemplate {
+  id: string;           // Added ID field for better debugging
   email_subject: string;
   email_heading: string;
   email_referral_message: string;
@@ -164,9 +165,10 @@ serve(async (req) => {
     const referralCode = notificationData.referralCode || notificationData.referral_code || 
                         payload.referralCode || payload.referral_code ||
                         payload.ref || notificationData.ref;
-    // Get campaign ID if provided
+    // Get campaign ID if provided - with more robust extraction
     const campaignId = notificationData.campaignId || notificationData.campaign_id || 
-                      payload.campaignId || payload.campaign_id;
+                      payload.campaignId || payload.campaign_id ||
+                      notificationData.campaign || payload.campaign;
     
     // Detailed logging of what was extracted
     console.log('Extracted email:', email, typeof email);
@@ -220,7 +222,7 @@ serve(async (req) => {
         
         const { data, error } = await supabase
           .from('campaigns')
-          .select('email_subject, email_heading, email_referral_message, email_cta_text, email_footer_message, prize_amount, prize_name')
+          .select('id, email_subject, email_heading, email_referral_message, email_cta_text, email_footer_message, prize_amount, prize_name')
           .eq('id', campaignId)
           .single();
         
@@ -244,11 +246,11 @@ serve(async (req) => {
           } else if (fallbackQuery.data) {
             console.log('Fallback campaign found:', fallbackQuery.data.id);
             console.log('Fallback template data:', fallbackQuery.data);
-            templateData = fallbackQuery.data;
+            templateData = fallbackQuery.data as CampaignEmailTemplate;
           }
         } else if (data) {
           console.log('Campaign template data successfully retrieved:', data);
-          templateData = data;
+          templateData = data as CampaignEmailTemplate;
         } else {
           console.log('No error but no data returned from Supabase query');
         }
@@ -261,6 +263,22 @@ serve(async (req) => {
       console.log('campaignId present:', !!campaignId);
       console.log('supabaseUrl present:', !!supabaseUrl);
       console.log('supabaseKey present:', !!supabaseKey);
+    }
+    
+    // Detailed logging of template data for debugging
+    if (templateData) {
+      console.log("Template data found:", {
+        id: templateData.id,
+        email_subject: templateData.email_subject || "Not set",
+        email_heading: templateData.email_heading || "Not set",
+        email_referral_message: templateData.email_referral_message || "Not set",
+        email_cta_text: templateData.email_cta_text || "Not set",
+        email_footer_message: templateData.email_footer_message || "Not set",
+        prize_amount: templateData.prize_amount || "Not set",
+        prize_name: templateData.prize_name || "Not set"
+      });
+    } else {
+      console.log("No template data found, using defaults");
     }
     
     // Set default template values that will be used if no template is found
@@ -280,6 +298,13 @@ serve(async (req) => {
     
     // Process the email template fields with the data
     const processTemplate = (text: string) => {
+      if (!text) {
+        console.log("Warning: Empty template text received");
+        return "";
+      }
+      
+      console.log(`Processing template text before replacement: "${text}"`);
+      
       const processed = text
         .replace(/\{\{firstName\}\}/g, firstName)
         .replace(/\{\{first_name\}\}/g, firstName)
@@ -292,7 +317,7 @@ serve(async (req) => {
         .replace(/\{\{referralLink\}\}/g, referralLink)
         .replace(/\{\{referral_link\}\}/g, referralLink);
       
-      console.log(`Template processing: "${text}" → "${processed}"`);
+      console.log(`Template processing result: "${processed}"`);
       return processed;
     };
     

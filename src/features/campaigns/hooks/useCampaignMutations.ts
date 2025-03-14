@@ -79,7 +79,7 @@ export function useCampaignMutations() {
       }
       
       // Create a clean update payload with only the fields we know exist in the database
-      // Explicitly exclude fields that might not be in the database schema
+      // Explicitly include email template fields that were missing before
       const updatePayload = {
         id: campaign.id,
         title: campaign.title,
@@ -98,17 +98,23 @@ export function useCampaignMutations() {
         hero_image_url: campaign.hero_image_url || null,
         subtitle: campaign.subtitle || '',
         promotional_text: campaign.promotional_text || '',
-        // Convert WhyShareItem[] to Json for Supabase
-        why_share_items: campaign.why_share_items as unknown as Json,
+        // Email template fields - explicitly included now
+        email_subject: campaign.email_subject || 'Congratulations! You earned a Sweepstakes entry!',
+        email_heading: campaign.email_heading || 'You just earned an extra Sweepstakes entry!',
+        email_referral_message: campaign.email_referral_message || `Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the {{prize_amount}} {{prize_name}} Sweepstakes!`,
+        email_cta_text: campaign.email_cta_text || 'Visit Comprendi Reading',
+        email_footer_message: campaign.email_footer_message || 'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!',
         // These fields might not exist in the database yet, so we need to carefully handle them
         mobile_subtitle: campaign.mobile_subtitle || '',
         meta_title: campaign.meta_title || null,
         meta_description: campaign.meta_description || null,
         meta_image: campaign.meta_image || null,
         meta_url: campaign.meta_url || null,
+        // Convert WhyShareItem[] to Json for Supabase
+        why_share_items: campaign.why_share_items as unknown as Json,
       };
       
-      console.log("[UPDATE-CAMPAIGN] Clean update payload:", JSON.stringify(updatePayload, null, 2));
+      console.log("[UPDATE-CAMPAIGN] Clean update payload with email template fields:", JSON.stringify(updatePayload, null, 2));
       
       const { data, error } = await supabase
         .from('campaigns')
