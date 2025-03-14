@@ -30,6 +30,10 @@ serve(async (req) => {
     const { firstName, lastName, email, referredBy, campaignId } = await req.json();
     console.log('Received submission with referral:', { firstName, lastName, email, referredBy, campaignId });
 
+    if (!firstName || !lastName || !email) {
+      throw new Error("Missing required fields: firstName, lastName, and email are required");
+    }
+
     // Initialize Supabase client
     const supabaseClient = await initializeSupabaseClient();
     console.log(`Supabase client initialized in ${Date.now() - startTime}ms`);
@@ -54,6 +58,28 @@ serve(async (req) => {
     
     if (existingEntry) {
       console.log('Found existing entry with referral code:', existingEntry.referral_code);
+      
+      // Ensure the entry has a valid referral code
+      if (!existingEntry.referral_code || existingEntry.referral_code.trim() === '') {
+        console.error('Existing entry has invalid referral code. Generating a new one...');
+        
+        // Generate a new referral code for this user
+        const { data: updatedEntry, error: updateError } = await supabaseClient
+          .from('entries')
+          .update({ 
+            referral_code: undefined // This will trigger the default function to generate a new code
+          })
+          .eq('id', existingEntry.id)
+          .select()
+          .single();
+          
+        if (updateError) {
+          console.error('Failed to update missing referral code:', updateError);
+        } else if (updatedEntry && updatedEntry.referral_code) {
+          console.log('Generated new referral code for existing user:', updatedEntry.referral_code);
+          existingEntry.referral_code = updatedEntry.referral_code;
+        }
+      }
       
       // Use Edge Runtime's waitUntil for background tasks that shouldn't block response
       if (typeof EdgeRuntime !== 'undefined' && 'waitUntil' in EdgeRuntime) {
@@ -125,6 +151,11 @@ serve(async (req) => {
       campaign_id: campaign_id
     });
     console.log(`Database insert completed at ${Date.now() - startTime}ms`);
+    
+    // Ensure the entry has a valid referral code
+    if (!entry.referral_code || entry.referral_code.trim() === '') {
+      console.error('New entry has invalid referral code. This should not happen with the default function.');
+    }
 
     // Background processing for non-critical tasks
     if (typeof EdgeRuntime !== 'undefined' && 'waitUntil' in EdgeRuntime) {

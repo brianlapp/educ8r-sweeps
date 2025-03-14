@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -5,7 +6,8 @@ import { Helmet } from 'react-helmet-async';
 import { supabase } from "@/integrations/supabase/client";
 import { CheckCircle } from "lucide-react";
 import { useCampaign } from "@/contexts/CampaignContext";
-import { generateReferralLink } from "@/features/campaigns/utils/referralLinks";
+import { generateReferralLink, isValidReferralCode } from "@/features/campaigns/utils/referralLinks";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 declare global {
   interface Window {
@@ -25,6 +27,11 @@ const ThankYou = () => {
   const [jwtStatus, setJwtStatus] = useState<string | null>(null);
   const { toast } = useToast();
   const { campaign } = useCampaign();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
+  // Try to get referral code from URL parameters first
+  const codeFromUrl = searchParams.get("code");
   
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -109,6 +116,15 @@ const ThankYou = () => {
     checkJwtStatus();
     
     const checkForReferralCode = async () => {
+      // First check URL parameters for code (for direct links)
+      if (codeFromUrl && isValidReferralCode(codeFromUrl)) {
+        console.log('Retrieved referral code from URL:', codeFromUrl);
+        setReferralCode(codeFromUrl);
+        setIsLoading(false);
+        return;
+      }
+      
+      // If no code in URL, fall back to localStorage
       const code = localStorage.getItem("referralCode");
       console.log('Retrieved referral code from localStorage:', code);
       
@@ -116,12 +132,20 @@ const ThankYou = () => {
       setIsReturningUser(returningUserFlag === "true");
       
       if (!code) {
-        console.error("No referral code found in localStorage");
+        console.error("No referral code found in localStorage or URL parameters");
         toast({
-          title: "Error",
+          title: "Missing Referral Code",
           description: "Could not retrieve your referral code. Please try signing up again.",
           variant: "destructive"
         });
+        // Optional: Redirect to homepage after a delay
+        setTimeout(() => {
+          if (campaign) {
+            navigate(`/${campaign.slug}`);
+          } else {
+            navigate('/');
+          }
+        }, 5000);
         return;
       }
       
@@ -131,25 +155,32 @@ const ThankYou = () => {
       }
       
       try {
-        const { data, error } = await supabase
-          .from('entries')
-          .select('referral_code')
-          .eq('email', localStorage.getItem('userEmail') || '')
-          .single();
-          
-        if (error) {
-          console.error("Error verifying referral code:", error);
-        } else if (data) {
-          console.log("Referral code in database:", data.referral_code);
-          console.log("Referral code in localStorage:", code);
-          
-          if (data.referral_code !== code) {
-            console.warn("MISMATCH: Local storage referral code doesn't match database code");
-            localStorage.setItem("referralCode", data.referral_code);
-            setReferralCode(data.referral_code);
-          } else {
-            setReferralCode(code);
+        // Verify the code with database if we have user email
+        const userEmail = localStorage.getItem('userEmail');
+        if (userEmail) {
+          const { data, error } = await supabase
+            .from('entries')
+            .select('referral_code')
+            .eq('email', userEmail)
+            .single();
+            
+          if (error) {
+            console.error("Error verifying referral code:", error);
+          } else if (data) {
+            console.log("Referral code in database:", data.referral_code);
+            console.log("Referral code in localStorage:", code);
+            
+            if (data.referral_code !== code) {
+              console.warn("MISMATCH: Local storage referral code doesn't match database code");
+              localStorage.setItem("referralCode", data.referral_code);
+              setReferralCode(data.referral_code);
+            } else {
+              setReferralCode(code);
+            }
           }
+        } else {
+          // If we don't have the email, just use the localStorage code
+          setReferralCode(code);
         }
       } catch (err) {
         console.error("Error during referral code verification:", err);
@@ -185,10 +216,23 @@ const ThankYou = () => {
         clearInterval(pollInterval);
       }
     };
-  }, [toast, isLoading]);
+  }, [toast, isLoading, campaign, navigate, codeFromUrl]);
 
-  const referralLink = generateReferralLink(referralCode, campaign?.source_id);
+  // Only generate referral link if we have a valid code
+  const referralLink = isValidReferralCode(referralCode) 
+    ? generateReferralLink(referralCode, campaign?.source_id)
+    : '';
+    
   const copyReferralLink = async () => {
+    if (!referralLink) {
+      toast({
+        title: "Error",
+        description: "No valid referral link available to copy.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     try {
       await navigator.clipboard.writeText(referralLink);
       toast({
@@ -293,6 +337,8 @@ const ThankYou = () => {
                   </div>
                   <p className="ml-2 text-gray-500">Getting your referral code...</p>
                 </div>
+              ) : !referralLink ? (
+                <p className="text-red-500 text-sm">Unable to generate referral link. Please try again later.</p>
               ) : (
                 <p className="text-primary font-medium break-all text-sm md:text-base">{referralLink}</p>
               )}
@@ -301,7 +347,7 @@ const ThankYou = () => {
             <Button 
               onClick={copyReferralLink} 
               className="w-full text-base py-6 mb-5 md:mb-6 text-neutral-50 bg-green-600 hover:bg-green-500"
-              disabled={isLoading}
+              disabled={isLoading || !referralLink}
             >
               {isLoading ? "Preparing your link..." : "Copy Referral Link"}
             </Button>

@@ -146,6 +146,17 @@ export const EntryForm = () => {
           has_referral: !!referredBy,
           campaign_slug: campaign?.slug
         });
+        
+        // Build the thank you page URL with the referral code as a parameter
+        let thankYouUrl = '';
+        if (campaign) {
+          thankYouUrl = `/${campaign.slug}/thank-you?code=${encodeURIComponent(referralCode)}`;
+        } else {
+          thankYouUrl = `/thank-you?code=${encodeURIComponent(referralCode)}`;
+        }
+        
+        navigate(thankYouUrl);
+        return;
       } else {
         console.error('Missing referral code in response:', data);
         analytics.trackEvent('api_response_error', {
