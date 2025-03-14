@@ -1,3 +1,4 @@
+
 import { Campaign, CampaignFormData } from "../types";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -406,7 +407,7 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
               placeholder="Great news! One of your referrals just tried Comprendi™..."
               rows={3}
             />
-            <p className="text-xs text-gray-500">Use {{totalEntries}} as a placeholder for the number of entries, and {{prize_amount}} {{prize_name}} for the prize details</p>
+            <p className="text-xs text-gray-500">Use &#123;&#123;totalEntries&#125;&#125; as a placeholder for the number of entries, and &#123;&#123;prize_amount&#125;&#125; &#123;&#123;prize_name&#125;&#125; for the prize details</p>
           </div>
 
           <div className="space-y-2">

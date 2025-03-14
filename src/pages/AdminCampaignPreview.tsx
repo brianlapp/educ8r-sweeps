@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
@@ -177,9 +178,9 @@ const AdminCampaignPreview = () => {
     const referralCode = "N7AMZV2N";
     
     const referralMessage = (source.email_referral_message || '')
-      .replace('{{totalEntries}}', totalEntries.toString())
-      .replace('{{prize_amount}}', source.prize_amount || '$1,000')
-      .replace('{{prize_name}}', source.prize_name || 'Classroom Supplies');
+      .replace(/{{totalEntries}}/g, totalEntries.toString())
+      .replace(/{{prize_amount}}/g, source.prize_amount || '$1,000')
+      .replace(/{{prize_name}}/g, source.prize_name || 'Classroom Supplies');
     
     const referralLink = `https://dmlearninglab.com/homesc/?utm_source=sweeps&oid=1987&sub1=${referralCode}`;
     
