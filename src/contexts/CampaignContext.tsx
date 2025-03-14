@@ -38,7 +38,7 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         console.log('Campaign data fetched:', data);
         setCampaignId(data.id);
         // If why_share_items is a string, parse it to an object
-        const processedData = {
+        const processedData: Campaign = {
           ...data,
           why_share_items: typeof data.why_share_items === 'string' 
             ? JSON.parse(data.why_share_items) 
