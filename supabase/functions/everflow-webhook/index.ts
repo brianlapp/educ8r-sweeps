@@ -109,7 +109,7 @@ async function sendReferralNotification(referrerData) {
 }
 
 // Function to update BeehiiV with the latest total entries
-async function updateBeehiiivTotalEntries(userData) {
+async function updateBeehiivTotalEntries(userData) {
   console.log("=== UPDATING BEEHIIV TOTAL ENTRIES ===");
   console.log("User data for BeehiiV update:", JSON.stringify(userData, null, 2));
   
