@@ -211,6 +211,13 @@ serve(async (req) => {
       console.log(`Fetching campaign ${campaignId} from Supabase`);
       try {
         const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        // Log Supabase connection status
+        console.log("Supabase client initialized:", !!supabase);
+        
+        // First attempt to fetch the campaign details explicitly logging each step
+        console.log(`Running Supabase query for campaign ID: ${campaignId}`);
+        
         const { data, error } = await supabase
           .from('campaigns')
           .select('email_subject, email_heading, email_referral_message, email_cta_text, email_footer_message, prize_amount, prize_name')
@@ -219,15 +226,41 @@ serve(async (req) => {
         
         if (error) {
           console.error('Error fetching campaign:', error);
+          console.error('Error details:', JSON.stringify(error));
+          
+          // Fallback: try to fetch by slug if ID failed
+          console.log('Attempting to fetch campaign using slug fallback mechanism');
+          
+          // We don't have a slug here, so let's try to fetch any active campaign as a last resort
+          const fallbackQuery = await supabase
+            .from('campaigns')
+            .select('id, email_subject, email_heading, email_referral_message, email_cta_text, email_footer_message, prize_amount, prize_name')
+            .eq('is_active', true)
+            .limit(1)
+            .single();
+            
+          if (fallbackQuery.error) {
+            console.error('Fallback query also failed:', fallbackQuery.error);
+          } else if (fallbackQuery.data) {
+            console.log('Fallback campaign found:', fallbackQuery.data.id);
+            console.log('Fallback template data:', fallbackQuery.data);
+            templateData = fallbackQuery.data;
+          }
         } else if (data) {
-          console.log('Campaign template data retrieved:', data);
+          console.log('Campaign template data successfully retrieved:', data);
           templateData = data;
+        } else {
+          console.log('No error but no data returned from Supabase query');
         }
       } catch (dbError) {
         console.error('Exception fetching campaign data:', dbError);
+        console.error('Exception stack:', dbError.stack);
       }
     } else {
       console.log('No campaign ID provided or Supabase credentials missing - using default template');
+      console.log('campaignId present:', !!campaignId);
+      console.log('supabaseUrl present:', !!supabaseUrl);
+      console.log('supabaseKey present:', !!supabaseKey);
     }
     
     // Set default template values that will be used if no template is found
@@ -236,9 +269,18 @@ serve(async (req) => {
     const prizeAmount = templateData?.prize_amount || '$1,000';
     const prizeName = templateData?.prize_name || 'Classroom Sweepstakes';
     
+    // Log the template values that will be used
+    console.log('Template values being used:', {
+      emailSubject,
+      emailHeading,
+      prizeAmount,
+      prizeName,
+      templateDataFound: !!templateData
+    });
+    
     // Process the email template fields with the data
     const processTemplate = (text: string) => {
-      return text
+      const processed = text
         .replace(/\{\{firstName\}\}/g, firstName)
         .replace(/\{\{first_name\}\}/g, firstName)
         .replace(/\{\{totalEntries\}\}/g, totalEntries.toString())
@@ -249,6 +291,9 @@ serve(async (req) => {
         .replace(/\{\{referral_code\}\}/g, referralCode)
         .replace(/\{\{referralLink\}\}/g, referralLink)
         .replace(/\{\{referral_link\}\}/g, referralLink);
+      
+      console.log(`Template processing: "${text}" → "${processed}"`);
+      return processed;
     };
     
     let emailReferralMessage = templateData?.email_referral_message || 
@@ -269,51 +314,70 @@ serve(async (req) => {
       ctaText: emailCtaText,
       footerMessage: emailFooterMessage
     });
+
+    // Process these values explicitly and log them
+    const finalEmailSubject = processTemplate(emailSubject);
+    const finalEmailHeading = processTemplate(emailHeading);
+    const finalEmailCtaText = processTemplate(emailCtaText);
+    const finalEmailFooterMessage = processTemplate(emailFooterMessage);
+    
+    console.log('Final processed template values:', {
+      subject: finalEmailSubject,
+      heading: finalEmailHeading,
+      referralMessage: emailReferralMessage,
+      ctaText: finalEmailCtaText,
+      footerMessage: finalEmailFooterMessage
+    });
+    
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="https://educ8r.freeparentsearch.com/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" alt="FPS Logo" style="max-width: 180px;">
+        </div>
+        
+        <h1 style="color: #2C3E50; text-align: center; margin-bottom: 20px;">Congratulations, ${firstName}!</h1>
+        
+        <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #3b82f6;">
+          <h2 style="color: #3b82f6; margin-top: 0;">${finalEmailHeading}</h2>
+          <p style="font-size: 16px; line-height: 1.5;">
+            ${emailReferralMessage}
+          </p>
+        </div>
+        
+        <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+          Keep the momentum going! Share your referral link with more parents to increase your chances of winning:
+        </p>
+        
+        <div style="background-color: #f0f9ff; border-radius: 8px; padding: 15px; margin-bottom: 25px; word-break: break-all; font-family: monospace; font-size: 14px;">
+          ${referralLink}
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${referralLink}" style="display: inline-block; background-color: #16a34a; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; font-size: 16px;">${finalEmailCtaText}</a>
+        </div>
+        
+        <p style="font-size: 16px; line-height: 1.5;">
+          ${finalEmailFooterMessage}
+        </p>
+        
+        <p style="font-size: 16px; line-height: 1.5; margin-top: 30px;">
+          Thank you for spreading the word about Comprendi™ and helping more students succeed!
+        </p>
+        
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 14px;">
+          <p>© 2025 Free Parent Search. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+    
+    // Log the full HTML before sending (truncated for readability)
+    console.log('Email HTML preview (first 300 chars):', emailHtml.substring(0, 300) + '...');
     
     const emailResult = await resend.emails.send({
       from: 'FPS Sweepstakes <noreply@educ8r.freeparentsearch.com>',
       to: email,
-      subject: processTemplate(emailSubject),
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <img src="https://educ8r.freeparentsearch.com/lovable-uploads/2b96223c-82ba-48db-9c96-5c37da48d93e.png" alt="FPS Logo" style="max-width: 180px;">
-          </div>
-          
-          <h1 style="color: #2C3E50; text-align: center; margin-bottom: 20px;">Congratulations, ${firstName}!</h1>
-          
-          <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #3b82f6;">
-            <h2 style="color: #3b82f6; margin-top: 0;">${processTemplate(emailHeading)}</h2>
-            <p style="font-size: 16px; line-height: 1.5;">
-              ${emailReferralMessage}
-            </p>
-          </div>
-          
-          <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
-            Keep the momentum going! Share your referral link with more parents to increase your chances of winning:
-          </p>
-          
-          <div style="background-color: #f0f9ff; border-radius: 8px; padding: 15px; margin-bottom: 25px; word-break: break-all; font-family: monospace; font-size: 14px;">
-            ${referralLink}
-          </div>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${referralLink}" style="display: inline-block; background-color: #16a34a; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; font-size: 16px;">${processTemplate(emailCtaText)}</a>
-          </div>
-          
-          <p style="font-size: 16px; line-height: 1.5;">
-            ${processTemplate(emailFooterMessage)}
-          </p>
-          
-          <p style="font-size: 16px; line-height: 1.5; margin-top: 30px;">
-            Thank you for spreading the word about Comprendi™ and helping more students succeed!
-          </p>
-          
-          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 14px;">
-            <p>© 2025 Free Parent Search. All rights reserved.</p>
-          </div>
-        </div>
-      `
+      subject: finalEmailSubject,
+      html: emailHtml
     });
     
     console.log('Email sent response:', JSON.stringify(emailResult, null, 2));
