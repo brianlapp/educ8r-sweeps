@@ -33,6 +33,12 @@ export interface Campaign {
   meta_description?: string;
   meta_image?: string;
   meta_url?: string;
+  // New email template fields
+  email_subject?: string;
+  email_heading?: string;
+  email_referral_message?: string;
+  email_cta_text?: string;
+  email_footer_message?: string;
 }
 
 export interface CampaignFormData {
@@ -60,6 +66,12 @@ export interface CampaignFormData {
   meta_description?: string;
   meta_image?: string;
   meta_url?: string;
+  // New email template fields
+  email_subject?: string;
+  email_heading?: string;
+  email_referral_message?: string;
+  email_cta_text?: string;
+  email_footer_message?: string;
 }
 
 export interface SupabaseCampaign {
@@ -89,4 +101,10 @@ export interface SupabaseCampaign {
   meta_description?: string;
   meta_image?: string;
   meta_url?: string;
+  // New email template fields
+  email_subject?: string;
+  email_heading?: string;
+  email_referral_message?: string;
+  email_cta_text?: string;
+  email_footer_message?: string;
 }
