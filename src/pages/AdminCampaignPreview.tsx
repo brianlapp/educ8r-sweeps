@@ -151,8 +151,17 @@ const AdminCampaignPreview = () => {
       setEditableContent({
         title: campaign.title,
         prize_name: campaign.prize_name,
+        prize_amount: campaign.prize_amount,
         subtitle: campaign.subtitle,
-        promotional_text: campaign.promotional_text
+        mobile_subtitle: campaign.mobile_subtitle,
+        promotional_text: campaign.promotional_text,
+        share_title: campaign.share_title,
+        share_description: campaign.share_description,
+        email_subject: campaign.email_subject,
+        email_heading: campaign.email_heading,
+        email_referral_message: campaign.email_referral_message,
+        email_cta_text: campaign.email_cta_text,
+        email_footer_message: campaign.email_footer_message
       });
       setWhyShareItems(campaign.why_share_items || []);
     }
@@ -674,7 +683,7 @@ const AdminCampaignPreview = () => {
                     </p>
                   )}
                   <p className="text-xs text-gray-500 mt-1">
-                    Use <code>{{'{{'}}totalEntries{{'}}'}}</code>, <code>{{'{{'}}prize_amount{{'}}'}}</code>, and <code>{{'{{'}}prize_name{{'}}'}}</code> as placeholders
+                    Use <code>&#123;&#123;totalEntries&#125;&#125;</code>, <code>&#123;&#123;prize_amount&#125;&#125;</code>, and <code>&#123;&#123;prize_name&#125;&#125;</code> as placeholders
                   </p>
                 </div>
                 

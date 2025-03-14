@@ -14,5 +14,5 @@ export async function getCampaignByID(supabaseClient, campaignId) {
     return null;
   }
   
-  return data ? data.slug : null;
+  return data;
 }
