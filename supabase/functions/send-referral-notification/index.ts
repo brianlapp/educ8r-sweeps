@@ -1,4 +1,3 @@
-
 import { serve } from "http/server.ts"
 import { Resend } from "npm:resend@2.0.0"
 import { initJwtBypass, getJwtVerificationState } from "../_shared/jwt-cache.ts"
@@ -358,4 +357,3 @@ serve(async (req) => {
     );
   }
 })
-
