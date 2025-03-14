@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
@@ -15,6 +16,7 @@ import { toast } from "sonner";
 import { useCampaignMutations } from "@/features/campaigns/hooks/useCampaignMutations";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { Campaign, WhyShareItem } from "@/features/campaigns/types";
+import { EmailTemplatePreview } from "@/features/campaigns/components/EmailTemplatePreview";
 
 const AdminCampaignPreview = () => {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +26,11 @@ const AdminCampaignPreview = () => {
   const [editableContent, setEditableContent] = useState<Partial<Campaign>>({});
   const [whyShareItems, setWhyShareItems] = useState<WhyShareItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [previewData, setPreviewData] = useState({
+    firstName: 'John',
+    totalEntries: 3,
+    referralCode: 'ABC123XY'
+  });
   const navigate = useNavigate();
   const { trackEvent } = useAnalytics();
   const { updateCampaign } = useCampaignMutations();
@@ -48,7 +55,13 @@ const AdminCampaignPreview = () => {
             : data.why_share_items,
           subtitle: data.subtitle || '',
           mobile_subtitle: data.mobile_subtitle || '',
-          promotional_text: data.promotional_text || 'Enter for a chance to win $200 to spend on everything on your Anything from Amazon list - from backpacks and notebooks to markers and more! Get ready for a successful school year.'
+          promotional_text: data.promotional_text || 'Enter for a chance to win $200 to spend on everything on your Anything from Amazon list - from backpacks and notebooks to markers and more! Get ready for a successful school year.',
+          // Email template fields with defaults
+          email_subject: data.email_subject || 'Congratulations! You earned a Sweepstakes entry!',
+          email_heading: data.email_heading || 'You just earned an extra Sweepstakes entry!',
+          email_referral_message: data.email_referral_message || `Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the ${data.prize_amount} ${data.prize_name} Sweepstakes!`,
+          email_cta_text: data.email_cta_text || 'Visit Comprendi Reading',
+          email_footer_message: data.email_footer_message || 'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!'
         };
         
         setCampaign(processedData as Campaign);
@@ -58,7 +71,13 @@ const AdminCampaignPreview = () => {
           subtitle: processedData.subtitle,
           mobile_subtitle: processedData.mobile_subtitle,
           promotional_text: processedData.promotional_text,
-          hero_image_url: processedData.hero_image_url || ''
+          hero_image_url: processedData.hero_image_url || '',
+          // Set email template fields in editable content
+          email_subject: processedData.email_subject,
+          email_heading: processedData.email_heading,
+          email_referral_message: processedData.email_referral_message,
+          email_cta_text: processedData.email_cta_text,
+          email_footer_message: processedData.email_footer_message
         });
         setWhyShareItems(processedData.why_share_items || []);
       } catch (error) {
@@ -138,11 +157,38 @@ const AdminCampaignPreview = () => {
         title: campaign.title,
         prize_name: campaign.prize_name,
         subtitle: campaign.subtitle,
-        promotional_text: campaign.promotional_text
+        promotional_text: campaign.promotional_text,
+        mobile_subtitle: campaign.mobile_subtitle,
+        hero_image_url: campaign.hero_image_url,
+        // Reset email template fields
+        email_subject: campaign.email_subject,
+        email_heading: campaign.email_heading,
+        email_referral_message: campaign.email_referral_message,
+        email_cta_text: campaign.email_cta_text,
+        email_footer_message: campaign.email_footer_message
       });
       setWhyShareItems(campaign.why_share_items || []);
     }
     setIsEditing(false);
+  };
+
+  // For real-time preview when editing email content
+  const getPreviewCampaign = (): Campaign => {
+    if (!campaign) return {} as Campaign;
+    
+    return {
+      ...campaign,
+      ...editableContent
+    };
+  };
+
+  // Helper functions for email preview
+  const handlePreviewDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPreviewData(prev => ({
+      ...prev,
+      [name]: name === 'totalEntries' ? parseInt(value, 10) : value
+    }));
   };
 
   if (isLoading) {
@@ -525,58 +571,169 @@ const AdminCampaignPreview = () => {
               <CardHeader>
                 <CardTitle className="text-lg font-medium">Email Template Preview</CardTitle>
               </CardHeader>
-              <CardContent className="p-0 overflow-hidden">
-                <div className="h-[600px] rounded-md border border-gray-200 overflow-hidden bg-white p-4">
-                  <iframe 
-                    src="/email-template-preview.html" 
-                    className="w-full h-full" 
-                    title="Email Template Preview"
-                  />
-                </div>
-                <div className="flex justify-between p-4">
-                  <div className="text-sm text-gray-500">
-                    <span className="font-medium">Template ID:</span> {campaign.email_template_id}
+              <CardContent className="p-0">
+                {isEditing && (
+                  <div className="bg-blue-50 p-4 mb-4 rounded-md">
+                    <h3 className="text-sm font-medium mb-2">Preview Settings</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label htmlFor="firstName" className="text-xs text-gray-500 mb-1 block">Recipient Name</label>
+                        <Input 
+                          id="firstName" 
+                          name="firstName" 
+                          value={previewData.firstName} 
+                          onChange={handlePreviewDataChange} 
+                          placeholder="John" 
+                          className="text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="totalEntries" className="text-xs text-gray-500 mb-1 block">Total Entries</label>
+                        <Input 
+                          id="totalEntries" 
+                          name="totalEntries" 
+                          type="number" 
+                          min="1" 
+                          value={previewData.totalEntries} 
+                          onChange={handlePreviewDataChange} 
+                          className="text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="referralCode" className="text-xs text-gray-500 mb-1 block">Referral Code</label>
+                        <Input 
+                          id="referralCode" 
+                          name="referralCode" 
+                          value={previewData.referralCode} 
+                          onChange={handlePreviewDataChange} 
+                          placeholder="ABC123XY" 
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-500">
+                      <p>Available template variables: <code>{'{{firstName}}'}</code>, <code>{'{{totalEntries}}'}</code>, <code>{'{{prize_amount}}'}</code>, <code>{'{{prize_name}}'}</code>, <code>{'{{referralCode}}'}</code></p>
+                    </div>
                   </div>
-                  <Link 
-                    to="/email-template-preview.html" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    Open editor in new tab
-                  </Link>
-                </div>
+                )}
+                
+                <EmailTemplatePreview campaign={getPreviewCampaign()} previewData={previewData} />
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg font-medium">Email Template Configuration</CardTitle>
+                <CardTitle className="text-lg font-medium">Email Template Content</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <h3 className="font-semibold mb-1">Email Template ID</h3>
+                  <h3 className="font-semibold mb-1">Email Subject</h3>
                   {isEditing ? (
                     <Input
-                      name="email_template_id"
-                      value={editableContent.email_template_id || ''}
+                      name="email_subject"
+                      value={editableContent.email_subject || ''}
                       onChange={handleInputChange}
                       className="w-full"
+                      placeholder="Congratulations! You earned a Sweepstakes entry!"
                     />
                   ) : (
                     <p className="p-3 bg-gray-50 rounded border border-gray-100">
-                      {campaign.email_template_id}
+                      {campaign.email_subject || 'Congratulations! You earned a Sweepstakes entry!'}
                     </p>
                   )}
-                  <p className="text-xs text-gray-500 mt-1">Use "default" if you don't have a specific template ID</p>
+                  <p className="text-xs text-gray-500 mt-1">The subject line of the notification email</p>
                 </div>
                 
-                <div className="bg-blue-50 border border-blue-100 rounded p-4">
-                  <p className="text-sm text-blue-700">
-                    <span className="font-medium">Note:</span> Email templates are managed through the email template editor. 
-                    You can customize the email content that will be sent to users when they share or refer others.
-                  </p>
+                <div>
+                  <h3 className="font-semibold mb-1">Email Heading</h3>
+                  {isEditing ? (
+                    <Input
+                      name="email_heading"
+                      value={editableContent.email_heading || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                      placeholder="You just earned an extra Sweepstakes entry!"
+                    />
+                  ) : (
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign.email_heading || 'You just earned an extra Sweepstakes entry!'}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">The main heading in the email notification</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-1">Referral Message</h3>
+                  {isEditing ? (
+                    <Textarea
+                      name="email_referral_message"
+                      value={editableContent.email_referral_message || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                      placeholder={`Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the ${campaign.prize_amount} ${campaign.prize_name} Sweepstakes!`}
+                      rows={3}
+                    />
+                  ) : (
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign.email_referral_message || `Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the ${campaign.prize_amount} ${campaign.prize_name} Sweepstakes!`}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">Message about the referral conversion (supports template variables)</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-1">CTA Button Text</h3>
+                  {isEditing ? (
+                    <Input
+                      name="email_cta_text"
+                      value={editableContent.email_cta_text || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                      placeholder="Visit Comprendi Reading"
+                    />
+                  ) : (
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign.email_cta_text || 'Visit Comprendi Reading'}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">Text for the call-to-action button</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold mb-1">Footer Message</h3>
+                  {isEditing ? (
+                    <Textarea
+                      name="email_footer_message"
+                      value={editableContent.email_footer_message || ''}
+                      onChange={handleInputChange}
+                      className="w-full"
+                      placeholder="Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!"
+                      rows={3}
+                    />
+                  ) : (
+                    <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                      {campaign.email_footer_message || 'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!'}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">Message that appears at the bottom of the email</p>
+                </div>
+                
+                <div className="bg-blue-50 border border-blue-100 rounded p-4 mt-4">
+                  <div className="flex gap-2 items-start">
+                    <Mail className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-blue-700">
+                        <span className="font-medium">Template Variables:</span> You can use the following variables in your email content:
+                      </p>
+                      <ul className="text-xs text-blue-700 mt-2 list-disc list-inside space-y-1">
+                        <li><code>{'{{firstName}}'}</code> - Recipient's first name</li>
+                        <li><code>{'{{totalEntries}}'}</code> - Total number of entries the person has</li>
+                        <li><code>{'{{prize_amount}}'}</code> - Prize amount from campaign settings</li>
+                        <li><code>{'{{prize_name}}'}</code> - Prize name from campaign settings</li>
+                        <li><code>{'{{referralCode}}'}</code> - The user's unique referral code</li>
+                      </ul>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>

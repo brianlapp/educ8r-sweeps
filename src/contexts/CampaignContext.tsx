@@ -45,7 +45,13 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           mobile_subtitle: data.mobile_subtitle || '',
           promotional_text: data.promotional_text || '',
           share_title: data.share_title || '',
-          share_description: data.share_description || ''
+          share_description: data.share_description || '',
+          // Email template fields with defaults
+          email_subject: data.email_subject || 'Congratulations! You earned a Sweepstakes entry!',
+          email_heading: data.email_heading || 'You just earned an extra Sweepstakes entry!',
+          email_referral_message: data.email_referral_message || 'Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the {{prize_amount}} {{prize_name}} Sweepstakes!',
+          email_cta_text: data.email_cta_text || 'Visit Comprendi Reading',
+          email_footer_message: data.email_footer_message || 'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!'
         };
         setCampaign(processedData);
       }

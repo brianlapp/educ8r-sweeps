@@ -1,4 +1,3 @@
-
 import { Campaign, CampaignFormData } from "../types";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,7 +33,12 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
     meta_title: initialData?.meta_title || '',
     meta_description: initialData?.meta_description || '',
     meta_image: initialData?.meta_image || '',
-    meta_url: initialData?.meta_url || ''
+    meta_url: initialData?.meta_url || '',
+    email_subject: initialData?.email_subject || 'Congratulations! You earned a Sweepstakes entry!',
+    email_heading: initialData?.email_heading || 'You just earned an extra Sweepstakes entry!',
+    email_referral_message: initialData?.email_referral_message || 'Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the {{prize_amount}} {{prize_name}} Sweepstakes!',
+    email_cta_text: initialData?.email_cta_text || 'Visit Comprendi Reading',
+    email_footer_message: initialData?.email_footer_message || 'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!'
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -414,6 +418,87 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
               placeholder="https://educ8r.freeparentsearch.com/your-campaign"
             />
             <p className="text-xs text-gray-500">The canonical URL for this campaign</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-8 border-t pt-8">
+        <h2 className="text-lg font-semibold mb-4">Email Template Settings</h2>
+        
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="email_subject" className="text-sm font-medium">Email Subject</label>
+            <Input
+              id="email_subject"
+              name="email_subject"
+              value={formData.email_subject}
+              onChange={handleInputChange}
+              placeholder="Congratulations! You earned a Sweepstakes entry!"
+            />
+            <p className="text-xs text-gray-500">The subject line for notification emails</p>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="email_heading" className="text-sm font-medium">Email Heading</label>
+            <Input
+              id="email_heading"
+              name="email_heading"
+              value={formData.email_heading}
+              onChange={handleInputChange}
+              placeholder="You just earned an extra Sweepstakes entry!"
+            />
+            <p className="text-xs text-gray-500">The main heading in notification emails</p>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="email_referral_message" className="text-sm font-medium">Referral Message</label>
+            <Textarea
+              id="email_referral_message"
+              name="email_referral_message"
+              value={formData.email_referral_message}
+              onChange={handleInputChange}
+              placeholder="Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the {{prize_amount}} {{prize_name}} Sweepstakes!"
+              rows={3}
+            />
+            <p className="text-xs text-gray-500">Message shown about the referral conversion</p>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="email_cta_text" className="text-sm font-medium">CTA Button Text</label>
+            <Input
+              id="email_cta_text"
+              name="email_cta_text"
+              value={formData.email_cta_text}
+              onChange={handleInputChange}
+              placeholder="Visit Comprendi Reading"
+            />
+            <p className="text-xs text-gray-500">Text for the call-to-action button</p>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="email_footer_message" className="text-sm font-medium">Footer Message</label>
+            <Textarea
+              id="email_footer_message"
+              name="email_footer_message"
+              value={formData.email_footer_message}
+              onChange={handleInputChange}
+              placeholder="Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!"
+              rows={2}
+            />
+            <p className="text-xs text-gray-500">The message that appears at the bottom of emails</p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-100 rounded p-4">
+            <p className="text-sm text-blue-700">
+              <span className="font-medium">Template Variables:</span> You can use these variables in your email content:
+            </p>
+            <ul className="text-xs text-blue-700 mt-2 space-y-1 list-disc list-inside">
+              <li><code>{'{{firstName}}'}</code> - Recipient's first name</li>
+              <li><code>{'{{totalEntries}}'}</code> - Total number of entries</li>
+              <li><code>{'{{prize_amount}}'}</code> - Prize amount</li>
+              <li><code>{'{{prize_name}}'}</code> - Prize name</li>
+              <li><code>{'{{referralCode}}'}</code> - Unique referral code</li>
+            </ul>
           </div>
         </div>
       </div>
