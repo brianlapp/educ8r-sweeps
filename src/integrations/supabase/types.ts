@@ -75,6 +75,7 @@ export type Database = {
           share_description: string | null
           share_title: string | null
           slug: string
+          source_id: string | null
           start_date: string
           subtitle: string | null
           target_audience: string
@@ -108,6 +109,7 @@ export type Database = {
           share_description?: string | null
           share_title?: string | null
           slug: string
+          source_id?: string | null
           start_date: string
           subtitle?: string | null
           target_audience: string
@@ -141,6 +143,7 @@ export type Database = {
           share_description?: string | null
           share_title?: string | null
           slug?: string
+          source_id?: string | null
           start_date?: string
           subtitle?: string | null
           target_audience?: string
