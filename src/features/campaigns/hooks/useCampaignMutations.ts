@@ -79,7 +79,7 @@ export function useCampaignMutations() {
       }
       
       // Create a clean update payload with only the fields we know exist in the database
-      // Explicitly exclude fields that might not be in the database schema
+      // Explicitly include the new email template fields
       const updatePayload = {
         id: campaign.id,
         title: campaign.title,
@@ -106,6 +106,12 @@ export function useCampaignMutations() {
         meta_description: campaign.meta_description || null,
         meta_image: campaign.meta_image || null,
         meta_url: campaign.meta_url || null,
+        // New email template fields
+        email_subject: campaign.email_subject || 'Congratulations! You earned a Sweepstakes entry!',
+        email_heading: campaign.email_heading || 'You just earned an extra Sweepstakes entry!',
+        email_referral_message: campaign.email_referral_message || 'Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the {{prize_amount}} {{prize_name}} Sweepstakes!',
+        email_cta_text: campaign.email_cta_text || 'Visit Comprendi Reading',
+        email_footer_message: campaign.email_footer_message || 'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!'
       };
       
       console.log("[UPDATE-CAMPAIGN] Clean update payload:", JSON.stringify(updatePayload, null, 2));

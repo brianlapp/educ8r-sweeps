@@ -46,7 +46,7 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           promotional_text: data.promotional_text || '',
           share_title: data.share_title || '',
           share_description: data.share_description || '',
-          // Add email template fields with defaults
+          // Email template fields with defaults
           email_subject: data.email_subject || 'Congratulations! You earned a Sweepstakes entry!',
           email_heading: data.email_heading || 'You just earned an extra Sweepstakes entry!',
           email_referral_message: data.email_referral_message || 'Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the {{prize_amount}} {{prize_name}} Sweepstakes!',
