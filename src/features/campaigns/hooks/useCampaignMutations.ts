@@ -26,6 +26,21 @@ export function useCampaignMutations() {
         throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
       }
       
+      // Validate email template fields - added validation for critical email fields
+      const emailFields = [
+        'email_subject', 'email_heading', 'email_referral_message', 
+        'email_cta_text', 'email_footer_message'
+      ];
+      
+      const missingEmailFields = emailFields.filter(field => 
+        !campaign[field as keyof CampaignFormData] && field in campaign
+      );
+      
+      if (missingEmailFields.length > 0) {
+        console.warn("[CREATE-CAMPAIGN] Missing email template fields:", missingEmailFields);
+        // Not throwing an error as these fields have defaults
+      }
+      
       // Convert WhyShareItem[] to Json for Supabase
       const campaignData = {
         ...campaign,
@@ -78,8 +93,19 @@ export function useCampaignMutations() {
         throw new Error("Missing required fields for campaign update");
       }
       
+      // Log email template fields to verify they're present before update
+      console.log("[UPDATE-CAMPAIGN] Email template fields in update payload:", {
+        email_subject: campaign.email_subject,
+        email_heading: campaign.email_heading,
+        email_referral_message: campaign.email_referral_message,
+        email_cta_text: campaign.email_cta_text,
+        email_footer_message: campaign.email_footer_message,
+        prize_name: campaign.prize_name,
+        prize_amount: campaign.prize_amount
+      });
+      
       // Create a clean update payload with only the fields we know exist in the database
-      // Explicitly include email template fields that were missing before
+      // Explicitly include email template fields with defensive null/undefined handling
       const updatePayload = {
         id: campaign.id,
         title: campaign.title,
@@ -98,12 +124,14 @@ export function useCampaignMutations() {
         hero_image_url: campaign.hero_image_url || null,
         subtitle: campaign.subtitle || '',
         promotional_text: campaign.promotional_text || '',
-        // Email template fields - explicitly included now
+        // Email template fields - explicitly included with proper null/undefined handling
         email_subject: campaign.email_subject || 'Congratulations! You earned a Sweepstakes entry!',
         email_heading: campaign.email_heading || 'You just earned an extra Sweepstakes entry!',
-        email_referral_message: campaign.email_referral_message || `Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the {{prize_amount}} {{prize_name}} Sweepstakes!`,
+        email_referral_message: campaign.email_referral_message || 
+          `Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the {{prize_amount}} {{prize_name}} Sweepstakes!`,
         email_cta_text: campaign.email_cta_text || 'Visit Comprendi Reading',
-        email_footer_message: campaign.email_footer_message || 'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!',
+        email_footer_message: campaign.email_footer_message || 
+          'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!',
         // These fields might not exist in the database yet, so we need to carefully handle them
         mobile_subtitle: campaign.mobile_subtitle || '',
         meta_title: campaign.meta_title || null,

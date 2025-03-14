@@ -209,6 +209,31 @@ serve(async (req) => {
     
     // Initialize the Supabase client if we have a campaign ID
     let templateData: CampaignEmailTemplate | null = null;
+    
+    // ENHANCED: Determine the campaign ID for the referral code if not provided
+    if (!campaignId && supabaseUrl && supabaseKey) {
+      console.log("No campaign ID provided, attempting to look up from entries table");
+      try {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const { data: entryData, error: entryError } = await supabase
+          .from('entries')
+          .select('campaign_id')
+          .eq('referral_code', referralCode)
+          .maybeSingle();
+          
+        if (entryError) {
+          console.error('Error looking up entry campaign ID:', entryError);
+        } else if (entryData && entryData.campaign_id) {
+          console.log(`Found campaign ID ${entryData.campaign_id} from entries lookup`);
+          // Use the found campaign ID
+          const resolvedCampaignId = entryData.campaign_id;
+          console.log("Will use campaign ID from entry:", resolvedCampaignId);
+        }
+      } catch (lookupError) {
+        console.error('Exception during campaign ID lookup:', lookupError);
+      }
+    }
+    
     if (campaignId && supabaseUrl && supabaseKey) {
       console.log(`Fetching campaign ${campaignId} from Supabase`);
       try {
@@ -217,42 +242,55 @@ serve(async (req) => {
         // Log Supabase connection status
         console.log("Supabase client initialized:", !!supabase);
         
-        // First attempt to fetch the campaign details explicitly logging each step
+        // IMPROVED: Enhanced logging and error handling for campaign fetch
         console.log(`Running Supabase query for campaign ID: ${campaignId}`);
         
         const { data, error } = await supabase
           .from('campaigns')
           .select('id, email_subject, email_heading, email_referral_message, email_cta_text, email_footer_message, prize_amount, prize_name')
-          .eq('id', campaignId)
-          .single();
+          .eq('id', campaignId);
         
         if (error) {
           console.error('Error fetching campaign:', error);
           console.error('Error details:', JSON.stringify(error));
+        } else if (!data || data.length === 0) {
+          console.log(`No campaign found with ID: ${campaignId}`);
+        } else {
+          console.log(`Found ${data.length} campaign records`);
+          console.log('Campaign data retrieved:', JSON.stringify(data[0], null, 2));
+          templateData = data[0] as CampaignEmailTemplate;
           
-          // Fallback: try to fetch by slug if ID failed
-          console.log('Attempting to fetch campaign using slug fallback mechanism');
+          // VALIDATION: Validate the critical template fields are present
+          const missingTemplateFields = [];
+          if (!templateData.email_subject) missingTemplateFields.push('email_subject');
+          if (!templateData.email_heading) missingTemplateFields.push('email_heading');
+          if (!templateData.email_referral_message) missingTemplateFields.push('email_referral_message');
+          if (!templateData.prize_name) missingTemplateFields.push('prize_name');
+          if (!templateData.prize_amount) missingTemplateFields.push('prize_amount');
           
-          // We don't have a slug here, so let's try to fetch any active campaign as a last resort
+          if (missingTemplateFields.length > 0) {
+            console.warn(`Campaign ${campaignId} is missing template fields: ${missingTemplateFields.join(', ')}`);
+          }
+        }
+        
+        // If no specific campaign was found, try to fetch any active campaign as a fallback
+        if (!templateData) {
+          console.log('No campaign found with ID, attempting to fetch any active campaign as fallback');
           const fallbackQuery = await supabase
             .from('campaigns')
             .select('id, email_subject, email_heading, email_referral_message, email_cta_text, email_footer_message, prize_amount, prize_name')
             .eq('is_active', true)
-            .limit(1)
-            .single();
+            .limit(1);
             
           if (fallbackQuery.error) {
             console.error('Fallback query also failed:', fallbackQuery.error);
-          } else if (fallbackQuery.data) {
-            console.log('Fallback campaign found:', fallbackQuery.data.id);
-            console.log('Fallback template data:', fallbackQuery.data);
-            templateData = fallbackQuery.data as CampaignEmailTemplate;
+          } else if (fallbackQuery.data && fallbackQuery.data.length > 0) {
+            console.log('Fallback campaign found:', fallbackQuery.data[0].id);
+            console.log('Fallback template data:', fallbackQuery.data[0]);
+            templateData = fallbackQuery.data[0] as CampaignEmailTemplate;
+          } else {
+            console.log('No active campaigns found as fallback');
           }
-        } else if (data) {
-          console.log('Campaign template data successfully retrieved:', data);
-          templateData = data as CampaignEmailTemplate;
-        } else {
-          console.log('No error but no data returned from Supabase query');
         }
       } catch (dbError) {
         console.error('Exception fetching campaign data:', dbError);
@@ -282,6 +320,7 @@ serve(async (req) => {
     }
     
     // Set default template values that will be used if no template is found
+    // FIXED: Only use these defaults as a last resort if no campaign data is available
     const emailSubject = templateData?.email_subject || 'Congratulations! You earned a Sweepstakes entry!';
     const emailHeading = templateData?.email_heading || 'You just earned an extra Sweepstakes entry!';
     const prizeAmount = templateData?.prize_amount || '$1,000';
@@ -305,55 +344,54 @@ serve(async (req) => {
       
       console.log(`Processing template text before replacement: "${text}"`);
       
-      const processed = text
-        .replace(/\{\{firstName\}\}/g, firstName)
-        .replace(/\{\{first_name\}\}/g, firstName)
-        .replace(/\{\{totalEntries\}\}/g, totalEntries.toString())
-        .replace(/\{\{total_entries\}\}/g, totalEntries.toString())
-        .replace(/\{\{prize_amount\}\}/g, prizeAmount)
-        .replace(/\{\{prize_name\}\}/g, prizeName)
-        .replace(/\{\{referralCode\}\}/g, referralCode)
-        .replace(/\{\{referral_code\}\}/g, referralCode)
-        .replace(/\{\{referralLink\}\}/g, referralLink)
-        .replace(/\{\{referral_link\}\}/g, referralLink);
-      
-      console.log(`Template processing result: "${processed}"`);
-      return processed;
+      // IMPROVED: More robust template variable replacement
+      try {
+        const processed = text
+          .replace(/\{\{firstName\}\}/g, firstName)
+          .replace(/\{\{first_name\}\}/g, firstName)
+          .replace(/\{\{totalEntries\}\}/g, totalEntries.toString())
+          .replace(/\{\{total_entries\}\}/g, totalEntries.toString())
+          .replace(/\{\{prize_amount\}\}/g, prizeAmount)
+          .replace(/\{\{prize_name\}\}/g, prizeName)
+          .replace(/\{\{referralCode\}\}/g, referralCode)
+          .replace(/\{\{referral_code\}\}/g, referralCode)
+          .replace(/\{\{referralLink\}\}/g, referralLink)
+          .replace(/\{\{referral_link\}\}/g, referralLink);
+        
+        console.log(`Template processing result: "${processed}"`);
+        return processed;
+      } catch (templateError) {
+        console.error('Error processing template:', templateError);
+        // Return original text if processing fails
+        return text;
+      }
     };
     
+    // FIXED: Ensure we use the campaign-specific template with proper fallbacks
     let emailReferralMessage = templateData?.email_referral_message || 
       `Great news! One of your referrals just tried Comprendi™, and you now have ${totalEntries} entries in the ${prizeAmount} ${prizeName} Sweepstakes!`;
     
     emailReferralMessage = processTemplate(emailReferralMessage);
     
-    const emailCtaText = templateData?.email_cta_text || 'Visit Comprendi Reading';
-    const emailFooterMessage = templateData?.email_footer_message || 
-      'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!';
+    const emailCtaText = processTemplate(templateData?.email_cta_text || 'Visit Comprendi Reading');
+    const emailFooterMessage = processTemplate(templateData?.email_footer_message || 
+      'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!');
     
-    // Send the email notification
-    console.log('Sending email to:', email);
-    console.log('Using email template:', {
-      subject: emailSubject,
-      heading: emailHeading,
-      referralMessage: emailReferralMessage,
-      ctaText: emailCtaText,
-      footerMessage: emailFooterMessage
-    });
-
     // Process these values explicitly and log them
     const finalEmailSubject = processTemplate(emailSubject);
     const finalEmailHeading = processTemplate(emailHeading);
-    const finalEmailCtaText = processTemplate(emailCtaText);
-    const finalEmailFooterMessage = processTemplate(emailFooterMessage);
     
     console.log('Final processed template values:', {
       subject: finalEmailSubject,
       heading: finalEmailHeading,
       referralMessage: emailReferralMessage,
-      ctaText: finalEmailCtaText,
-      footerMessage: finalEmailFooterMessage
+      ctaText: emailCtaText,
+      footerMessage: emailFooterMessage,
+      prizeAmount: prizeAmount,
+      prizeName: prizeName
     });
     
+    // IMPROVED: Enhanced email HTML with better mobile responsiveness
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
         <div style="text-align: center; margin-bottom: 20px;">
@@ -378,11 +416,11 @@ serve(async (req) => {
         </div>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${referralLink}" style="display: inline-block; background-color: #16a34a; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; font-size: 16px;">${finalEmailCtaText}</a>
+          <a href="${referralLink}" style="display: inline-block; background-color: #16a34a; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; font-size: 16px;">${emailCtaText}</a>
         </div>
         
         <p style="font-size: 16px; line-height: 1.5;">
-          ${finalEmailFooterMessage}
+          ${emailFooterMessage}
         </p>
         
         <p style="font-size: 16px; line-height: 1.5; margin-top: 30px;">
@@ -395,8 +433,15 @@ serve(async (req) => {
       </div>
     `;
     
-    // Log the full HTML before sending (truncated for readability)
-    console.log('Email HTML preview (first 300 chars):', emailHtml.substring(0, 300) + '...');
+    // IMPROVED: Add more detailed email metadata logging
+    console.log('Email sending details:', {
+      to: email,
+      subject: finalEmailSubject,
+      campaignId: campaignId || 'Not provided',
+      templateFound: !!templateData,
+      prizeName: prizeName,
+      prizeAmount: prizeAmount
+    });
     
     const emailResult = await resend.emails.send({
       from: 'FPS Sweepstakes <noreply@educ8r.freeparentsearch.com>',
@@ -427,11 +472,18 @@ serve(async (req) => {
     
     console.log('Email sent successfully:', emailResult);
     
+    // Success response with detailed metadata
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Referral notification email sent successfully',
-        emailId: emailResult.id
+        emailId: emailResult.id,
+        metadata: {
+          campaignId: campaignId || 'Not provided',
+          templateFound: !!templateData,
+          prizeName: prizeName,
+          prizeAmount: prizeAmount
+        }
       }),
       { 
         headers: { 

@@ -26,12 +26,13 @@ async function sendReferralNotification(referrerData) {
   
   try {
     // Prepare the notification payload with snake_case to camelCase conversion
-    // Make sure to include the actual total_entries value
+    // Include campaign_id if available to ensure proper email template is used
     const notificationPayload = {
       email: referrerData.email,
       firstName: referrerData.first_name,
       totalEntries: referrerData.total_entries, // Using the updated total_entries value
-      referralCode: referrerData.referral_code
+      referralCode: referrerData.referral_code,
+      campaignId: referrerData.campaign_id // Include this to ensure proper email template is used
     };
     
     console.log("Notification payload (before sending):", JSON.stringify(notificationPayload, null, 2));
@@ -108,7 +109,7 @@ async function sendReferralNotification(referrerData) {
 }
 
 // Function to update BeehiiV with the latest total entries
-async function updateBeehiivTotalEntries(userData) {
+async function updateBeehiiivTotalEntries(userData) {
   console.log("=== UPDATING BEEHIIV TOTAL ENTRIES ===");
   console.log("User data for BeehiiV update:", JSON.stringify(userData, null, 2));
   

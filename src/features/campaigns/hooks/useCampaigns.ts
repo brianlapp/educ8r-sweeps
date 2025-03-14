@@ -29,13 +29,23 @@ export function useCampaigns(includeHidden: boolean = false) {
       const campaigns: Campaign[] = (data as SupabaseCampaign[]).map(campaign => {
         console.log("[CAMPAIGNS-FETCH] Processing campaign:", campaign.title);
         
+        // IMPROVED: Ensure all email template fields are properly transformed
         return {
           ...campaign,
+          // Transform JSON fields
           why_share_items: campaign.why_share_items 
             ? (typeof campaign.why_share_items === 'string' 
                 ? JSON.parse(campaign.why_share_items as string) 
                 : campaign.why_share_items as unknown as any[])
-            : undefined
+            : undefined,
+          // Ensure email template fields are present
+          email_subject: campaign.email_subject || 'Congratulations! You earned a Sweepstakes entry!',
+          email_heading: campaign.email_heading || 'You just earned an extra Sweepstakes entry!',
+          email_referral_message: campaign.email_referral_message || 
+            `Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the {{prize_amount}} {{prize_name}} Sweepstakes!`,
+          email_cta_text: campaign.email_cta_text || 'Visit Comprendi Reading',
+          email_footer_message: campaign.email_footer_message || 
+            'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!'
         };
       });
       
