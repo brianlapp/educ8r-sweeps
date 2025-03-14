@@ -1,4 +1,3 @@
-
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Campaign, CampaignFormData, WhyShareItem } from "../types";
@@ -45,7 +44,8 @@ export function useCampaignMutations() {
       const campaignData = {
         ...campaign,
         why_share_items: campaign.why_share_items as unknown as Json,
-        visible_in_admin: true  // New campaigns are visible by default
+        visible_in_admin: true,  // New campaigns are visible by default
+        source_id: campaign.source_id || null  // Ensure source_id is included
       };
       
       console.log("[CREATE-CAMPAIGN] Sending to Supabase:", campaignData);
@@ -93,19 +93,19 @@ export function useCampaignMutations() {
         throw new Error("Missing required fields for campaign update");
       }
       
-      // Log email template fields to verify they're present before update
-      console.log("[UPDATE-CAMPAIGN] Email template fields in update payload:", {
+      // Log email template fields and source_id to verify they're present before update
+      console.log("[UPDATE-CAMPAIGN] Email template fields and source_id in update payload:", {
         email_subject: campaign.email_subject,
         email_heading: campaign.email_heading,
         email_referral_message: campaign.email_referral_message,
         email_cta_text: campaign.email_cta_text,
         email_footer_message: campaign.email_footer_message,
+        source_id: campaign.source_id,
         prize_name: campaign.prize_name,
         prize_amount: campaign.prize_amount
       });
       
       // Create a clean update payload with only the fields we know exist in the database
-      // Explicitly include email template fields with defensive null/undefined handling
       const updatePayload = {
         id: campaign.id,
         title: campaign.title,
@@ -132,6 +132,8 @@ export function useCampaignMutations() {
         email_cta_text: campaign.email_cta_text || 'Visit Comprendi Reading',
         email_footer_message: campaign.email_footer_message || 
           'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!',
+        // Campaign attribution
+        source_id: campaign.source_id || null,
         // These fields might not exist in the database yet, so we need to carefully handle them
         mobile_subtitle: campaign.mobile_subtitle || '',
         meta_title: campaign.meta_title || null,

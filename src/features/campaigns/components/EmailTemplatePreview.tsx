@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Campaign } from '../types';
+import { generateReferralLink } from '../utils/referralLinks';
 
 interface EmailTemplatePreviewProps {
   campaign: Campaign;
@@ -19,8 +20,8 @@ export function EmailTemplatePreview({ campaign, previewData = { firstName: 'Joh
   
   // Process the email template with the campaign data and preview data
   useEffect(() => {
-    // Generate the referral link using the code
-    const referralLink = `https://dmlearninglab.com/homesc/?utm_source=sweeps&oid=1987&sub1=${previewData.referralCode}`;
+    // Generate the referral link using our utility function
+    const referralLink = generateReferralLink(previewData.referralCode, campaign.source_id);
     
     // Replace variables in the email text
     const processTemplate = (text: string) => {

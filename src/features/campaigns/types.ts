@@ -41,6 +41,8 @@ export interface Campaign {
   email_footer_message?: string;
   // Sender name - Added here for tracking but managed at the edge function level
   email_sender_name?: string;
+  // Campaign attribution
+  source_id?: string;
 }
 
 export interface CampaignFormData {
@@ -76,6 +78,8 @@ export interface CampaignFormData {
   email_footer_message?: string;
   // Sender name - Added here for tracking but managed at the edge function level
   email_sender_name?: string;
+  // Campaign attribution
+  source_id?: string;
 }
 
 export interface SupabaseCampaign {
@@ -113,4 +117,6 @@ export interface SupabaseCampaign {
   email_footer_message?: string;
   // Sender name - Added here for tracking but managed at the edge function level
   email_sender_name?: string;
+  // Campaign attribution
+  source_id?: string;
 }

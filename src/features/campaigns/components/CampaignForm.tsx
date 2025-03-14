@@ -38,7 +38,8 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
     email_heading: initialData?.email_heading || 'You just earned an extra Sweepstakes entry!',
     email_referral_message: initialData?.email_referral_message || 'Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the {{prize_amount}} {{prize_name}} Sweepstakes!',
     email_cta_text: initialData?.email_cta_text || 'Visit Comprendi Reading',
-    email_footer_message: initialData?.email_footer_message || 'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!'
+    email_footer_message: initialData?.email_footer_message || 'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!',
+    source_id: initialData?.source_id || ''
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -342,6 +343,20 @@ export function CampaignForm({ initialData, onSubmit, onCancel }: CampaignFormPr
           onChange={handleInputChange}
           placeholder="Share description..."
         />
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="source_id" className="text-sm font-medium">Tracking Source ID</label>
+        <Input
+          id="source_id"
+          name="source_id"
+          value={formData.source_id}
+          onChange={handleInputChange}
+          placeholder="e.g. facebook, email-sept, influencer1"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          Will be added as &source_id= to all referral links for campaign attribution tracking
+        </p>
       </div>
 
       <div className="space-y-2">

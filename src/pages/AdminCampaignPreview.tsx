@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
@@ -17,6 +16,7 @@ import { useCampaignMutations } from "@/features/campaigns/hooks/useCampaignMuta
 import { useAnalytics } from "@/hooks/use-analytics";
 import { Campaign, WhyShareItem } from "@/features/campaigns/types";
 import { EmailTemplatePreview } from "@/features/campaigns/components/EmailTemplatePreview";
+import { generateReferralLink } from "@/features/campaigns/utils/referralLinks";
 
 const AdminCampaignPreview = () => {
   const { id } = useParams<{ id: string }>();
@@ -61,7 +61,8 @@ const AdminCampaignPreview = () => {
           email_heading: data.email_heading || 'You just earned an extra Sweepstakes entry!',
           email_referral_message: data.email_referral_message || `Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the ${data.prize_amount} ${data.prize_name} Sweepstakes!`,
           email_cta_text: data.email_cta_text || 'Visit Comprendi Reading',
-          email_footer_message: data.email_footer_message || 'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!'
+          email_footer_message: data.email_footer_message || 'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!',
+          source_id: data.source_id || ''
         };
         
         setCampaign(processedData as Campaign);
@@ -72,6 +73,7 @@ const AdminCampaignPreview = () => {
           mobile_subtitle: processedData.mobile_subtitle,
           promotional_text: processedData.promotional_text,
           hero_image_url: processedData.hero_image_url || '',
+          source_id: processedData.source_id || '',
           // Set email template fields in editable content
           email_subject: processedData.email_subject,
           email_heading: processedData.email_heading,
@@ -160,6 +162,7 @@ const AdminCampaignPreview = () => {
         promotional_text: campaign.promotional_text,
         mobile_subtitle: campaign.mobile_subtitle,
         hero_image_url: campaign.hero_image_url,
+        source_id: campaign.source_id,
         // Reset email template fields
         email_subject: campaign.email_subject,
         email_heading: campaign.email_heading,
@@ -172,7 +175,6 @@ const AdminCampaignPreview = () => {
     setIsEditing(false);
   };
 
-  // For real-time preview when editing email content
   const getPreviewCampaign = (): Campaign => {
     if (!campaign) return {} as Campaign;
     
@@ -182,13 +184,17 @@ const AdminCampaignPreview = () => {
     };
   };
 
-  // Helper functions for email preview
   const handlePreviewDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setPreviewData(prev => ({
       ...prev,
       [name]: name === 'totalEntries' ? parseInt(value, 10) : value
     }));
+  };
+
+  const getExampleReferralLink = () => {
+    const demoCode = "ABC123XY";
+    return generateReferralLink(demoCode, editableContent.source_id);
   };
 
   if (isLoading) {
@@ -502,6 +508,44 @@ const AdminCampaignPreview = () => {
                 </div>
                 
                 <div>
+                  <h3 className="font-semibold mb-1">Campaign Attribution (Source ID)</h3>
+                  {isEditing ? (
+                    <>
+                      <Input
+                        name="source_id"
+                        value={editableContent.source_id || ''}
+                        onChange={handleInputChange}
+                        className="w-full mb-2"
+                        placeholder="e.g. facebook, email-sept, influencer1"
+                      />
+                      <div className="mt-2">
+                        <p className="text-xs text-gray-500 mb-1">Example referral link with this source_id:</p>
+                        <p className="p-2 bg-gray-50 rounded border border-gray-200 text-xs font-mono overflow-auto">
+                          {getExampleReferralLink()}
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="p-3 bg-gray-50 rounded border border-gray-100">
+                        {campaign.source_id || 'No source ID set'}
+                      </p>
+                      {campaign.source_id && (
+                        <div className="mt-2">
+                          <p className="text-xs text-gray-500 mb-1">Referral links will include:</p>
+                          <p className="p-2 bg-gray-50 rounded border border-gray-200 text-xs font-mono">
+                            &source_id={campaign.source_id}
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    This ID will be appended to all referral links to track campaign performance
+                  </p>
+                </div>
+                
+                <div>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-semibold">Why Share Items</h3>
                     {isEditing && (
@@ -745,3 +789,4 @@ const AdminCampaignPreview = () => {
 };
 
 export default AdminCampaignPreview;
+

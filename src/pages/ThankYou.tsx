@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -6,6 +5,7 @@ import { Helmet } from 'react-helmet-async';
 import { supabase } from "@/integrations/supabase/client";
 import { CheckCircle } from "lucide-react";
 import { useCampaign } from "@/contexts/CampaignContext";
+import { generateReferralLink } from "@/features/campaigns/utils/referralLinks";
 
 declare global {
   interface Window {
@@ -22,28 +22,22 @@ const ThankYou = () => {
   const [referralCode, setReferralCode] = useState<string>("");
   const [isReturningUser, setIsReturningUser] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  // Keep jwtStatus for debugging, but don't display it to users
   const [jwtStatus, setJwtStatus] = useState<string | null>(null);
   const { toast } = useToast();
   const { campaign } = useCampaign();
   
-  // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
   
-  // Meta description for better sharing from thank you page
   const metaDescription = "Help your students succeed while increasing your chances to win $1,000 for your classroom! Share with other teachers and parents to earn bonus entries.";
   const metaTitle = "Thank You - Share & Win More | Educ8r Sweepstakes";
   const metaImage = "https://educ8r.freeparentsearch.com/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png";
   const metaUrl = "https://educ8r.freeparentsearch.com/thank-you";
 
-  // Add direct meta tags to the document head for better crawler detection
   useEffect(() => {
-    // Set basic meta tags directly in the document head
     document.title = metaTitle;
     
-    // Update or create meta description
     let metaDescEl = document.querySelector('meta[name="description"]');
     if (!metaDescEl) {
       metaDescEl = document.createElement('meta');
@@ -52,7 +46,6 @@ const ThankYou = () => {
     }
     metaDescEl.setAttribute('content', metaDescription);
     
-    // Update or create Open Graph tags
     const ogTags = {
       'og:title': "Share & Get More Chances to Win $1,000 for Your Classroom!",
       'og:description': metaDescription,
@@ -71,7 +64,6 @@ const ThankYou = () => {
       ogTag.setAttribute('content', content);
     });
     
-    // Update or create Twitter Card tags
     const twitterTags = {
       'twitter:card': 'summary_large_image',
       'twitter:title': "Share & Get More Chances to Win $1,000 for Your Classroom!",
@@ -90,23 +82,19 @@ const ThankYou = () => {
     });
     
     return () => {
-      // Cleanup not necessary as we want to keep the meta tags
     };
   }, []);
 
   useEffect(() => {
-    // Check JWT status of the everflow-webhook endpoint (for debugging only)
     const checkJwtStatus = async () => {
       try {
         const response = await fetch("https://epfzraejquaxqrfmkmyx.supabase.co/functions/v1/everflow-webhook/debug?jwt_check=true");
         const data = await response.json();
         console.log('JWT verification status check result:', data);
         
-        // Improved detection of JWT status with explicit check of the enabled flag
         const jwtEnabled = data.jwt_status?.enabled;
         console.log('JWT enabled flag from endpoint:', jwtEnabled);
         
-        // Only show "Disabled (OK)" when explicitly false, not when undefined or any other value
         setJwtStatus(jwtEnabled === false ? 'Disabled (OK)' : 'Enabled (Issue)');
         
         if (jwtEnabled !== false) {
@@ -120,16 +108,13 @@ const ThankYou = () => {
     
     checkJwtStatus();
     
-    // Get the unique referral code that was saved during signup
     const checkForReferralCode = async () => {
       const code = localStorage.getItem("referralCode");
       console.log('Retrieved referral code from localStorage:', code);
       
-      // Check if user is returning from localStorage flag
       const returningUserFlag = localStorage.getItem("isReturningUser");
       setIsReturningUser(returningUserFlag === "true");
       
-      // Handle different states of the referral code
       if (!code) {
         console.error("No referral code found in localStorage");
         toast({
@@ -140,14 +125,11 @@ const ThankYou = () => {
         return;
       }
       
-      // If the code is still processing, show loading state and poll
       if (code === "PROCESSING") {
         setIsLoading(true);
         return;
       }
       
-      // Verify the referral code matches what's in the database
-      // This will help us debug the mismatch
       try {
         const { data, error } = await supabase
           .from('entries')
@@ -163,27 +145,22 @@ const ThankYou = () => {
           
           if (data.referral_code !== code) {
             console.warn("MISMATCH: Local storage referral code doesn't match database code");
-            // Update localStorage with the correct code from the database
             localStorage.setItem("referralCode", data.referral_code);
             setReferralCode(data.referral_code);
           } else {
-            // We have a valid code, set it and stop loading
             setReferralCode(code);
           }
         }
       } catch (err) {
         console.error("Error during referral code verification:", err);
-        // We still set the code from localStorage as a fallback
         setReferralCode(code);
       }
       
       setIsLoading(false);
     };
     
-    // Initial check
     checkForReferralCode();
     
-    // If in processing state, poll for updates
     let pollInterval: number | null = null;
     if (isLoading) {
       pollInterval = window.setInterval(() => {
@@ -193,19 +170,16 @@ const ThankYou = () => {
           setReferralCode(updatedCode);
           setIsLoading(false);
           
-          // Update returning user status
           const returningUserFlag = localStorage.getItem("isReturningUser");
           setIsReturningUser(returningUserFlag === "true");
           
-          // Clear interval once we have the code
           if (pollInterval) {
             clearInterval(pollInterval);
           }
         }
-      }, 500); // Check every 500ms
+      }, 500);
     }
     
-    // Cleanup
     return () => {
       if (pollInterval) {
         clearInterval(pollInterval);
@@ -213,8 +187,7 @@ const ThankYou = () => {
     };
   }, [toast, isLoading]);
 
-  // Updated to use the production partner URL
-  const referralLink = `https://dmlearninglab.com/homesc/?utm_source=sweeps&oid=1987&sub1=${referralCode}`;
+  const referralLink = generateReferralLink(referralCode, campaign?.source_id);
   const copyReferralLink = async () => {
     try {
       await navigator.clipboard.writeText(referralLink);
@@ -233,7 +206,6 @@ const ThankYou = () => {
     }
   };
   
-  // Get default values or campaign-specific values
   const shareTitle = campaign?.share_title || "Give Your Students' Parents a Free Gift!";
   const shareDescription = campaign?.share_description || 
     "Share your referral link with the parents of your students. When they sign up for a free trial of Comprendi™, you'll earn an extra entry for every parent who activates the trial.";
@@ -260,20 +232,17 @@ const ThankYou = () => {
         <title>{metaTitle}</title>
         <meta name="description" content={metaDescription} />
         
-        {/* Open Graph tags for Facebook, LinkedIn, etc */}
         <meta property="og:title" content="Share & Get More Chances to Win $1,000 for Your Classroom!" />
         <meta property="og:description" content={metaDescription} />
         <meta property="og:image" content={metaImage} />
         <meta property="og:url" content={metaUrl} />
         <meta property="og:type" content="website" />
         
-        {/* Twitter Card tags */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Share & Get More Chances to Win $1,000 for Your Classroom!" />
         <meta name="twitter:description" content={metaDescription} />
         <meta name="twitter:image" content={metaImage} />
         
-        {/* Additional SEO tags */}
         <link rel="canonical" href={metaUrl} />
         <meta name="keywords" content="classroom sweepstakes, teacher referral, win classroom supplies, education contest, free school supplies" />
       </Helmet>
