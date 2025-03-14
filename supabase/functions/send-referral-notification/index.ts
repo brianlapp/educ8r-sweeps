@@ -2,8 +2,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { Resend } from "npm:resend@2.0.0"
 import { initJwtBypass, getJwtVerificationState } from "../_shared/jwt-cache.ts"
+import { createClient } from "@supabase/supabase-js"
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"))
+const supabaseUrl = Deno.env.get("SUPABASE_URL") || ""
+const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
 
 // Enhanced CORS headers for maximum compatibility
 const corsHeaders = {
@@ -19,6 +22,17 @@ interface ReferralNotificationRequest {
   firstName: string;
   totalEntries: number;
   referralCode: string;
+  campaignId?: string; // Optional campaign ID to determine which template to use
+}
+
+interface CampaignEmailTemplate {
+  email_subject: string;
+  email_heading: string;
+  email_referral_message: string;
+  email_cta_text: string;
+  email_footer_message: string;
+  prize_amount: string;
+  prize_name: string;
 }
 
 serve(async (req) => {
@@ -137,12 +151,16 @@ serve(async (req) => {
     const referralCode = notificationData.referralCode || notificationData.referral_code || 
                         payload.referralCode || payload.referral_code ||
                         payload.ref || notificationData.ref;
+    // Get campaign ID if provided
+    const campaignId = notificationData.campaignId || notificationData.campaign_id || 
+                      payload.campaignId || payload.campaign_id;
     
     // Detailed logging of what was extracted
     console.log('Extracted email:', email, typeof email);
     console.log('Extracted firstName:', firstName, typeof firstName);
     console.log('Extracted totalEntries:', totalEntries, typeof totalEntries);
     console.log('Extracted referralCode:', referralCode, typeof referralCode);
+    console.log('Extracted campaignId:', campaignId, typeof campaignId);
     
     // Validate that we have all required fields
     const missingFields = [];
@@ -174,20 +192,75 @@ serve(async (req) => {
     // Create the referral link using the referral code
     const referralLink = `https://dmlearninglab.com/homesc/?utm_source=sweeps&oid=1987&sub1=${referralCode}`;
     
+    // Initialize the Supabase client if we have a campaign ID
+    let templateData: CampaignEmailTemplate | null = null;
+    if (campaignId && supabaseUrl && supabaseKey) {
+      console.log(`Fetching campaign ${campaignId} from Supabase`);
+      try {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const { data, error } = await supabase
+          .from('campaigns')
+          .select('email_subject, email_heading, email_referral_message, email_cta_text, email_footer_message, prize_amount, prize_name')
+          .eq('id', campaignId)
+          .single();
+        
+        if (error) {
+          console.error('Error fetching campaign:', error);
+        } else if (data) {
+          console.log('Campaign template data retrieved:', data);
+          templateData = data;
+        }
+      } catch (dbError) {
+        console.error('Exception fetching campaign data:', dbError);
+      }
+    } else {
+      console.log('No campaign ID provided or Supabase credentials missing - using default template');
+    }
+    
+    // Set default template values that will be used if no template is found
+    const emailSubject = templateData?.email_subject || 'Congratulations! You earned a Sweepstakes entry!';
+    const emailHeading = templateData?.email_heading || 'You just earned an extra Sweepstakes entry!';
+    const prizeAmount = templateData?.prize_amount || '$1,000';
+    const prizeName = templateData?.prize_name || 'Classroom Sweepstakes';
+    
+    // Process the email template fields with the data
+    const processTemplate = (text: string) => {
+      return text
+        .replace(/\{\{firstName\}\}/g, firstName)
+        .replace(/\{\{first_name\}\}/g, firstName)
+        .replace(/\{\{totalEntries\}\}/g, totalEntries.toString())
+        .replace(/\{\{total_entries\}\}/g, totalEntries.toString())
+        .replace(/\{\{prize_amount\}\}/g, prizeAmount)
+        .replace(/\{\{prize_name\}\}/g, prizeName)
+        .replace(/\{\{referralCode\}\}/g, referralCode)
+        .replace(/\{\{referral_code\}\}/g, referralCode)
+        .replace(/\{\{referralLink\}\}/g, referralLink)
+        .replace(/\{\{referral_link\}\}/g, referralLink);
+    };
+    
+    let emailReferralMessage = templateData?.email_referral_message || 
+      `Great news! One of your referrals just tried Comprendi™, and you now have ${totalEntries} entries in the ${prizeAmount} ${prizeName} Sweepstakes!`;
+    
+    emailReferralMessage = processTemplate(emailReferralMessage);
+    
+    const emailCtaText = templateData?.email_cta_text || 'Visit Comprendi Reading';
+    const emailFooterMessage = templateData?.email_footer_message || 
+      'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!';
+    
     // Send the email notification
     console.log('Sending email to:', email);
-    console.log('Email payload:', {
-      email: email,
-      firstName: firstName,
-      totalEntries: totalEntries,
-      referralCode: referralCode,
-      referralLink
+    console.log('Using email template:', {
+      subject: emailSubject,
+      heading: emailHeading,
+      referralMessage: emailReferralMessage,
+      ctaText: emailCtaText,
+      footerMessage: emailFooterMessage
     });
     
     const emailResult = await resend.emails.send({
-      from: 'School Supplies Sweepstakes <noreply@educ8r.freeparentsearch.com>',
+      from: 'FPS Sweepstakes <noreply@educ8r.freeparentsearch.com>',
       to: email,
-      subject: 'Congratulations! You earned a Sweepstakes entry!',
+      subject: processTemplate(emailSubject),
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
           <div style="text-align: center; margin-bottom: 20px;">
@@ -197,9 +270,9 @@ serve(async (req) => {
           <h1 style="color: #2C3E50; text-align: center; margin-bottom: 20px;">Congratulations, ${firstName}!</h1>
           
           <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #3b82f6;">
-            <h2 style="color: #3b82f6; margin-top: 0;">You just earned an extra Sweepstakes entry!</h2>
+            <h2 style="color: #3b82f6; margin-top: 0;">${processTemplate(emailHeading)}</h2>
             <p style="font-size: 16px; line-height: 1.5;">
-              Great news! One of your referrals just tried Comprendi™, and you now have <strong>${totalEntries} entries</strong> in the $1,000 Classroom Sweepstakes!
+              ${emailReferralMessage}
             </p>
           </div>
           
@@ -212,11 +285,11 @@ serve(async (req) => {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${referralLink}" style="display: inline-block; background-color: #16a34a; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; font-size: 16px;">Visit Comprendi Reading</a>
+            <a href="${referralLink}" style="display: inline-block; background-color: #16a34a; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; font-size: 16px;">${processTemplate(emailCtaText)}</a>
           </div>
           
           <p style="font-size: 16px; line-height: 1.5;">
-            Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!
+            ${processTemplate(emailFooterMessage)}
           </p>
           
           <p style="font-size: 16px; line-height: 1.5; margin-top: 30px;">

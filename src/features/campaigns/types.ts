@@ -39,6 +39,8 @@ export interface Campaign {
   email_referral_message?: string;
   email_cta_text?: string;
   email_footer_message?: string;
+  // Sender name - Added here for tracking but managed at the edge function level
+  email_sender_name?: string;
 }
 
 export interface CampaignFormData {
@@ -72,6 +74,8 @@ export interface CampaignFormData {
   email_referral_message?: string;
   email_cta_text?: string;
   email_footer_message?: string;
+  // Sender name - Added here for tracking but managed at the edge function level
+  email_sender_name?: string;
 }
 
 export interface SupabaseCampaign {
@@ -107,4 +111,6 @@ export interface SupabaseCampaign {
   email_referral_message?: string;
   email_cta_text?: string;
   email_footer_message?: string;
+  // Sender name - Added here for tracking but managed at the edge function level
+  email_sender_name?: string;
 }

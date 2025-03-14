@@ -43,6 +43,7 @@ export function EmailTemplatePreview({ campaign, previewData = { firstName: 'Joh
     const emailReferralMessage = processTemplate(campaign.email_referral_message || `Great news! One of your referrals just tried Comprendi™, and you now have ${previewData.totalEntries} entries in the ${campaign.prize_amount} ${campaign.prize_name} Sweepstakes!`);
     const emailCtaText = processTemplate(campaign.email_cta_text || 'Visit Comprendi Reading');
     const emailFooterMessage = processTemplate(campaign.email_footer_message || 'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!');
+    const senderName = 'FPS Sweepstakes';
 
     // Generate the HTML template
     const html = `
@@ -74,6 +75,10 @@ export function EmailTemplatePreview({ campaign, previewData = { firstName: 'Joh
         
         <p style="font-size: 16px; line-height: 1.5;">
           ${emailFooterMessage}
+        </p>
+        
+        <p style="font-size: 16px; line-height: 1.5; margin-top: 30px;">
+          Thank you for spreading the word about Comprendi™ and helping more students succeed!
         </p>
         
         <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; color: #64748b; font-size: 14px;">
@@ -111,6 +116,9 @@ export function EmailTemplatePreview({ campaign, previewData = { firstName: 'Joh
     <Card className="w-full">
       <CardContent className="p-4">
         <div className="mb-4">
+          <p className="text-sm text-gray-500 mb-2">
+            <span className="font-medium">From:</span> FPS Sweepstakes &lt;noreply@educ8r.freeparentsearch.com&gt;
+          </p>
           <p className="text-sm text-gray-500 mb-2">
             <span className="font-medium">Email Subject:</span> {campaign.email_subject || 'Congratulations! You earned a Sweepstakes entry!'}
           </p>

@@ -9,6 +9,7 @@ interface CampaignContextType {
   isLoading: boolean;
   error: Error | null;
   refreshCampaign: () => Promise<void>;
+  campaignId: string | null;
 }
 
 const CampaignContext = createContext<CampaignContextType | undefined>(undefined);
@@ -18,6 +19,7 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const { slug = 'classroom-supplies-2025' } = useParams();
+  const [campaignId, setCampaignId] = useState<string | null>(null);
 
   const fetchCampaign = async () => {
     try {
@@ -34,6 +36,7 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       if (data) {
         console.log('Campaign data fetched:', data);
+        setCampaignId(data.id);
         // If why_share_items is a string, parse it to an object
         const processedData = {
           ...data,
@@ -68,7 +71,7 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [slug]);
 
   return (
-    <CampaignContext.Provider value={{ campaign, isLoading, error, refreshCampaign: fetchCampaign }}>
+    <CampaignContext.Provider value={{ campaign, isLoading, error, refreshCampaign: fetchCampaign, campaignId }}>
       {children}
     </CampaignContext.Provider>
   );
