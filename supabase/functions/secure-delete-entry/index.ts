@@ -51,6 +51,23 @@ serve(async (req) => {
       }
       
       console.log(`[secure-delete-entry] Successfully removed referral_conversions for code: ${entryData.referral_code}`)
+      
+      // Clear the referred_by field for any entries that were referred by this entry
+      const { error: updateReferralsError } = await supabaseClient
+        .from('entries')
+        .update({ 
+          referred_by: null,
+          // Adjust total entries since the referral is being removed
+          total_entries: supabaseClient.rpc('greatest', { a: 1, b: 'entry_count' })
+        })
+        .eq('referred_by', entryData.referral_code)
+      
+      if (updateReferralsError) {
+        console.error(`[secure-delete-entry] Error updating referred entries: ${updateReferralsError.message}`)
+        throw updateReferralsError
+      }
+      
+      console.log(`[secure-delete-entry] Successfully updated entries referred by: ${entryData.referral_code}`)
     }
     
     // Now delete the entry itself

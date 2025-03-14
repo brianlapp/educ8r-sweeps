@@ -10,13 +10,15 @@ import { Tables } from "@/integrations/supabase/types";
 import { ManualSyncButton } from "@/components/ManualSyncButton";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Trash2, Users } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Trash2, Users, AlertCircle, Loader2 } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { BackToAdminButton } from "@/components/admin/BackToAdminButton";
 
 const AdminEntries = () => {
   const [entries, setEntries] = useState<Tables<'entries'>[]>([]);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -58,6 +60,7 @@ const AdminEntries = () => {
     try {
       console.log("[AdminEntriesPage] Starting delete process for entry ID:", id);
       setIsDeleting(id);
+      setDeleteError(null);
       
       // First, double-check that the entry exists
       const { data: checkData, error: checkError } = await supabase
@@ -96,6 +99,11 @@ const AdminEntries = () => {
         throw new Error(response.error.message || "Error deleting entry");
       }
       
+      if (!response.data.success) {
+        console.error("[AdminEntriesPage] Delete operation reported failure:", response.data);
+        throw new Error(response.data.error || "Server reported delete failure");
+      }
+      
       console.log("[AdminEntriesPage] Entry successfully deleted from database, ID:", id);
       
       // Update the cache to reflect the deletion
@@ -106,21 +114,11 @@ const AdminEntries = () => {
         description: "The entry has been successfully deleted from the database.",
       });
       
-      // Manually refetch to verify deletion
-      const { data: verifyData } = await supabase
-        .from('entries')
-        .select('id')
-        .eq('id', id);
-        
-      if (verifyData && verifyData.length > 0) {
-        console.error("[AdminEntriesPage] Entry still exists after deletion:", id);
-        throw new Error("Entry still exists after deletion");
-      } else {
-        console.log("[AdminEntriesPage] Verified entry no longer exists in database");
-      }
-      
     } catch (error) {
       console.error("[AdminEntriesPage] Error in delete process:", error);
+      
+      // Set error state
+      setDeleteError(error.message || "Failed to delete entry");
       
       // Revert optimistic UI update and refresh data from server
       await refetch();
@@ -136,7 +134,12 @@ const AdminEntries = () => {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500 mr-2" />
+        <span>Loading entries...</span>
+      </div>
+    );
   }
 
   const columns = [
@@ -161,8 +164,17 @@ const AdminEntries = () => {
       cell: ({ row }) => (
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50">
-              <Trash2 size={16} />
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+              disabled={isDeleting === row.original.id}
+            >
+              {isDeleting === row.original.id ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 size={16} />
+              )}
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
@@ -170,6 +182,12 @@ const AdminEntries = () => {
               <AlertDialogTitle>Delete Entry</AlertDialogTitle>
               <AlertDialogDescription>
                 Are you sure you want to delete this entry? This action cannot be undone.
+                {row.original.referral_count > 0 && (
+                  <div className="mt-2 p-2 bg-amber-50 text-amber-800 rounded-md">
+                    <span className="font-medium">Warning:</span> This entry has {row.original.referral_count} referrals. 
+                    Those entries will remain, but their referral attribution will be removed.
+                  </div>
+                )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -177,8 +195,16 @@ const AdminEntries = () => {
               <AlertDialogAction 
                 onClick={() => handleDeleteEntry(row.original.id)}
                 className="bg-red-500 hover:bg-red-600"
+                disabled={isDeleting === row.original.id}
               >
-                Delete
+                {isDeleting === row.original.id ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete"
+                )}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -198,6 +224,16 @@ const AdminEntries = () => {
           description="View and manage all sweepstakes entries"
           actions={<BackToAdminButton />}
         />
+
+        {deleteError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              {deleteError}
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Card className="mb-8 overflow-hidden border border-gray-100">
           <CardHeader className="bg-white py-4 px-6">
