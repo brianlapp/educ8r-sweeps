@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { useCampaign } from "@/contexts/CampaignContext";
 import { PartnershipBanner } from "@/components/PartnershipBanner";
 import { OptimizedImage } from "@/components/OptimizedImage";
+
 const Index = () => {
   const targetDate = new Date("August 15, 2025");
   const {
@@ -116,7 +117,7 @@ const Index = () => {
             <div className="w-full mx-auto">
               <h2 className="text-2xl font-semibold mb-2 text-center font-poppins">⏰ Limited Time Opportunity!</h2>
               <p className="text-center font-semibold text-gray-800 mb-6 text-md font-poppins">
-                Be Among the First 500 {campaign?.target_audience || "Teachers"} to Enter!
+                Be Among the First 500 to Enter!
               </p>
               <CountdownTimer targetDate={targetDate} displayMode="launch-phase" />
               
@@ -165,4 +166,5 @@ const Index = () => {
       </footer>
     </div>;
 };
+
 export default Index;
