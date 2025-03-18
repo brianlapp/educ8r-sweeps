@@ -1,3 +1,4 @@
+
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Helmet } from 'react-helmet-async';
@@ -6,6 +7,7 @@ import { useEffect } from "react";
 import { useCampaign } from "@/contexts/CampaignContext";
 import { PartnershipBanner } from "@/components/PartnershipBanner";
 import { OptimizedImage } from "@/components/OptimizedImage";
+
 const Index = () => {
   const targetDate = new Date("August 15, 2025");
   const {
@@ -13,16 +15,20 @@ const Index = () => {
     isLoading
   } = useCampaign();
   const currentYear = new Date().getFullYear();
+  
   const defaultMeta = {
     title: "Win $1,000 for Your Classroom - Educ8r Sweepstakes",
     description: "Enter now to win $1,000 for your classroom supplies! Free entry for educators. Support your students with everything they need for a successful school year.",
     image: "https://educ8r.freeparentsearch.com/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png",
     url: "https://educ8r.freeparentsearch.com"
   };
-  const metaTitle = campaign?.meta_title || defaultMeta.title;
-  const metaDescription = campaign?.meta_description || defaultMeta.description;
-  const metaImage = campaign?.meta_image || defaultMeta.image;
-  const metaUrl = campaign?.meta_url || defaultMeta.url;
+  
+  // Changed from || to ?? to properly handle empty strings in campaign meta fields
+  const metaTitle = campaign?.meta_title ?? defaultMeta.title;
+  const metaDescription = campaign?.meta_description ?? defaultMeta.description;
+  const metaImage = campaign?.meta_image ?? defaultMeta.image;
+  const metaUrl = campaign?.meta_url ?? defaultMeta.url;
+
   useEffect(() => {
     document.title = metaTitle;
     let metaDescEl = document.querySelector('meta[name="description"]');
@@ -64,6 +70,7 @@ const Index = () => {
       twitterTag.setAttribute('content', content);
     });
   }, [metaTitle, metaDescription, metaImage, metaUrl]);
+
   return <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white font-poppins">
       <Helmet>
         <title>{metaTitle}</title>
@@ -165,4 +172,5 @@ const Index = () => {
       </footer>
     </div>;
 };
+
 export default Index;
