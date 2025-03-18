@@ -1,4 +1,3 @@
-
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Helmet } from 'react-helmet-async';
@@ -105,7 +104,7 @@ const Index = () => {
         <div className="container mx-auto px-2 sm:px-4 pt-0 md:pt-6">
           {isLoading ? <div className="text-center py-12">
               <p className="text-xl font-poppins">Loading campaign...</p>
-            </div> : <div className="relative grid md:grid-cols-2 gap-0 items-center max-w-6xl mx-auto">
+            </div> : <div className="relative grid sm:grid-cols-2 gap-0 items-center max-w-6xl mx-auto">
               <div className="order-1 md:order-1 md:pr-12 z-0 md:w-[calc(100%+3rem)]">
                 <OptimizedImage alt="Campaign hero image" className="w-full animate-fadeIn transform hover:scale-[1.02] transition-transform duration-300 rounded-none" src={campaign?.hero_image_url || "/lovable-uploads/308c0411-e546-4640-ab1a-b354a074f9c4.png"} maxWidth={800} quality={0.8} width={800} height={600} isLCP={true} eager={true} priority="high" />
               </div>

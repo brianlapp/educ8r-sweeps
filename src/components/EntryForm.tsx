@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -147,7 +146,6 @@ export const EntryForm = () => {
           campaign_slug: campaign?.slug
         });
         
-        // Build the thank you page URL with the referral code as a parameter
         let thankYouUrl = '';
         if (campaign) {
           thankYouUrl = `/${campaign.slug}/thank-you?code=${encodeURIComponent(referralCode)}`;
@@ -201,7 +199,7 @@ export const EntryForm = () => {
   const buttonText = isSubmitting ? "Submitting..." : "Enter Now for FREE!";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-lg mx-auto">
+    <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-md mx-auto">
       {campaignLoading ? (
         <div className="text-center py-2">Loading campaign...</div>
       ) : (
