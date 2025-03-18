@@ -126,14 +126,16 @@
   }
 
   /* When title is very long, adjust font size at different breakpoints */
-  @media (max-width: 767px) {
+  @media (max-width: 639px) {
     .line-clamp-2 {
       font-size: clamp(1.125rem, 5vw, 1.5rem);
       line-height: 1.2;
+      width: 100%;
+      max-width: none;
     }
   }
   
-  @media (min-width: 768px) and (max-width: 1023px) {
+  @media (min-width: 640px) and (max-width: 1023px) {
     .line-clamp-2 {
       font-size: clamp(1.25rem, 4vw, 1.75rem);
       line-height: 1.2;

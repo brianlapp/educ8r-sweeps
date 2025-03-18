@@ -204,7 +204,7 @@ export const EntryForm = () => {
         <div className="text-center py-2">Loading campaign...</div>
       ) : (
         <>
-          <h2 className="text-2xl lg:text-3xl mb-3 text-center text-[#2C3E50] font-bold font-poppins min-h-[64px] transition-all duration-200 line-clamp-2 leading-tight w-full max-w-prose px-4 mx-auto">
+          <h2 className="text-2xl lg:text-3xl mb-3 text-center text-[#2C3E50] font-bold font-poppins min-h-[64px] transition-all duration-200 line-clamp-2 leading-tight w-full px-4 mx-auto sm:max-w-full">
             {campaign?.title}
           </h2>
           {campaign?.subtitle && (
