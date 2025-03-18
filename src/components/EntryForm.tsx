@@ -201,12 +201,12 @@ export const EntryForm = () => {
   const buttonText = isSubmitting ? "Submitting..." : "Enter Now for FREE!";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-md mx-auto">
+    <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-lg mx-auto">
       {campaignLoading ? (
         <div className="text-center py-2">Loading campaign...</div>
       ) : (
         <>
-          <h2 className="text-2xl lg:text-3xl mb-3 text-center text-[#2C3E50] font-bold font-poppins min-h-[64px] transition-all duration-200 line-clamp-2 leading-tight">
+          <h2 className="text-2xl lg:text-3xl mb-3 text-center text-[#2C3E50] font-bold font-poppins min-h-[64px] transition-all duration-200 line-clamp-2 leading-tight w-full max-w-prose px-4 mx-auto">
             {campaign?.title}
           </h2>
           {campaign?.subtitle && (
