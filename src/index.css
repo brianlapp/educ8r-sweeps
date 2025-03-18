@@ -115,16 +115,35 @@
     line-height: 1.25;
   }
 
+  /* Line clamp to ensure title stays on exactly 2 lines */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;  
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-height: 2.4em; /* Ensure exactly 2 lines */
+  }
+
   /* When title is very long, adjust font size at different breakpoints */
-  @media (min-width: 768px) {
-    .form-title.long-title {
-      font-size: calc(1.5rem - 0.15vw);
+  @media (max-width: 767px) {
+    .line-clamp-2 {
+      font-size: clamp(1.125rem, 5vw, 1.5rem);
+      line-height: 1.2;
+    }
+  }
+  
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .line-clamp-2 {
+      font-size: clamp(1.25rem, 4vw, 1.75rem);
+      line-height: 1.2;
     }
   }
   
   @media (min-width: 1024px) {
-    .form-title.long-title {
-      font-size: calc(1.75rem - 0.1vw);
+    .line-clamp-2 {
+      font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+      line-height: 1.2;
     }
   }
 }
