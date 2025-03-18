@@ -1,3 +1,4 @@
+
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Helmet } from 'react-helmet-async';
@@ -20,6 +21,11 @@ const Index = () => {
     image: "https://educ8r.freeparentsearch.com/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png",
     url: "https://educ8r.freeparentsearch.com"
   };
+  
+  const metaTitle = campaign?.meta_title || defaultMeta.title;
+  const metaDescription = campaign?.meta_description || defaultMeta.description;
+  const metaImage = campaign?.meta_image || defaultMeta.image;
+  const metaUrl = campaign?.meta_url || defaultMeta.url;
   
   useEffect(() => {
     document.title = metaTitle;
