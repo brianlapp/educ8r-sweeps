@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -156,6 +157,12 @@
   .focus\:shadow-outline:focus {
     box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5);
   }
+  
+  /* List Utilities */
+  .list-disc-primary {
+    list-style-type: disc;
+    color: theme('colors.primary.DEFAULT');
+  }
 }
 
 @layer utilities {
@@ -278,12 +285,6 @@
 /* Typography Utilities */
 .text-readable {
   max-width: 65ch;
-}
-
-/* List Utilities */
-.list-disc-primary {
-  list-style-type: disc;
-  color: theme('colors.primary.500');
 }
 
 /* Table Utilities */
