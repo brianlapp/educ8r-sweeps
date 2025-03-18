@@ -20,10 +20,7 @@ const Index = () => {
     image: "https://educ8r.freeparentsearch.com/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png",
     url: "https://educ8r.freeparentsearch.com"
   };
-  const metaTitle = campaign?.meta_title || defaultMeta.title;
-  const metaDescription = campaign?.meta_description || defaultMeta.description;
-  const metaImage = campaign?.meta_image || defaultMeta.image;
-  const metaUrl = campaign?.meta_url || defaultMeta.url;
+  
   useEffect(() => {
     document.title = metaTitle;
     let metaDescEl = document.querySelector('meta[name="description"]');
@@ -65,6 +62,7 @@ const Index = () => {
       twitterTag.setAttribute('content', content);
     });
   }, [metaTitle, metaDescription, metaImage, metaUrl]);
+  
   return <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white font-poppins">
       <Helmet>
         <title>{metaTitle}</title>
