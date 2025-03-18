@@ -6,7 +6,6 @@ import { useEffect } from "react";
 import { useCampaign } from "@/contexts/CampaignContext";
 import { PartnershipBanner } from "@/components/PartnershipBanner";
 import { OptimizedImage } from "@/components/OptimizedImage";
-
 const Index = () => {
   const targetDate = new Date("August 15, 2025");
   const {
@@ -20,12 +19,10 @@ const Index = () => {
     image: "https://educ8r.freeparentsearch.com/lovable-uploads/a0e26259-94d6-485e-b081-739e0d185d14.png",
     url: "https://educ8r.freeparentsearch.com"
   };
-  
   const metaTitle = campaign?.meta_title || defaultMeta.title;
   const metaDescription = campaign?.meta_description || defaultMeta.description;
   const metaImage = campaign?.meta_image || defaultMeta.image;
   const metaUrl = campaign?.meta_url || defaultMeta.url;
-  
   useEffect(() => {
     document.title = metaTitle;
     let metaDescEl = document.querySelector('meta[name="description"]');
@@ -67,7 +64,6 @@ const Index = () => {
       twitterTag.setAttribute('content', content);
     });
   }, [metaTitle, metaDescription, metaImage, metaUrl]);
-  
   return <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white font-poppins">
       <Helmet>
         <title>{metaTitle}</title>
@@ -111,7 +107,7 @@ const Index = () => {
               <div className="order-2 md:order-2 md:-ml-12 z-10 -mt-4 sm:-mt-8 md:mt-0">
                 <div className="bg-white p-6 md:p-8 rounded-xl shadow-md border border-blue-200 border-4 animate-slideUp">
                   <EntryForm />
-                  <p className="text-center text-xs text-gray-500 mt-4 font-poppins">In partnership with Comprendi™ by Dr. Marion's Learning Lab – Because tackling the reading crisis is a team effort.</p>
+                  
                 </div>
               </div>
             </div>}
@@ -169,5 +165,4 @@ const Index = () => {
       </footer>
     </div>;
 };
-
 export default Index;
