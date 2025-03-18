@@ -1,3 +1,4 @@
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Campaign, CampaignFormData, WhyShareItem } from "../types";
@@ -119,27 +120,28 @@ export function useCampaignMutations() {
         email_template_id: campaign.email_template_id,
         start_date: campaign.start_date,
         end_date: campaign.end_date,
-        share_title: campaign.share_title || '',
-        share_description: campaign.share_description || '',
-        hero_image_url: campaign.hero_image_url || null,
-        subtitle: campaign.subtitle || '',
-        promotional_text: campaign.promotional_text || '',
+        share_title: campaign.share_title ?? '',
+        share_description: campaign.share_description ?? '',
+        hero_image_url: campaign.hero_image_url ?? null,
+        subtitle: campaign.subtitle ?? '',
+        promotional_text: campaign.promotional_text ?? '',
         // Email template fields - explicitly included with proper null/undefined handling
-        email_subject: campaign.email_subject || 'Congratulations! You earned a Sweepstakes entry!',
-        email_heading: campaign.email_heading || 'You just earned an extra Sweepstakes entry!',
-        email_referral_message: campaign.email_referral_message || 
+        email_subject: campaign.email_subject ?? 'Congratulations! You earned a Sweepstakes entry!',
+        email_heading: campaign.email_heading ?? 'You just earned an extra Sweepstakes entry!',
+        email_referral_message: campaign.email_referral_message ?? 
           `Great news! One of your referrals just tried Comprendi™, and you now have {{totalEntries}} entries in the {{prize_amount}} {{prize_name}} Sweepstakes!`,
-        email_cta_text: campaign.email_cta_text || 'Visit Comprendi Reading',
-        email_footer_message: campaign.email_footer_message || 
+        email_cta_text: campaign.email_cta_text ?? 'Visit Comprendi Reading',
+        email_footer_message: campaign.email_footer_message ?? 
           'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!',
         // Campaign attribution
-        source_id: campaign.source_id || null,
+        source_id: campaign.source_id ?? null,
         // These fields might not exist in the database yet, so we need to carefully handle them
-        mobile_subtitle: campaign.mobile_subtitle || '',
-        meta_title: campaign.meta_title || null,
-        meta_description: campaign.meta_description || null,
-        meta_image: campaign.meta_image || null,
-        meta_url: campaign.meta_url || null,
+        mobile_subtitle: campaign.mobile_subtitle ?? '',
+        // Fix for metadata fields - Changed || to ?? to preserve empty strings
+        meta_title: campaign.meta_title ?? null,
+        meta_description: campaign.meta_description ?? null,
+        meta_image: campaign.meta_image ?? null,
+        meta_url: campaign.meta_url ?? null,
         // Convert WhyShareItem[] to Json for Supabase
         why_share_items: campaign.why_share_items as unknown as Json,
       };
