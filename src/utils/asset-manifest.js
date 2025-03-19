@@ -19,9 +19,30 @@ export function readAssetManifest() {
   try {
     if (fs.existsSync(MANIFEST_PATH)) {
       const manifestContent = fs.readFileSync(MANIFEST_PATH, 'utf8');
-      return JSON.parse(manifestContent);
+      try {
+        const manifest = JSON.parse(manifestContent);
+        // Check if manifest has expected structure (at least one entry)
+        if (Object.keys(manifest).length === 0) {
+          console.warn('Asset manifest is empty, using development paths');
+          return null;
+        }
+        return manifest;
+      } catch (parseError) {
+        console.error('Error parsing asset manifest:', parseError);
+        // Create a backup manifest
+        const emptyManifest = {};
+        fs.writeFileSync(MANIFEST_PATH, JSON.stringify(emptyManifest, null, 2));
+        return null;
+      }
     }
     console.warn('Asset manifest not found, using development paths');
+    // Ensure the dist directory exists
+    if (!fs.existsSync(DIST_DIR)) {
+      fs.mkdirSync(DIST_DIR, { recursive: true });
+    }
+    // Create a backup manifest
+    const emptyManifest = {};
+    fs.writeFileSync(MANIFEST_PATH, JSON.stringify(emptyManifest, null, 2));
     return null;
   } catch (error) {
     console.error('Error reading asset manifest:', error);
@@ -86,7 +107,7 @@ export function getJsEntryPoints(manifest) {
   return Object.entries(manifest)
     .filter(([key, value]) => 
       (key.includes('main') || key.includes('index')) && 
-      value.endsWith('.js')
+      String(value).endsWith('.js')
     )
     .map(([_, value]) => `/${value}`);
 }
@@ -100,6 +121,6 @@ export function getCssFiles(manifest) {
   if (!manifest) return [];
   
   return Object.values(manifest)
-    .filter(value => value.endsWith('.css'))
+    .filter(value => String(value).endsWith('.css'))
     .map(value => `/${value}`);
 }

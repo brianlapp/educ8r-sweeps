@@ -26,7 +26,19 @@ echo "Created initial asset manifest"
 
 # Run a partial build first to generate the real asset manifest
 echo "Running partial build to generate asset manifest..."
-npx vite build --mode production --no-srcmap --base / --outDir dist
+npx vite build --mode production --sourcemap false --base / --outDir dist
+
+# Check if the build succeeded and if manifest was generated properly
+if [ $? -ne 0 ]; then
+  echo "Error: Vite build failed, aborting static page generation"
+  exit 1
+fi
+
+# Verify the manifest exists and has content
+if [ ! -s dist/asset-manifest.json ]; then
+  echo "Warning: Asset manifest is empty or doesn't exist, creating default"
+  echo "{}" > dist/asset-manifest.json
+fi
 
 # Now run the static campaign page generator with the manifest
 echo "Executing static page generator..."
