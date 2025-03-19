@@ -6,6 +6,7 @@
 [build.environment]
   NODE_VERSION = "18"
   NPM_FLAGS = "--no-audit --no-fund"
+  DEBUG = "*"
 
 # This ensures our prebuild script has the required permissions
 [[plugins]]
@@ -14,4 +15,6 @@ package = "@netlify/plugin-functions-install-core"
 # Debug build output
 [context.production.environment]
   NODE_ENV = "production"
-  DEBUG = "true"
+  DEBUG = "*"
+  VITE_CJS_TRACE = "1"
+  VITE_CJS_IGNORE_WARNING = "false"

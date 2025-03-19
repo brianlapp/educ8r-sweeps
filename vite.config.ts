@@ -21,41 +21,17 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    // Enable minification for production
-    minify: 'terser',
+    // Disable minification temporarily for debugging
+    minify: mode === 'production' ? false : false,
+    // Simplified build options
+    sourcemap: true,
     rollupOptions: {
       output: {
-        // Code splitting configuration
+        // Simplified chunk strategy
         manualChunks: {
-          vendor: [
-            'react', 
-            'react-dom', 
-            'react-router-dom', 
-            'react-helmet-async'
-          ],
-          ui: [
-            '@radix-ui/react-accordion',
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-toast',
-            'class-variance-authority',
-            'clsx',
-            'tailwind-merge'
-          ],
-          charts: ['recharts'],
-          forms: [
-            'react-hook-form',
-            '@hookform/resolvers',
-            'zod'
-          ],
-          utils: [
-            'date-fns',
-            'sonner'
-          ]
+          vendor: ['react', 'react-dom', 'react-router-dom'],
         }
       }
     },
-    // Generate source maps for production
-    sourcemap: mode === 'development',
   }
 }));
