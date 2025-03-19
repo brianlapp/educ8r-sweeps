@@ -1,12 +1,13 @@
 
 [build]
-  command = "npm ci && npm run build"
+  command = "npx vite build"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "18"
   NPM_FLAGS = "--no-audit --no-fund"
   DEBUG = "*"
+  NODE_ENV = "development"  # Setting NODE_ENV to development to ensure devDependencies are installed
 
 # This ensures our prebuild script has the required permissions
 [[plugins]]
@@ -14,7 +15,7 @@ package = "@netlify/plugin-functions-install-core"
 
 # Debug build output
 [context.production.environment]
-  NODE_ENV = "production"
+  NODE_ENV = "development"  # Overriding to ensure devDependencies are installed during production build
   DEBUG = "*"
   VITE_CJS_TRACE = "1"
   VITE_CJS_IGNORE_WARNING = "false"
