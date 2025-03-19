@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react({
+      // SWC options - removing fastRefresh as it's not in the Options type
       jsxImportSource: undefined,
       tsDecorators: false,
     }),
@@ -124,8 +125,7 @@ export default defineConfig(({ mode }) => ({
       'clsx',
       'tailwind-merge',
       'react-hook-form',
-      'sonner',
-      '@vitejs/plugin-react-swc'  // Added to ensure it's included
+      'sonner'
     ],
     esbuildOptions: {
       target: 'es2020'

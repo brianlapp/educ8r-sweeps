@@ -1,11 +1,10 @@
 
 [build]
-  command = "npm install && npm run build"
+  command = "npm install vite@latest @vitejs/plugin-react-swc@latest --no-save && chmod +x ./scripts/prebuild.sh && ./scripts/prebuild.sh && npx vite build"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "18"
-  NODE_OPTIONS = "--max-old-space-size=4096"
 
 # This ensures our prebuild script has the required permissions
 [[plugins]]

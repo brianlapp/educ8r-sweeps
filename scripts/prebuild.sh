@@ -15,13 +15,9 @@ if [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
   echo "Warning: VITE_SUPABASE_ANON_KEY not set, using default"
 fi
 
-# Install required dependencies explicitly
-echo "Installing required dependencies for static page generator..."
-npm install @supabase/supabase-js fs-extra path-browserify url --no-save
-
 # Run the static campaign page generator with Node's ES modules flag
 echo "Executing static page generator with ES modules..."
-node src/utils/runStaticGenerator.js
+node --experimental-vm-modules src/utils/runStaticGenerator.js
 
 # Check if generator ran successfully
 if [ $? -eq 0 ]; then
