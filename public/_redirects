@@ -1,2 +1,9 @@
 
+# Try static campaign pages first
+/campaigns/:slug/index.html  /campaigns/:slug/index.html  200
+/campaigns/:slug             /campaigns/:slug/index.html  200
+/:slug/index.html           /:slug/index.html           200
+/:slug                      /:slug/index.html           200
+
+# Fall back to SPA for everything else
 /* /index.html 200

@@ -1,4 +1,3 @@
-
 import { EntryForm } from "@/components/EntryForm";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { Helmet } from 'react-helmet-async';
@@ -23,7 +22,6 @@ const Index = () => {
     url: "https://educ8r.freeparentsearch.com"
   };
   
-  // Changed from || to ?? to properly handle empty strings in campaign meta fields
   const metaTitle = campaign?.meta_title ?? defaultMeta.title;
   const metaDescription = campaign?.meta_description ?? defaultMeta.description;
   const metaImage = campaign?.meta_image ?? defaultMeta.image;

@@ -1,6 +1,6 @@
 
 [build]
-  command = "npm run build"
+  command = "chmod +x ./scripts/prebuild.sh && ./scripts/prebuild.sh && npm run build"
   publish = "dist"
 
 [build.environment]
