@@ -24,7 +24,7 @@ async function fetchCampaigns() {
     throw error;
   }
 
-  console.log(`Found ${data.length} active campaigns`);
+  console.log(`Found ${data.length} active campaigns:`, data.map(c => c.slug));
   return data;
 }
 
@@ -37,11 +37,13 @@ function processMetaTags(campaign) {
     url: `https://educ8r.freeparentsearch.com/${campaign.slug}`
   };
 
-  // Use nullish coalescing to handle empty strings
-  const metaTitle = campaign.meta_title ?? defaultMeta.title;
-  const metaDescription = campaign.meta_description ?? defaultMeta.description;
-  const metaImage = campaign.meta_image ?? defaultMeta.image;
-  const metaUrl = campaign.meta_url ?? defaultMeta.url;
+  // Use nullish coalescing to handle empty strings as well as null/undefined
+  const metaTitle = (campaign.meta_title && campaign.meta_title.trim()) ? campaign.meta_title : defaultMeta.title;
+  const metaDescription = (campaign.meta_description && campaign.meta_description.trim()) ? campaign.meta_description : defaultMeta.description;
+  const metaImage = (campaign.meta_image && campaign.meta_image.trim()) ? campaign.meta_image : defaultMeta.image;
+  const metaUrl = (campaign.meta_url && campaign.meta_url.trim()) ? campaign.meta_url : defaultMeta.url;
+
+  console.log(`Meta tags for campaign ${campaign.slug}:`, { metaTitle, metaDescription });
 
   return {
     title: metaTitle,
@@ -66,18 +68,18 @@ async function generateStaticFiles() {
       // Process meta tags
       const meta = processMetaTags(campaign);
       
-      // Update HTML with campaign-specific meta tags
+      // Update HTML with campaign-specific meta tags using more reliable regex patterns
       let campaignHtml = templateHtml
-        .replace(/<title>(.*?)<\/title>/, `<title>${meta.title}</title>`)
-        .replace(/<meta name="description" content="(.*?)"/, `<meta name="description" content="${meta.description}"`)
-        .replace(/<meta property="og:title" content="(.*?)"/, `<meta property="og:title" content="${meta.title}"`)
-        .replace(/<meta property="og:description" content="(.*?)"/, `<meta property="og:description" content="${meta.description}"`)
-        .replace(/<meta property="og:image" content="(.*?)"/, `<meta property="og:image" content="${meta.image}"`)
-        .replace(/<meta property="og:url" content="(.*?)"/, `<meta property="og:url" content="${meta.url}"`)
-        .replace(/<meta name="twitter:title" content="(.*?)"/, `<meta name="twitter:title" content="${meta.title}"`)
-        .replace(/<meta name="twitter:description" content="(.*?)"/, `<meta name="twitter:description" content="${meta.description}"`)
-        .replace(/<meta name="twitter:image" content="(.*?)"/, `<meta name="twitter:image" content="${meta.image}"`)
-        .replace(/<link rel="canonical" href="(.*?)"/, `<link rel="canonical" href="${meta.url}"`);
+        .replace(/<title>.*?<\/title>/i, `<title>${meta.title}</title>`)
+        .replace(/<meta name="description" content=".*?"/i, `<meta name="description" content="${meta.description}"`)
+        .replace(/<meta property="og:title" content=".*?"/i, `<meta property="og:title" content="${meta.title}"`)
+        .replace(/<meta property="og:description" content=".*?"/i, `<meta property="og:description" content="${meta.description}"`)
+        .replace(/<meta property="og:image" content=".*?"/i, `<meta property="og:image" content="${meta.image}"`)
+        .replace(/<meta property="og:url" content=".*?"/i, `<meta property="og:url" content="${meta.url}"`)
+        .replace(/<meta name="twitter:title" content=".*?"/i, `<meta name="twitter:title" content="${meta.title}"`)
+        .replace(/<meta name="twitter:description" content=".*?"/i, `<meta name="twitter:description" content="${meta.description}"`)
+        .replace(/<meta name="twitter:image" content=".*?"/i, `<meta name="twitter:image" content="${meta.image}"`)
+        .replace(/<link rel="canonical" href=".*?"/i, `<link rel="canonical" href="${meta.url}"`);
 
       // Create output directory for campaign
       const campaignDir = path.join(outputBaseDir, campaign.slug);
@@ -94,7 +96,10 @@ async function generateStaticFiles() {
       fs.writeFileSync(path.join(campaignDir, 'index.html'), campaignHtml);
       fs.writeFileSync(path.join(rootCampaignDir, 'index.html'), campaignHtml);
       
-      console.log(`Generated static HTML for ${campaign.slug}`);
+      console.log(`Generated static HTML for ${campaign.slug} at:`, 
+        path.join(campaignDir, 'index.html'), 
+        path.join(rootCampaignDir, 'index.html')
+      );
     }
 
     console.log('All static campaign pages generated successfully!');
