@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import fs from "fs";
-import type { OutputBundle, OutputOptions } from "rollup";
+import type { OutputBundle, OutputOptions, OutputChunk, OutputAsset } from "rollup";
 
 // Custom plugin to generate asset manifest
 function generateManifest() {
@@ -18,8 +18,9 @@ function generateManifest() {
         const chunk = bundle[fileName];
         
         // For JS entry points and CSS files
-        if ((chunk.type === 'chunk' && chunk.isEntry) || chunk.type === 'asset') {
-          const originalFile = chunk.facadeModuleId || chunk.name;
+        if (chunk.type === 'chunk') {
+          const chunkWithFacade = chunk as OutputChunk;
+          const originalFile = chunkWithFacade.facadeModuleId;
           if (originalFile) {
             // Strip the project root path to get a relative path
             const relativePath = originalFile.includes('src/') 
@@ -27,6 +28,12 @@ function generateManifest() {
               : originalFile;
             
             manifest[relativePath] = fileName;
+          }
+        } else if (chunk.type === 'asset') {
+          // Handle assets without facadeModuleId
+          const assetChunk = chunk as OutputAsset;
+          if (assetChunk.name) {
+            manifest[assetChunk.name] = fileName;
           }
         }
       }
