@@ -29,6 +29,7 @@ export function useCampaigns(includeHidden: boolean = false) {
       const campaigns: Campaign[] = (data as SupabaseCampaign[]).map(campaign => {
         console.log("[CAMPAIGNS-FETCH] Processing campaign:", campaign.title);
         
+        // Important change: Don't override meta fields with defaults if they exist in the database
         return {
           ...campaign,
           // Transform JSON fields
@@ -47,6 +48,7 @@ export function useCampaigns(includeHidden: boolean = false) {
             'Remember, each parent who activates a free trial through your link gives you another entry in the sweepstakes!',
           // Ensure source_id is always defined (even if null or empty)
           source_id: campaign.source_id || ''
+          // Removed any default values for meta fields to prevent overriding
         };
       });
       
