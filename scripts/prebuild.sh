@@ -16,8 +16,8 @@ if [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
 fi
 
 # Run the static campaign page generator with Node's ES modules flag
-echo "Executing static page generator with ES modules..."
-node --experimental-vm-modules src/utils/runStaticGenerator.js
+echo "Executing static page generator..."
+node src/utils/runStaticGenerator.js
 
 # Check if generator ran successfully
 if [ $? -eq 0 ]; then
