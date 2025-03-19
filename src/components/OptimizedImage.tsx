@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { optimizeImage, getImageDimensions } from '@/utils/imageOptimization';
 
@@ -84,7 +83,10 @@ export function OptimizedImage({
       link.setAttribute('fetchpriority', 'high');
       
       // Set media type for responsive images if necessary
-      if (propWidth && propWidth < 768) {
+      const numericWidth = typeof propWidth === 'number' ? propWidth : 
+                          typeof propWidth === 'string' ? parseInt(propWidth, 10) : null;
+      
+      if (numericWidth !== null && numericWidth < 768) {
         link.setAttribute('media', '(max-width: 768px)');
       }
       
@@ -211,7 +213,7 @@ export function OptimizedImage({
     sizes: srcSet ? sizes : undefined,
     width: imgWidth,
     height: imgHeight,
-    fetchPriority: isLCP ? "high" : (priority === 'high' ? "high" : "auto"),
+    fetchPriority: (isLCP ? "high" : (priority === 'high' ? "high" : "auto")) as "high" | "low" | "auto",
     style: {
       aspectRatio: hasExplicitDimensions ? `${imgWidth} / ${imgHeight}` : undefined,
       objectFit: 'contain', // Ensure the image maintains its aspect ratio
