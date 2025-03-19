@@ -1,9 +1,9 @@
 
 # Serve static pages to search engines
-/campaigns/:slug/index.html  /campaigns/:slug/index.html  200!
-/campaigns/:slug             /campaigns/:slug/index.html  200!
-/:slug/index.html           /:slug/index.html           200!
-/:slug                      /:slug/index.html           200!
+/campaigns/:slug/index.html  /campaigns/:slug/index.html  200
+/campaigns/:slug             /campaigns/:slug/index.html  200
+/:slug/index.html           /:slug/index.html           200
+/:slug                      /:slug/index.html           200
 
-# For normal browsers, use the SPA except when static pages exist
+# For normal browsers, use the SPA
 /* /index.html 200

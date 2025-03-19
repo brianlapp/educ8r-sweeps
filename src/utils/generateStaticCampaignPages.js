@@ -13,9 +13,10 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://epfzraejquaxqrfmkm
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwZnpyYWVqcXVheHFyZm1rbXl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk0NzA2ODIsImV4cCI6MjA1NTA0NjY4Mn0.LY300ASTr6cn4vl2ZkCR0pV0rmah9YKLaUXVM5ISytM";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Path to the template and output directory
+// Path to the template and both possible output directories
 const template = path.resolve(__dirname, '../../index.html');
 const outputBaseDir = path.resolve(__dirname, '../../public');
+const distBaseDir = path.resolve(__dirname, '../../dist'); // Add dist directory for direct build output
 
 async function fetchCampaigns() {
   console.log('Fetching active campaigns from Supabase...');
@@ -61,7 +62,21 @@ function processMetaTags(campaign) {
 async function generateStaticFiles() {
   try {
     // Read the template HTML file
+    if (!fs.existsSync(template)) {
+      console.error(`Template file not found at: ${template}`);
+      process.exit(1);
+    }
+    
     const templateHtml = fs.readFileSync(template, 'utf8');
+    console.log(`Successfully read template file: ${template}`);
+    
+    // Create output directories if they don't exist
+    [outputBaseDir, distBaseDir].forEach(baseDir => {
+      if (!fs.existsSync(baseDir)) {
+        console.log(`Creating base directory: ${baseDir}`);
+        fs.mkdirSync(baseDir, { recursive: true });
+      }
+    });
     
     // Fetch all active campaigns
     const campaigns = await fetchCampaigns();
@@ -86,25 +101,39 @@ async function generateStaticFiles() {
         .replace(/<meta name="twitter:image" content=".*?"/i, `<meta name="twitter:image" content="${meta.image}"`)
         .replace(/<link rel="canonical" href=".*?"/i, `<link rel="canonical" href="${meta.url}"`);
 
-      // Create output directory for campaign
-      const campaignDir = path.join(outputBaseDir, campaign.slug);
-      const rootCampaignDir = path.join(outputBaseDir, 'campaigns', campaign.slug);
-      
-      // Create directory structure if it doesn't exist
-      [campaignDir, rootCampaignDir].forEach(dir => {
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
+      // Create output directories for both public and dist
+      [outputBaseDir, distBaseDir].forEach(baseDir => {
+        // Create slug directory
+        const campaignDir = path.join(baseDir, campaign.slug);
+        if (!fs.existsSync(campaignDir)) {
+          console.log(`Creating campaign directory: ${campaignDir}`);
+          fs.mkdirSync(campaignDir, { recursive: true });
         }
-      });
+        
+        // Create campaigns/slug directory
+        const campaignsDir = path.join(baseDir, 'campaigns');
+        if (!fs.existsSync(campaignsDir)) {
+          console.log(`Creating campaigns directory: ${campaignsDir}`);
+          fs.mkdirSync(campaignsDir, { recursive: true });
+        }
+        
+        const rootCampaignDir = path.join(campaignsDir, campaign.slug);
+        if (!fs.existsSync(rootCampaignDir)) {
+          console.log(`Creating root campaign directory: ${rootCampaignDir}`);
+          fs.mkdirSync(rootCampaignDir, { recursive: true });
+        }
 
-      // Write the HTML files
-      fs.writeFileSync(path.join(campaignDir, 'index.html'), campaignHtml);
-      fs.writeFileSync(path.join(rootCampaignDir, 'index.html'), campaignHtml);
-      
-      console.log(`Generated static HTML for ${campaign.slug} at:`, 
-        path.join(campaignDir, 'index.html'), 
-        path.join(rootCampaignDir, 'index.html')
-      );
+        // Write the HTML files
+        const filePath1 = path.join(campaignDir, 'index.html');
+        const filePath2 = path.join(rootCampaignDir, 'index.html');
+        
+        fs.writeFileSync(filePath1, campaignHtml);
+        fs.writeFileSync(filePath2, campaignHtml);
+        
+        console.log(`Generated static HTML at:
+        - ${filePath1}
+        - ${filePath2}`);
+      });
     }
 
     console.log('All static campaign pages generated successfully!');
