@@ -5,11 +5,14 @@ import './index.css';
 
 // Add error handling and debugging
 console.log('Application starting...');
+console.log('Current URL:', window.location.href);
+console.log('Environment:', process.env.NODE_ENV);
 
 try {
   const rootElement = document.getElementById("root");
   
   if (!rootElement) {
+    console.error("Root element not found! This could indicate the page wasn't loaded correctly.");
     throw new Error("Root element not found in DOM");
   }
   
@@ -24,6 +27,11 @@ try {
   if (process.env.NODE_ENV === 'development') {
     console.log('App initialized in development mode');
   }
+  
+  // Add a visible message if the page is a statically generated one
+  if (document.head.innerHTML.includes('Static page generated for campaign')) {
+    console.log('This is a statically generated page!');
+  }
 } catch (error) {
   console.error('Fatal error during application initialization:', error);
   // Display fallback UI when React fails to render
@@ -34,6 +42,9 @@ try {
         <h2>Application Error</h2>
         <p>Sorry, something went wrong while loading the application.</p>
         <p style="color: red; margin-top: 10px;">${error instanceof Error ? error.message : 'Unknown error'}</p>
+        <p style="margin-top: 20px;">
+          <a href="/" style="color: blue; text-decoration: underline;">Try returning to the home page</a>
+        </p>
       </div>
     `;
   }

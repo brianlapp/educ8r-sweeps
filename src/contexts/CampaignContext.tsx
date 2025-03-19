@@ -1,8 +1,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Campaign } from '@/features/campaigns/types';
+import { useToast } from '@/hooks/use-toast';
 
 interface CampaignContextType {
   campaign: Campaign | null;
@@ -20,10 +21,24 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [error, setError] = useState<Error | null>(null);
   const { slug = 'classroom-supplies-2025' } = useParams();
   const [campaignId, setCampaignId] = useState<string | null>(null);
-
+  const location = useLocation();
+  const { toast } = useToast();
+  
+  // Determine if we're in a static context or dynamic React app
+  const isStaticPage = document.head.innerHTML.includes('Static page generated for campaign');
+  
   const fetchCampaign = async () => {
     try {
+      setIsLoading(true);
+      setError(null);
+      
       console.log('Fetching campaign with slug:', slug);
+      console.log('Current path:', location.pathname);
+      
+      if (isStaticPage) {
+        console.log('This is a statically generated page, initializing campaign data');
+      }
+      
       const { data, error: fetchError } = await supabase
         .from('campaigns')
         .select('*')
@@ -31,11 +46,44 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         .single();
 
       if (fetchError) {
-        throw fetchError;
+        console.error('Error fetching campaign data:', fetchError);
+        
+        // Try fetching default campaign as fallback
+        if (slug !== 'classroom-supplies-2025') {
+          console.log('Trying to fetch default campaign as fallback');
+          
+          const { data: defaultData, error: defaultError } = await supabase
+            .from('campaigns')
+            .select('*')
+            .eq('slug', 'classroom-supplies-2025')
+            .single();
+            
+          if (!defaultError && defaultData) {
+            console.log('Using default campaign data as fallback');
+            setCampaignId(defaultData.id);
+            setCampaign({
+              ...defaultData,
+              why_share_items: typeof defaultData.why_share_items === 'string' 
+                ? JSON.parse(defaultData.why_share_items) 
+                : defaultData.why_share_items
+            } as Campaign);
+            
+            // Notify user about campaign not found
+            toast({
+              title: "Campaign Not Found",
+              description: `Using default campaign instead. The "${slug}" campaign may not exist.`,
+              variant: "destructive"
+            });
+            
+            return;
+          }
+        }
+        
+        throw new Error(`Failed to fetch campaign: ${fetchError.message}`);
       }
 
       if (data) {
-        console.log('Campaign data fetched:', data);
+        console.log('Campaign data fetched successfully:', data.id);
         setCampaignId(data.id);
         // If why_share_items is a string, parse it to an object
         const processedData: Campaign = {
@@ -59,18 +107,36 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           source_id: data.source_id || ''
         };
         setCampaign(processedData);
+      } else {
+        console.error('No campaign data returned, but no error either');
+        throw new Error('Campaign not found');
       }
     } catch (err) {
-      console.error('Error fetching campaign:', err);
+      console.error('Error in CampaignContext:', err);
       setError(err instanceof Error ? err : new Error('Failed to fetch campaign'));
+      
+      // Show a toast notification for the error
+      toast({
+        title: "Error Loading Campaign",
+        description: err instanceof Error ? err.message : 'Failed to load campaign data',
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    console.log('CampaignContext mounted, fetching data for slug:', slug);
     fetchCampaign();
-  }, [slug]);
+    
+    // Log the current environment for debugging
+    console.log('Environment:', {
+      isProduction: process.env.NODE_ENV === 'production',
+      isStaticPage,
+      pathname: location.pathname
+    });
+  }, [slug, location.pathname]);
 
   return (
     <CampaignContext.Provider value={{ campaign, isLoading, error, refreshCampaign: fetchCampaign, campaignId }}>

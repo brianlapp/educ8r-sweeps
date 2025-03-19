@@ -1,9 +1,9 @@
 
-# Serve static pages to search engines
+# Serve static pages to search engines (User-Agent based routing)
 /campaigns/:slug/index.html  /campaigns/:slug/index.html  200
-/campaigns/:slug             /campaigns/:slug/index.html  200
+/campaigns/:slug             /campaigns/:slug/index.html  200! User-Agent=*bot* User-Agent=*crawler* User-Agent=*spider* User-Agent=*preview*
 /:slug/index.html           /:slug/index.html           200
-/:slug                      /:slug/index.html           200
+/:slug                      /:slug/index.html           200! User-Agent=*bot* User-Agent=*crawler* User-Agent=*spider* User-Agent=*preview*
 
 # For normal browsers, use the SPA
 /* /index.html 200

@@ -30,6 +30,11 @@ async function fetchCampaigns() {
     throw error;
   }
 
+  if (!data || data.length === 0) {
+    console.warn('No active campaigns found. Please check your database.');
+    return [];
+  }
+
   console.log(`Found ${data.length} active campaigns:`, data.map(c => c.slug));
   return data;
 }
@@ -80,16 +85,28 @@ async function generateStaticFiles() {
     
     // Fetch all active campaigns
     const campaigns = await fetchCampaigns();
+    
+    if (campaigns.length === 0) {
+      console.warn("No campaigns found to generate static pages for.");
+      // Don't exit with error - this might be expected in some environments
+      return;
+    }
 
     // Process each campaign
     for (const campaign of campaigns) {
       console.log(`Generating static HTML for campaign: ${campaign.slug}`);
       
+      if (!campaign.slug) {
+        console.warn(`Campaign missing slug, skipping:`, campaign.id);
+        continue;
+      }
+      
       // Process meta tags
       const meta = processMetaTags(campaign);
       
-      // Update HTML with campaign-specific meta tags using more reliable regex patterns
+      // Add debugging markers to help troubleshoot
       let campaignHtml = templateHtml
+        .replace('<head>', '<head>\n<!-- Static page generated for campaign: ' + campaign.slug + ' -->')
         .replace(/<title>.*?<\/title>/i, `<title>${meta.title}</title>`)
         .replace(/<meta name="description" content=".*?"/i, `<meta name="description" content="${meta.description}"`)
         .replace(/<meta property="og:title" content=".*?"/i, `<meta property="og:title" content="${meta.title}"`)
@@ -100,39 +117,58 @@ async function generateStaticFiles() {
         .replace(/<meta name="twitter:description" content=".*?"/i, `<meta name="twitter:description" content="${meta.description}"`)
         .replace(/<meta name="twitter:image" content=".*?"/i, `<meta name="twitter:image" content="${meta.image}"`)
         .replace(/<link rel="canonical" href=".*?"/i, `<link rel="canonical" href="${meta.url}"`);
+        
+      // Add special script to check if page loaded correctly
+      campaignHtml = campaignHtml.replace('</body>', `
+        <script>
+          console.log("Static page for ${campaign.slug} loaded successfully");
+          window.addEventListener('DOMContentLoaded', function() {
+            if (document.getElementById('root')) {
+              console.log("React root element found, app should initialize");
+            } else {
+              console.error("React root element not found, page may not work correctly");
+            }
+          });
+        </script>
+      </body>`);
 
       // Create output directories for both public and dist
       [outputBaseDir, distBaseDir].forEach(baseDir => {
-        // Create slug directory
-        const campaignDir = path.join(baseDir, campaign.slug);
-        if (!fs.existsSync(campaignDir)) {
-          console.log(`Creating campaign directory: ${campaignDir}`);
-          fs.mkdirSync(campaignDir, { recursive: true });
-        }
-        
-        // Create campaigns/slug directory
-        const campaignsDir = path.join(baseDir, 'campaigns');
-        if (!fs.existsSync(campaignsDir)) {
-          console.log(`Creating campaigns directory: ${campaignsDir}`);
-          fs.mkdirSync(campaignsDir, { recursive: true });
-        }
-        
-        const rootCampaignDir = path.join(campaignsDir, campaign.slug);
-        if (!fs.existsSync(rootCampaignDir)) {
-          console.log(`Creating root campaign directory: ${rootCampaignDir}`);
-          fs.mkdirSync(rootCampaignDir, { recursive: true });
-        }
+        try {
+          // Create slug directory
+          const campaignDir = path.join(baseDir, campaign.slug);
+          if (!fs.existsSync(campaignDir)) {
+            console.log(`Creating campaign directory: ${campaignDir}`);
+            fs.mkdirSync(campaignDir, { recursive: true });
+          }
+          
+          // Create campaigns/slug directory
+          const campaignsDir = path.join(baseDir, 'campaigns');
+          if (!fs.existsSync(campaignsDir)) {
+            console.log(`Creating campaigns directory: ${campaignsDir}`);
+            fs.mkdirSync(campaignsDir, { recursive: true });
+          }
+          
+          const rootCampaignDir = path.join(campaignsDir, campaign.slug);
+          if (!fs.existsSync(rootCampaignDir)) {
+            console.log(`Creating root campaign directory: ${rootCampaignDir}`);
+            fs.mkdirSync(rootCampaignDir, { recursive: true });
+          }
 
-        // Write the HTML files
-        const filePath1 = path.join(campaignDir, 'index.html');
-        const filePath2 = path.join(rootCampaignDir, 'index.html');
-        
-        fs.writeFileSync(filePath1, campaignHtml);
-        fs.writeFileSync(filePath2, campaignHtml);
-        
-        console.log(`Generated static HTML at:
-        - ${filePath1}
-        - ${filePath2}`);
+          // Write the HTML files
+          const filePath1 = path.join(campaignDir, 'index.html');
+          const filePath2 = path.join(rootCampaignDir, 'index.html');
+          
+          fs.writeFileSync(filePath1, campaignHtml);
+          fs.writeFileSync(filePath2, campaignHtml);
+          
+          console.log(`Generated static HTML at:
+          - ${filePath1}
+          - ${filePath2}`);
+        } catch (dirError) {
+          console.error(`Error creating directories or writing files for ${campaign.slug} in ${baseDir}:`, dirError);
+          // Continue with next baseDir
+        }
       });
     }
 
