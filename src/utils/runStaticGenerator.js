@@ -1,19 +1,13 @@
 
 // Simple wrapper script to execute the static page generator
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-import { createRequire } from 'module';
+console.log('Attempting to import static generator...');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const require = createRequire(import.meta.url);
-
-// Ensure the path is absolute
-const generatorPath = new URL('./generateStaticCampaignPages.js', import.meta.url).pathname;
-
-console.log('Importing static generator from:', generatorPath);
-
-import('./generateStaticCampaignPages.js').catch(err => {
-  console.error('Error importing static campaign generator:', err);
-  process.exit(1);
-});
+// Use dynamic import to load the generator module
+import('./generateStaticCampaignPages.js')
+  .then(() => {
+    console.log('Static generator imported and executed successfully');
+  })
+  .catch(err => {
+    console.error('Error importing static campaign generator:', err);
+    process.exit(1);
+  });
