@@ -125,7 +125,8 @@ export default defineConfig(({ mode }) => ({
       'clsx',
       'tailwind-merge',
       'react-hook-form',
-      'sonner'
+      'sonner',
+      '@vitejs/plugin-react-swc'  // Added to ensure it's included
     ],
     esbuildOptions: {
       target: 'es2020'
