@@ -26,30 +26,48 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   
   // Determine if we're in a static context or dynamic React app
   const isStaticPage = document.head.innerHTML.includes('Static page generated for campaign');
+  const currentCampaignSlug = isStaticPage && document.head.innerHTML.match(/Static page generated for campaign: ([a-z0-9-_]+)/)?.[1];
+  
+  // If this is a static page and the URL doesn't match the HTML campaign slug, prefer the one from the HTML
+  const campaignSlug = isStaticPage && currentCampaignSlug ? currentCampaignSlug : slug;
+  
+  useEffect(() => {
+    if (isStaticPage) {
+      console.log(`This is a static page for campaign: ${currentCampaignSlug}`);
+      if (currentCampaignSlug && currentCampaignSlug !== slug) {
+        console.warn(`URL slug (${slug}) doesn't match HTML campaign slug (${currentCampaignSlug})`);
+      }
+    }
+  }, [isStaticPage, currentCampaignSlug, slug]);
   
   const fetchCampaign = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      console.log('Fetching campaign with slug:', slug);
+      console.log('Fetching campaign with slug:', campaignSlug);
       console.log('Current path:', location.pathname);
       
       if (isStaticPage) {
         console.log('This is a statically generated page, initializing campaign data');
       }
       
+      // Add a small delay for static pages to ensure other resources are loaded first
+      if (isStaticPage) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
       const { data, error: fetchError } = await supabase
         .from('campaigns')
         .select('*')
-        .eq('slug', slug)
+        .eq('slug', campaignSlug)
         .single();
 
       if (fetchError) {
         console.error('Error fetching campaign data:', fetchError);
         
         // Try fetching default campaign as fallback
-        if (slug !== 'classroom-supplies-2025') {
+        if (campaignSlug !== 'classroom-supplies-2025') {
           console.log('Trying to fetch default campaign as fallback');
           
           const { data: defaultData, error: defaultError } = await supabase
@@ -71,7 +89,7 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             // Notify user about campaign not found
             toast({
               title: "Campaign Not Found",
-              description: `Using default campaign instead. The "${slug}" campaign may not exist.`,
+              description: `Using default campaign instead. The "${campaignSlug}" campaign may not exist.`,
               variant: "destructive"
             });
             
@@ -127,16 +145,17 @@ export const CampaignProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   useEffect(() => {
-    console.log('CampaignContext mounted, fetching data for slug:', slug);
+    console.log('CampaignContext mounted, fetching data for slug:', campaignSlug);
     fetchCampaign();
     
     // Log the current environment for debugging
     console.log('Environment:', {
       isProduction: process.env.NODE_ENV === 'production',
       isStaticPage,
-      pathname: location.pathname
+      pathname: location.pathname,
+      currentCampaignSlug
     });
-  }, [slug, location.pathname]);
+  }, [campaignSlug, location.pathname]);
 
   return (
     <CampaignContext.Provider value={{ campaign, isLoading, error, refreshCampaign: fetchCampaign, campaignId }}>
