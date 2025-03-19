@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { optimizeImage } from '@/utils/imageOptimization';
+import { optimizeImage, getImageDimensions } from '@/utils/imageOptimization';
 
 interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
@@ -33,8 +33,8 @@ export function OptimizedImage({
   height: propHeight,
   ...props
 }: OptimizedImageProps) {
-  const [optimizedSrc, setOptimizedSrc] = useState<string>(placeholderSrc);
-  const [isLoading, setIsLoading] = useState(!eager);
+  const [optimizedSrc, setOptimizedSrc] = useState<string>(isLCP || eager ? src : placeholderSrc);
+  const [isLoading, setIsLoading] = useState(!eager && !isLCP);
   const [error, setError] = useState(false);
   const [isIntersecting, setIsIntersecting] = useState(eager || isLCP);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -53,6 +53,7 @@ export function OptimizedImage({
               const imgElement = entry.target as HTMLImageElement;
               setIsIntersecting(true);
               imageObserver?.unobserve(imgElement);
+              observedElements.delete(imgElement);
             }
           });
         },
@@ -71,7 +72,46 @@ export function OptimizedImage({
     };
   }, []);
 
-  // Add observer to current image
+  // Preload LCP images immediately to improve performance score
+  useEffect(() => {
+    if (isLCP && typeof document !== 'undefined') {
+      // Add to head immediately for LCP images
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.href = src;
+      link.type = 'image/webp'; // Prefer WebP format
+      link.setAttribute('fetchpriority', 'high');
+      
+      // Set media type for responsive images if necessary
+      if (propWidth && propWidth < 768) {
+        link.setAttribute('media', '(max-width: 768px)');
+      }
+      
+      document.head.appendChild(link);
+      
+      // Start optimization immediately for LCP images
+      optimizeImage(src, { 
+        quality, 
+        maxWidth,
+        preferWebP: true,
+        preferCache: false // Don't use cache for LCP images, ensure freshness
+      }).then(optimized => {
+        setOptimizedSrc(optimized);
+        setIsLoading(false);
+      }).catch(() => {
+        setOptimizedSrc(src);
+        setIsLoading(false);
+      });
+      
+      // Cleanup
+      return () => {
+        document.head.removeChild(link);
+      };
+    }
+  }, [isLCP, src, quality, maxWidth]);
+
+  // Add observer to non-LCP, non-eager images
   useEffect(() => {
     if (imgRef.current && imageObserver && !eager && !isLCP && !observedElements.has(imgRef.current)) {
       imageObserver.observe(imgRef.current);
@@ -79,29 +119,11 @@ export function OptimizedImage({
     }
   }, [eager, isLCP, imgRef.current]);
 
-  // Preload LCP images
-  useEffect(() => {
-    if (isLCP) {
-      const link = document.createElement('link');
-      link.rel = 'preload';
-      link.as = 'image';
-      link.href = src;
-      link.type = 'image/webp'; // Prefer WebP format
-      document.head.appendChild(link);
-      
-      // Clean up
-      return () => {
-        document.head.removeChild(link);
-      };
-    }
-  }, [isLCP, src]);
-
   // Generate appropriate srcset for responsive images
   const generateSrcSet = (baseSrc: string): string | undefined => {
-    if (!baseSrc || baseSrc === placeholderSrc) return undefined;
-    
-    // Don't generate srcset for SVGs or data URLs
-    if (baseSrc.includes('data:') || baseSrc.endsWith('.svg')) return undefined;
+    if (!baseSrc || baseSrc === placeholderSrc || baseSrc.includes('data:') || baseSrc.endsWith('.svg')) {
+      return undefined;
+    }
     
     const widths = [400, 800, 1200, 1600];
     return widths
@@ -110,9 +132,13 @@ export function OptimizedImage({
       .join(', ');
   };
 
+  // Load and optimize non-LCP images when they come into view
   useEffect(() => {
     // Don't load the image until it's in viewport (or is eager)
     if (!src || (!isIntersecting && !isLCP)) return;
+    
+    // Skip if we've already optimized for LCP
+    if (isLCP && optimizedSrc !== placeholderSrc) return;
 
     let isMounted = true;
     setIsLoading(true);
@@ -125,7 +151,7 @@ export function OptimizedImage({
         const optimized = await optimizeImage(fullSrc, { 
           quality, 
           maxWidth,
-          preferWebP: true // Force WebP when supported
+          preferWebP: true
         });
         
         if (isMounted) {
@@ -161,7 +187,7 @@ export function OptimizedImage({
     return () => {
       isMounted = false;
     };
-  }, [src, quality, maxWidth, isIntersecting, isLCP, propWidth, propHeight]);
+  }, [src, quality, maxWidth, isIntersecting, isLCP]);
 
   // Ensure we have width and height - critical for preventing layout shifts
   const imgWidth = dimensions.width || propWidth;
@@ -173,19 +199,19 @@ export function OptimizedImage({
 
   // Determine proper loading strategy
   const loadingStrategy = eager || isLCP ? "eager" : "lazy";
-  const decodingStrategy = eager || isLCP ? "sync" : "async";
   
   // Fix TypeScript errors by using the correct attribute name and type
   const imgAttributes: React.ImgHTMLAttributes<HTMLImageElement> = {
     src: isIntersecting || isLCP ? optimizedSrc : placeholderSrc,
     alt,
-    className: `${className} ${isLoading ? 'hidden' : ''}`,
+    className: `${className} ${isLoading ? 'opacity-0' : 'opacity-100 transition-opacity duration-300'}`,
     loading: loadingStrategy as "eager" | "lazy",
-    decoding: decodingStrategy as "sync" | "async",
+    decoding: isLCP ? "sync" : "async",
     srcSet: srcSet,
     sizes: srcSet ? sizes : undefined,
     width: imgWidth,
     height: imgHeight,
+    fetchPriority: isLCP ? "high" : (priority === 'high' ? "high" : "auto"),
     style: {
       aspectRatio: hasExplicitDimensions ? `${imgWidth} / ${imgHeight}` : undefined,
       objectFit: 'contain', // Ensure the image maintains its aspect ratio
@@ -198,9 +224,6 @@ export function OptimizedImage({
     ...props
   };
 
-  // Use a data attribute for fetchPriority since TypeScript doesn't recognize it yet
-  const fetchPriorityValue = isLCP ? "high" : (priority === 'auto' ? (eager ? "high" : "auto") : priority);
-  
   return (
     <>
       {isLoading && (
@@ -228,7 +251,6 @@ export function OptimizedImage({
       <img 
         ref={imgRef}
         {...imgAttributes}
-        data-fetchpriority={fetchPriorityValue}
       />
     </>
   );

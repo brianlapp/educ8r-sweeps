@@ -2,6 +2,10 @@
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { initAllOptimizations } from './utils/performanceBootstrap';
+
+// Initialize performance optimizations as early as possible
+initAllOptimizations();
 
 // Add error handling and debugging
 console.log('Application starting...', {
