@@ -4,14 +4,15 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import fs from "fs";
+import type { OutputBundle, OutputOptions } from "rollup";
 
 // Custom plugin to generate asset manifest
 function generateManifest() {
   return {
     name: 'generate-asset-manifest',
-    writeBundle(options, bundle) {
+    writeBundle(options: OutputOptions, bundle: OutputBundle) {
       // Create a mapping of original filenames to output filenames
-      const manifest = {};
+      const manifest: Record<string, string> = {};
       
       for (const fileName in bundle) {
         const chunk = bundle[fileName];
@@ -32,7 +33,7 @@ function generateManifest() {
       
       // Write the manifest file
       fs.writeFileSync(
-        path.resolve(options.dir, 'asset-manifest.json'),
+        path.resolve(options.dir || '', 'asset-manifest.json'),
         JSON.stringify(manifest, null, 2)
       );
       console.log('✅ Asset manifest generated successfully');
