@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -283,7 +284,7 @@ export const EntryForm = () => {
                 Rules and Regulations
               </Link>
               .
-              Unsubscribe at any time.
+              And understand that we will be sending you our newsletters by email. Unsubscribe at any time.
             </label>
           </div>
           <Button
