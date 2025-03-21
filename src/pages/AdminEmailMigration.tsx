@@ -44,32 +44,36 @@ const AdminEmailMigration = () => {
   const { data: migrationStats, refetch: refetchStats, isLoading: statsLoading } = useQuery<MigrationStats>({
     queryKey: ['email-migration-stats'],
     queryFn: async () => {
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/email-migration/stats`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch migration stats');
+      const { data, error } = await supabase.functions.invoke('email-migration', {
+        method: 'GET',
+        query: { action: 'stats' }
+      });
+
+      if (error) {
+        throw new Error(`Failed to fetch migration stats: ${error.message}`);
       }
-      return response.json();
+      
+      return data;
     }
   });
 
   const migrateBatchMutation = useMutation({
     mutationFn: async () => {
       setProcessingBatch(true);
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/email-migration/migrate-batch`, {
+      
+      const { data, error } = await supabase.functions.invoke('email-migration', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          batchSize
-        })
+        body: { 
+          action: 'migrate-batch',
+          batchSize 
+        }
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to process migration batch');
+      if (error) {
+        throw new Error(`Failed to process migration batch: ${error.message}`);
       }
       
-      return response.json();
+      return data;
     },
     onSuccess: (data) => {
       toast.success(`Processed batch ${data.batchId}: ${data.results.success} succeeded, ${data.results.failed} failed`);
@@ -85,15 +89,16 @@ const AdminEmailMigration = () => {
 
   const resetFailedMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/email-migration/reset-failed`, {
-        method: 'POST'
+      const { data, error } = await supabase.functions.invoke('email-migration', {
+        method: 'POST',
+        body: { action: 'reset-failed' }
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to reset failed migrations');
+      if (error) {
+        throw new Error(`Failed to reset failed migrations: ${error.message}`);
       }
       
-      return response.json();
+      return data;
     },
     onSuccess: (data) => {
       toast.success(data.message);
@@ -211,38 +216,22 @@ const AdminEmailMigration = () => {
       console.log(`Parsed ${subscribers.length} subscribers from CSV file`);
       setUploadProgress(100);
       
-      const apiUrl = `${SUPABASE_URL}/functions/v1/email-migration/import`;
-      console.log(`Sending import request to: ${apiUrl}`);
-      
-      const response = await fetch(apiUrl, {
+      const { data, error } = await supabase.functions.invoke('email-migration', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+        body: {
+          action: 'import',
           subscribers
-        })
+        }
       });
       
-      if (!response.ok) {
-        let errorMessage = `Failed to import subscribers: ${response.status} ${response.statusText}`;
-        try {
-          const errorData = await response.json();
-          console.error("Import API error response:", errorData);
-          errorMessage = errorData.error || errorMessage;
-        } catch (parseError) {
-          console.error("Could not parse error response:", parseError);
-          const errorText = await response.text();
-          console.error("Raw error response:", errorText);
-          errorMessage += ` - Response: ${errorText.substring(0, 100)}...`;
-        }
-        throw new Error(errorMessage);
+      if (error) {
+        console.error("Import API error:", error);
+        throw new Error(`Failed to import subscribers: ${error.message}`);
       }
       
-      const result = await response.json();
-      console.log("Import API success response:", result);
+      console.log("Import API success response:", data);
       
-      toast.success(`Imported ${result.message || `${subscribers.length} subscribers`}`);
+      toast.success(`Imported ${data.message || `${subscribers.length} subscribers`}`);
       setFile(null);
       refetchStats();
     } catch (error) {
@@ -498,3 +487,4 @@ const AdminEmailMigration = () => {
 };
 
 export default AdminEmailMigration;
+

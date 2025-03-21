@@ -66,9 +66,25 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Parse the request URL to get the action
+    // Parse the request URL and body to get the action
     const url = new URL(req.url);
-    const action = url.pathname.split('/').pop();
+    let actionFromQuery = url.searchParams.get('action');
+    
+    // Try to get action from the request body if not in query params
+    let requestData = {};
+    let actionFromBody = null;
+    
+    if (req.method === 'POST') {
+      try {
+        requestData = await req.json();
+        actionFromBody = requestData?.action;
+      } catch (e) {
+        console.error("Error parsing request body:", e);
+      }
+    }
+    
+    // Use action from query params or body
+    const action = actionFromQuery || actionFromBody;
     
     console.log("Action requested:", action);
 
@@ -80,19 +96,6 @@ serve(async (req) => {
           return new Response(
             JSON.stringify({ error: "Method not allowed" }),
             { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        // Parse the request body
-        let requestData;
-        try {
-          requestData = await req.json();
-          console.log("Received import request with data:", JSON.stringify(requestData).substring(0, 200) + "...");
-        } catch (e) {
-          console.error("Error parsing request body:", e);
-          return new Response(
-            JSON.stringify({ error: "Invalid JSON in request body", details: e.message }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
@@ -202,8 +205,6 @@ serve(async (req) => {
           );
         }
 
-        // Parse the request body
-        const requestData = await req.json();
         const batchSize = requestData.batchSize || 100; // Default to 100 if not specified
         const batchId = `batch-${new Date().toISOString().split('T')[0]}-${Math.floor(Math.random() * 10000)}`;
         
@@ -536,4 +537,3 @@ serve(async (req) => {
     );
   }
 });
-
