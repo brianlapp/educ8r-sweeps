@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { supabase } from '../integrations/supabase/client';
+import { supabase, SUPABASE_URL } from '../integrations/supabase/client';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
@@ -45,7 +44,7 @@ const AdminEmailMigration = () => {
   const { data: migrationStats, refetch: refetchStats, isLoading: statsLoading } = useQuery<MigrationStats>({
     queryKey: ['email-migration-stats'],
     queryFn: async () => {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/email-migration/stats`);
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/email-migration/stats`);
       if (!response.ok) {
         throw new Error('Failed to fetch migration stats');
       }
@@ -56,7 +55,7 @@ const AdminEmailMigration = () => {
   const migrateBatchMutation = useMutation({
     mutationFn: async () => {
       setProcessingBatch(true);
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/email-migration/migrate-batch`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/email-migration/migrate-batch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -86,7 +85,7 @@ const AdminEmailMigration = () => {
 
   const resetFailedMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/email-migration/reset-failed`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/email-migration/reset-failed`, {
         method: 'POST'
       });
       
@@ -212,13 +211,7 @@ const AdminEmailMigration = () => {
       console.log(`Parsed ${subscribers.length} subscribers from CSV file`);
       setUploadProgress(100);
       
-      // Fix: Use the correct way to get the Supabase URL
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl) {
-        throw new Error('Missing Supabase URL in environment variables');
-      }
-      
-      const apiUrl = `${supabaseUrl}/functions/v1/email-migration/import`;
+      const apiUrl = `${SUPABASE_URL}/functions/v1/email-migration/import`;
       console.log(`Sending import request to: ${apiUrl}`);
       
       const response = await fetch(apiUrl, {
