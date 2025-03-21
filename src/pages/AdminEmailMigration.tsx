@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '../integrations/supabase/client';
@@ -10,6 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { toast } from 'sonner';
 import { AdminPageHeader } from '../components/admin/AdminPageHeader';
 import { BackToAdminButton } from '../components/admin/BackToAdminButton';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 
 interface MigrationStats {
   stats: {
@@ -37,8 +38,9 @@ const AdminEmailMigration = () => {
   const [uploading, setUploading] = useState(false);
   const [batchSize, setBatchSize] = useState(100);
   const [processingBatch, setProcessingBatch] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Fetch migration stats
   const { data: migrationStats, refetch: refetchStats, isLoading: statsLoading } = useQuery<MigrationStats>({
     queryKey: ['email-migration-stats'],
     queryFn: async () => {
@@ -50,7 +52,6 @@ const AdminEmailMigration = () => {
     }
   });
 
-  // Batch migration mutation
   const migrateBatchMutation = useMutation({
     mutationFn: async () => {
       setProcessingBatch(true);
@@ -82,7 +83,6 @@ const AdminEmailMigration = () => {
     }
   });
 
-  // Reset failed migrations mutation
   const resetFailedMutation = useMutation({
     mutationFn: async () => {
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/email-migration/reset-failed`, {
@@ -104,7 +104,24 @@ const AdminEmailMigration = () => {
     }
   });
 
-  // Handle file upload
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0] || null;
+    setFile(selectedFile);
+    setFileError(null);
+    
+    if (selectedFile) {
+      if (!selectedFile.name.toLowerCase().endsWith('.csv')) {
+        setFileError('Please select a CSV file');
+        return;
+      }
+      
+      if (selectedFile.size > 20 * 1024 * 1024) {
+        setFileError('File is too large (max 20MB)');
+        return;
+      }
+    }
+  };
+
   const handleFileUpload = async () => {
     if (!file) {
       toast.error('Please select a file to upload');
@@ -112,55 +129,92 @@ const AdminEmailMigration = () => {
     }
 
     setUploading(true);
+    setFileError(null);
+    setUploadProgress(0);
+    
     try {
-      // Read the file
       const text = await file.text();
+      console.log("File content preview:", text.substring(0, 200) + "...");
       
-      // Parse CSV (simple implementation, could be enhanced)
       const rows = text.split('\n');
-      const headers = rows[0].split(',');
       
-      // Find the indexes of the columns we need
-      const emailIndex = headers.findIndex(h => h.toLowerCase().includes('email'));
-      const firstNameIndex = headers.findIndex(h => h.toLowerCase().includes('first') && h.toLowerCase().includes('name'));
-      const lastNameIndex = headers.findIndex(h => h.toLowerCase().includes('last') && h.toLowerCase().includes('name'));
-      
-      if (emailIndex === -1) {
-        toast.error('Could not find email column in CSV');
-        setUploading(false);
-        return;
+      if (rows.length < 2) {
+        throw new Error('CSV file appears to be empty or malformed');
       }
       
-      // Parse subscribers
+      const headers = rows[0].split(',').map(h => h.trim().toLowerCase());
+      console.log("CSV headers:", headers);
+      
+      const emailIndex = headers.findIndex(h => h.includes('email'));
+      const firstNameIndex = headers.findIndex(h => 
+        (h.includes('first') && h.includes('name')) || h === 'firstname'
+      );
+      const lastNameIndex = headers.findIndex(h => 
+        (h.includes('last') && h.includes('name')) || h === 'lastname'
+      );
+      
+      if (emailIndex === -1) {
+        throw new Error('Could not find email column in CSV. Please ensure your CSV has an "email" column.');
+      }
+      
       const subscribers = [];
+      const totalRows = rows.length - 1;
       
       for (let i = 1; i < rows.length; i++) {
         if (!rows[i].trim()) continue;
         
-        const columns = rows[i].split(',');
+        if (i % 1000 === 0 || i === rows.length - 1) {
+          setUploadProgress(Math.floor((i / totalRows) * 100));
+        }
+        
+        let columns: string[] = [];
+        let inQuote = false;
+        let currentValue = '';
+        
+        for (let j = 0; j < rows[i].length; j++) {
+          const char = rows[i][j];
+          
+          if (char === '"') {
+            inQuote = !inQuote;
+          } else if (char === ',' && !inQuote) {
+            columns.push(currentValue);
+            currentValue = '';
+          } else {
+            currentValue += char;
+          }
+        }
+        
+        columns.push(currentValue);
         
         if (columns.length <= emailIndex) continue;
         
-        const email = columns[emailIndex].trim();
+        const email = columns[emailIndex].trim().replace(/^"|"$/g, '');
         if (!email) continue;
         
         const subscriber = {
           email,
-          first_name: firstNameIndex >= 0 && columns.length > firstNameIndex ? columns[firstNameIndex].trim() : '',
-          last_name: lastNameIndex >= 0 && columns.length > lastNameIndex ? columns[lastNameIndex].trim() : ''
+          first_name: firstNameIndex >= 0 && columns.length > firstNameIndex 
+            ? columns[firstNameIndex].trim().replace(/^"|"$/g, '') 
+            : '',
+          last_name: lastNameIndex >= 0 && columns.length > lastNameIndex 
+            ? columns[lastNameIndex].trim().replace(/^"|"$/g, '') 
+            : ''
         };
         
         subscribers.push(subscriber);
       }
       
       if (subscribers.length === 0) {
-        toast.error('No valid subscribers found in file');
-        setUploading(false);
-        return;
+        throw new Error('No valid subscribers found in file');
       }
       
-      // Send to the import API
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/email-migration/import`, {
+      console.log(`Parsed ${subscribers.length} subscribers from CSV file`);
+      setUploadProgress(100);
+      
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/email-migration/import`;
+      console.log(`Sending import request to: ${apiUrl}`);
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -172,21 +226,26 @@ const AdminEmailMigration = () => {
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to import subscribers');
+        console.error("Import API error response:", errorData);
+        throw new Error(errorData.error || `Failed to import subscribers: ${response.status} ${response.statusText}`);
       }
       
       const result = await response.json();
-      toast.success(`Imported ${subscribers.length} subscribers successfully`);
+      console.log("Import API success response:", result);
+      
+      toast.success(`Imported ${result.message || `${subscribers.length} subscribers`}`);
       setFile(null);
       refetchStats();
     } catch (error) {
+      console.error("Error during file upload:", error);
+      setFileError(error.message);
       toast.error(`Error uploading file: ${error.message}`);
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
-  // Calculate progress percentage
   const calculateProgress = () => {
     if (!migrationStats || migrationStats.stats.total_subscribers === 0) return 0;
     
@@ -338,6 +397,14 @@ const AdminEmailMigration = () => {
         <TabsContent value="import" className="space-y-6">
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Import Subscribers from CSV</h3>
+            
+            {fileError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{fileError}</AlertDescription>
+              </Alert>
+            )}
+            
             <div className="space-y-4">
               <div>
                 <label htmlFor="file-upload" className="block text-sm font-medium mb-2">
@@ -353,13 +420,27 @@ const AdminEmailMigration = () => {
                     file:text-sm file:font-semibold
                     file:bg-slate-50 file:text-slate-700
                     hover:file:bg-slate-100"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  onChange={handleFileChange}
                   disabled={uploading}
                 />
+                <p className="mt-1 text-sm text-slate-500">
+                  The CSV should have columns for email, first_name, and last_name
+                </p>
               </div>
+              
+              {uploadProgress > 0 && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Parsing CSV</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-2" />
+                </div>
+              )}
+              
               <Button 
                 onClick={handleFileUpload} 
-                disabled={!file || uploading}
+                disabled={!file || uploading || !!fileError}
               >
                 {uploading ? 'Uploading...' : 'Upload & Import'}
               </Button>

@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -56,7 +55,7 @@ serve(async (req) => {
     if (!BEEHIIV_API_KEY) {
       console.error("Missing BEEHIIV_API_KEY environment variable");
       return new Response(
-        JSON.stringify({ error: "Server configuration error" }),
+        JSON.stringify({ error: "Server configuration error: Missing BEEHIIV_API_KEY" }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -85,14 +84,59 @@ serve(async (req) => {
         }
 
         // Parse the request body
-        const requestData = await req.json();
-        const subscribers: Subscriber[] = requestData.subscribers;
-        
-        if (!Array.isArray(subscribers) || subscribers.length === 0) {
+        let requestData;
+        try {
+          requestData = await req.json();
+          console.log("Received import request with data:", JSON.stringify(requestData).substring(0, 200) + "...");
+        } catch (e) {
+          console.error("Error parsing request body:", e);
           return new Response(
-            JSON.stringify({ error: "Invalid subscriber data format" }),
+            JSON.stringify({ error: "Invalid JSON in request body", details: e.message }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
+        }
+
+        const subscribers: Subscriber[] = requestData.subscribers;
+        
+        if (!Array.isArray(subscribers)) {
+          console.error("Invalid subscribers data format, received:", typeof subscribers);
+          return new Response(
+            JSON.stringify({ error: "Invalid subscriber data format: expected an array", received: typeof subscribers }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        if (subscribers.length === 0) {
+          return new Response(
+            JSON.stringify({ error: "No subscribers found in the import data" }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Validate subscriber data
+        for (let i = 0; i < subscribers.length; i++) {
+          const sub = subscribers[i];
+          if (!sub.email || typeof sub.email !== 'string') {
+            return new Response(
+              JSON.stringify({ 
+                error: "Invalid subscriber data", 
+                details: `Subscriber at index ${i} has invalid email: ${JSON.stringify(sub)}` 
+              }),
+              { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          // Ensure email is trimmed and lowercase
+          sub.email = sub.email.trim().toLowerCase();
+          
+          // Ensure first_name and last_name are strings
+          if (sub.first_name !== undefined && typeof sub.first_name !== 'string') {
+            sub.first_name = String(sub.first_name);
+          }
+          
+          if (sub.last_name !== undefined && typeof sub.last_name !== 'string') {
+            sub.last_name = String(sub.last_name);
+          }
         }
 
         console.log(`Processing import of ${subscribers.length} subscribers`);
@@ -112,20 +156,38 @@ serve(async (req) => {
           );
         }
 
-        // Update the migration stats
-        const { error: statsError } = await supabaseAdmin
-          .from('email_migration_stats')
-          .update({ total_subscribers: subscribers.length })
-          .eq('id', (await supabaseAdmin.from('email_migration_stats').select('id').single()).data?.id);
+        console.log("Import results:", insertedData);
 
-        if (statsError) {
-          console.error("Error updating migration stats:", statsError);
+        // Update the migration stats
+        const { data: statsData, error: getStatsError } = await supabaseAdmin
+          .from('email_migration_stats')
+          .select('*')
+          .single();
+
+        if (getStatsError) {
+          console.error("Error fetching migration stats:", getStatsError);
+        } else {
+          // Update total_subscribers by adding newly inserted subscribers
+          const newTotal = statsData.total_subscribers + insertedData.inserted;
+          
+          const { error: statsError } = await supabaseAdmin
+            .from('email_migration_stats')
+            .update({ total_subscribers: newTotal })
+            .eq('id', statsData.id);
+
+          if (statsError) {
+            console.error("Error updating migration stats:", statsError);
+          } else {
+            console.log(`Updated migration stats: total_subscribers = ${newTotal}`);
+          }
         }
 
         return new Response(
           JSON.stringify({ 
             success: true, 
-            message: `Imported ${subscribers.length} subscribers successfully` 
+            message: `Imported ${insertedData.inserted} subscribers successfully`,
+            duplicates: insertedData.duplicates,
+            total: insertedData.total
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -474,3 +536,4 @@ serve(async (req) => {
     );
   }
 });
+
