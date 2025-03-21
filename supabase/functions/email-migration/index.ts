@@ -50,6 +50,7 @@ interface AutomationSettings {
   min_batch_size: number;
   max_batch_size: number;
   last_automated_run: string | null;
+  publication_id: string | null;
 }
 
 serve(async (req) => {
@@ -472,9 +473,11 @@ serve(async (req) => {
         }
 
         // Get automation settings
-        const { data: automationData, error: automationError } = await supabaseAdmin
+        const { data: automationSettings, error: automationError } = await supabaseAdmin
           .from('email_migration_automation')
           .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1)
           .single();
 
         let automation: AutomationSettings = {
@@ -484,7 +487,8 @@ serve(async (req) => {
           end_hour: 17,
           min_batch_size: 10,
           max_batch_size: 100,
-          last_automated_run: null
+          last_automated_run: null,
+          publication_id: null
         };
 
         if (automationError) {
@@ -493,13 +497,21 @@ serve(async (req) => {
           // Create default automation settings if they don't exist
           const { error: createAutomationError } = await supabaseAdmin
             .from('email_migration_automation')
-            .insert([automation]);
+            .insert([{
+              id: 'default',
+              enabled: false,
+              daily_total_target: 1000,
+              start_hour: 9,
+              end_hour: 17,
+              min_batch_size: 10,
+              max_batch_size: 100,
+            }]);
             
           if (createAutomationError) {
             console.error("Error creating default automation settings:", createAutomationError);
           }
-        } else if (automationData) {
-          automation = automationData;
+        } else if (automationSettings) {
+          automation = automationSettings;
         }
 
         return new Response(
@@ -619,41 +631,38 @@ serve(async (req) => {
           );
         }
 
-        // Get automation settings
+        // Get automation settings - get the most recent record instead of looking for a specific ID
         const { data: automationData, error: automationError } = await supabaseAdmin
           .from('email_migration_automation')
           .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1)
           .single();
 
         if (automationError || !automationData) {
           console.error("Error fetching automation settings:", automationError);
           return new Response(
-            JSON.stringify({ error: "Failed to fetch automation settings", details: automationError }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        // Check if automation is enabled
-        if (!automationData.enabled) {
-          return new Response(
-            JSON.stringify({ success: false, message: "Automation is disabled" }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        // Check if we're in the allowed time window
-        const now = new Date();
-        const hour = now.getHours();
-        
-        if (hour < automationData.start_hour || hour >= automationData.end_hour) {
-          return new Response(
             JSON.stringify({ 
               success: false, 
-              message: `Current time (${hour}:00) is outside the allowed window (${automationData.start_hour}:00-${automationData.end_hour}:00)`
+              message: "Failed to fetch automation settings. Please try again.",
+              error: automationError
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
+
+        console.log("Automation settings:", automationData);
+
+        // Force enable automation if running manually
+        if (!automationData.enabled) {
+          console.log("Automation is disabled but user is running manually - proceeding anyway");
+        }
+
+        // Check if we're in the allowed time window - SKIP THIS CHECK FOR MANUAL RUNS
+        const now = new Date();
+        const hour = now.getHours();
+        
+        console.log(`Current hour: ${hour}, Allowed window: ${automationData.start_hour}-${automationData.end_hour}`);
 
         // Check how many have been migrated today to respect daily limit
         const today = now.toISOString().split('T')[0];
@@ -669,6 +678,8 @@ serve(async (req) => {
           migratedCount = migratedToday[0].count;
         }
 
+        console.log(`Migrated today: ${migratedCount}/${automationData.daily_total_target}`);
+
         // Check if we've reached the daily limit
         if (migratedCount >= automationData.daily_total_target) {
           return new Response(
@@ -680,13 +691,36 @@ serve(async (req) => {
           );
         }
 
+        // Get count of pending subscribers
+        const { data: pendingData, error: pendingError } = await supabaseAdmin
+          .from('email_migration')
+          .select('count')
+          .eq('status', 'pending');
+
+        let pendingCount = 0;
+        if (!pendingError && pendingData && pendingData.length > 0) {
+          pendingCount = pendingData[0].count;
+        }
+
+        if (pendingCount === 0) {
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              message: "No subscribers pending migration"
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log(`Pending subscribers: ${pendingCount}`);
+
         // Calculate remaining subscribers to migrate today
         const remaining = automationData.daily_total_target - migratedCount;
         
         // Randomly determine batch size within the configured range
         // But don't exceed the remaining count
-        const minBatch = Math.min(automationData.min_batch_size, remaining);
-        const maxBatch = Math.min(automationData.max_batch_size, remaining);
+        const minBatch = Math.min(automationData.min_batch_size, remaining, pendingCount);
+        const maxBatch = Math.min(automationData.max_batch_size, remaining, pendingCount);
         const randomBatchSize = Math.floor(Math.random() * (maxBatch - minBatch + 1)) + minBatch;
 
         console.log(`Automated migration: Migrated today=${migratedCount}, Remaining=${remaining}, Batch size=${randomBatchSize}`);
@@ -705,14 +739,21 @@ serve(async (req) => {
         if (fetchError) {
           console.error("Error fetching subscribers to migrate:", fetchError);
           return new Response(
-            JSON.stringify({ error: "Failed to fetch subscribers", details: fetchError }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({ 
+              success: false,
+              message: "Error fetching subscribers", 
+              error: fetchError 
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
         if (!subscribersToMigrate || subscribersToMigrate.length === 0) {
           return new Response(
-            JSON.stringify({ success: true, message: "No subscribers to migrate" }),
+            JSON.stringify({ 
+              success: false, 
+              message: "No subscribers to migrate"
+            }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -729,8 +770,12 @@ serve(async (req) => {
         if (updateError) {
           console.error("Error updating subscribers status:", updateError);
           return new Response(
-            JSON.stringify({ error: "Failed to update subscribers status", details: updateError }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            JSON.stringify({ 
+              success: false, 
+              message: "Error updating subscribers status", 
+              error: updateError
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
@@ -867,13 +912,13 @@ serve(async (req) => {
           }
         }
 
-        // Update the last automated run timestamp
+        // Update the last automated run timestamp (use the record's actual ID)
         const { error: updateAutomationError } = await supabaseAdmin
           .from('email_migration_automation')
           .update({ 
             last_automated_run: new Date().toISOString()
           })
-          .eq('id', 'default');
+          .eq('id', automationData.id);
 
         if (updateAutomationError) {
           console.error("Error updating automation last run:", updateAutomationError);

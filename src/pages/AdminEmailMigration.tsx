@@ -40,6 +40,7 @@ interface MigrationStats {
     min_batch_size: number;
     max_batch_size: number;
     last_automated_run: string | null;
+    publication_id: string | null;
   };
 }
 
@@ -74,7 +75,8 @@ const AdminEmailMigration = () => {
       }
       
       return data;
-    }
+    },
+    refetchInterval: runningAutoBatch ? 3000 : false,
   });
 
   useEffect(() => {
@@ -205,7 +207,9 @@ const AdminEmailMigration = () => {
       toast.error(`Error running automated batch: ${error.message}`);
     },
     onSettled: () => {
-      setRunningAutoBatch(false);
+      setTimeout(() => {
+        setRunningAutoBatch(false);
+      }, 5000);
     }
   });
 
@@ -427,13 +431,18 @@ const AdminEmailMigration = () => {
                           Last run: {formatDate(migrationStats.automation.last_automated_run)}
                         </p>
                       )}
+                      {runningAutoBatch && (
+                        <p className="text-xs text-green-500 font-semibold animate-pulse mt-1">
+                          Migration in progress...
+                        </p>
+                      )}
                     </div>
                     <div className="flex space-x-2">
                       <Button 
                         size="sm" 
                         variant={migrationStats.automation.enabled ? "default" : "outline"}
                         onClick={() => runAutomatedBatchMutation.mutate()}
-                        disabled={runningAutoBatch || !migrationStats.automation.enabled}
+                        disabled={runningAutoBatch}
                       >
                         <PlayCircle className="mr-1 h-4 w-4" /> 
                         {runningAutoBatch ? 'Running...' : 'Run Now'}
@@ -740,11 +749,16 @@ const AdminEmailMigration = () => {
                     Last automated run: {formatDate(lastAutomatedRun)}
                   </div>
                 )}
+                {runningAutoBatch && (
+                  <div className="text-sm text-green-500 font-semibold animate-pulse">
+                    Migration in progress...
+                  </div>
+                )}
                 <div className="flex space-x-2">
                   <Button 
                     variant="outline" 
                     onClick={() => runAutomatedBatchMutation.mutate()}
-                    disabled={runningAutoBatch || !automationEnabled}
+                    disabled={runningAutoBatch}
                   >
                     <PlayCircle className="mr-1 h-4 w-4" />
                     {runningAutoBatch ? 'Running...' : 'Run Now'}
