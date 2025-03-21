@@ -1,4 +1,3 @@
-
 import { lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { HelmetProvider } from 'react-helmet-async';
@@ -37,6 +36,7 @@ const Terms = lazy(() => import("./pages/Terms"));
 const Rules = lazy(() => import("./pages/Rules"));
 const TechStack = lazy(() => import("./pages/TechStack"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const AdminEmailMigration = lazy(() => import("./pages/AdminEmailMigration"));
 
 // Loading component for suspense fallback
 const PageLoader = () => (
@@ -176,6 +176,14 @@ function App() {
                         <ErrorBoundary>
                           <AdminCampaignPreview />
                         </ErrorBoundary>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="admin/email-migration"
+                    element={
+                      <ProtectedRoute>
+                        <AdminEmailMigration />
                       </ProtectedRoute>
                     }
                   />

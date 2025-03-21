@@ -156,6 +156,78 @@ export type Database = {
         }
         Relationships: []
       }
+      email_migration: {
+        Row: {
+          created_at: string | null
+          email: string
+          error: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          migrated_at: string | null
+          migration_batch: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          error?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          migrated_at?: string | null
+          migration_batch?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          error?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          migrated_at?: string | null
+          migration_batch?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      email_migration_stats: {
+        Row: {
+          created_at: string | null
+          failed_subscribers: number | null
+          id: string
+          last_batch_date: string | null
+          last_batch_id: string | null
+          migrated_subscribers: number | null
+          total_subscribers: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          failed_subscribers?: number | null
+          id?: string
+          last_batch_date?: string | null
+          last_batch_id?: string | null
+          migrated_subscribers?: number | null
+          total_subscribers?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          failed_subscribers?: number | null
+          id?: string
+          last_batch_date?: string | null
+          last_batch_id?: string | null
+          migrated_subscribers?: number | null
+          total_subscribers?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       entries: {
         Row: {
           campaign_id: string | null

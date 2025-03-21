@@ -1,9 +1,9 @@
-
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from 'react-router-dom';
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { Users, ListChecks, Webhook, BarChart3 } from "lucide-react";
+import { Users, ListChecks, Webhook, BarChart3, UploadIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const Admin = () => {
   const adminModules = [
@@ -64,6 +64,13 @@ const Admin = () => {
           ))}
         </div>
         
+        <Link to="/admin/email-migration">
+          <Button className="w-full md:w-auto">
+            <UploadIcon className="mr-2 w-4 h-4" />
+            Email Migration
+          </Button>
+        </Link>
+
         <Card className="mt-8">
           <CardHeader>
             <CardTitle className="text-lg">System Overview</CardTitle>
