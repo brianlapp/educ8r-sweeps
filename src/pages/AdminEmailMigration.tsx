@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase, SUPABASE_URL } from '../integrations/supabase/client';
@@ -11,7 +10,8 @@ import { toast } from 'sonner';
 import { AdminPageHeader } from '../components/admin/AdminPageHeader';
 import { BackToAdminButton } from '../components/admin/BackToAdminButton';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, PlayCircle, StopCircle } from 'lucide-react';
+import { Switch } from '../components/ui/switch';
 
 interface MigrationStats {
   stats: {
@@ -32,6 +32,15 @@ interface MigrationStats {
     migration_batch: string;
     count: number;
   }>;
+  automation?: {
+    enabled: boolean;
+    daily_total_target: number;
+    start_hour: number;
+    end_hour: number;
+    min_batch_size: number;
+    max_batch_size: number;
+    last_automated_run: string | null;
+  };
 }
 
 const AdminEmailMigration = () => {
@@ -42,6 +51,15 @@ const AdminEmailMigration = () => {
   const [fileError, setFileError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [publicationId, setPublicationId] = useState('pub_7588ba6b-a268-4571-9135-47a68568ee64');
+  
+  const [automationEnabled, setAutomationEnabled] = useState(false);
+  const [dailyTotalTarget, setDailyTotalTarget] = useState(1000);
+  const [startHour, setStartHour] = useState(9);
+  const [endHour, setEndHour] = useState(17);
+  const [minBatchSize, setMinBatchSize] = useState(10);
+  const [maxBatchSize, setMaxBatchSize] = useState(100);
+  const [lastAutomatedRun, setLastAutomatedRun] = useState<string | null>(null);
+  const [runningAutoBatch, setRunningAutoBatch] = useState(false);
 
   const { data: migrationStats, refetch: refetchStats, isLoading: statsLoading } = useQuery<MigrationStats>({
     queryKey: ['email-migration-stats'],
@@ -59,6 +77,18 @@ const AdminEmailMigration = () => {
     }
   });
 
+  useEffect(() => {
+    if (migrationStats?.automation) {
+      setAutomationEnabled(migrationStats.automation.enabled);
+      setDailyTotalTarget(migrationStats.automation.daily_total_target);
+      setStartHour(migrationStats.automation.start_hour);
+      setEndHour(migrationStats.automation.end_hour);
+      setMinBatchSize(migrationStats.automation.min_batch_size);
+      setMaxBatchSize(migrationStats.automation.max_batch_size);
+      setLastAutomatedRun(migrationStats.automation.last_automated_run);
+    }
+  }, [migrationStats]);
+
   const migrateBatchMutation = useMutation({
     mutationFn: async () => {
       setProcessingBatch(true);
@@ -68,7 +98,7 @@ const AdminEmailMigration = () => {
         body: { 
           action: 'migrate-batch',
           batchSize,
-          publicationId // Include publicationId in the request
+          publicationId
         }
       });
       
@@ -109,6 +139,73 @@ const AdminEmailMigration = () => {
     },
     onError: (error) => {
       toast.error(`Error resetting failed migrations: ${error.message}`);
+    }
+  });
+
+  const updateAutomationMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('email-migration', {
+        method: 'POST',
+        body: { 
+          action: 'update-automation',
+          settings: {
+            enabled: automationEnabled,
+            daily_total_target: dailyTotalTarget,
+            start_hour: startHour,
+            end_hour: endHour,
+            min_batch_size: minBatchSize,
+            max_batch_size: maxBatchSize,
+            publication_id: publicationId
+          }
+        }
+      });
+      
+      if (error) {
+        throw new Error(`Failed to update automation settings: ${error.message}`);
+      }
+      
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success("Automation settings updated successfully");
+      refetchStats();
+    },
+    onError: (error) => {
+      toast.error(`Error updating automation settings: ${error.message}`);
+    }
+  });
+
+  const runAutomatedBatchMutation = useMutation({
+    mutationFn: async () => {
+      setRunningAutoBatch(true);
+      
+      const { data, error } = await supabase.functions.invoke('email-migration', {
+        method: 'POST',
+        body: { 
+          action: 'run-automated-batch',
+          publicationId
+        }
+      });
+      
+      if (error) {
+        throw new Error(`Failed to run automated batch: ${error.message}`);
+      }
+      
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(`Automated batch ${data.batchId}: ${data.results.success} succeeded, ${data.results.failed} failed`);
+      } else {
+        toast.info(data.message);
+      }
+      refetchStats();
+    },
+    onError: (error) => {
+      toast.error(`Error running automated batch: ${error.message}`);
+    },
+    onSettled: () => {
+      setRunningAutoBatch(false);
     }
   });
 
@@ -253,6 +350,12 @@ const AdminEmailMigration = () => {
     return (migrationStats.stats.migrated_subscribers / migrationStats.stats.total_subscribers) * 100;
   };
 
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Never';
+    const date = new Date(dateString);
+    return date.toLocaleString();
+  };
+
   return (
     <div className="container mx-auto py-6">
       <BackToAdminButton />
@@ -266,6 +369,7 @@ const AdminEmailMigration = () => {
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="import">Import Subscribers</TabsTrigger>
           <TabsTrigger value="migrate">Migrate Batch</TabsTrigger>
+          <TabsTrigger value="automation">Automation</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -308,6 +412,35 @@ const AdminEmailMigration = () => {
                   </div>
                   <Progress value={calculateProgress()} className="h-2" />
                 </div>
+
+                {migrationStats.automation && (
+                  <div className="bg-slate-50 p-4 rounded-lg mb-6 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium">Automation Status</h4>
+                      <p className="text-sm text-slate-600">
+                        {migrationStats.automation.enabled 
+                          ? `Active: ${migrationStats.automation.daily_total_target} subscribers per day` 
+                          : 'Disabled'}
+                      </p>
+                      {migrationStats.automation.last_automated_run && (
+                        <p className="text-xs text-slate-500">
+                          Last run: {formatDate(migrationStats.automation.last_automated_run)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button 
+                        size="sm" 
+                        variant={migrationStats.automation.enabled ? "default" : "outline"}
+                        onClick={() => runAutomatedBatchMutation.mutate()}
+                        disabled={runningAutoBatch || !migrationStats.automation.enabled}
+                      >
+                        <PlayCircle className="mr-1 h-4 w-4" /> 
+                        {runningAutoBatch ? 'Running...' : 'Run Now'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -481,6 +614,148 @@ const AdminEmailMigration = () => {
                     ? 'No subscribers pending migration' 
                     : `${migrationStats?.counts.pending} subscribers pending migration`
                 )}
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="automation" className="space-y-6">
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Migration Automation</h3>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium">Enable Automation</h4>
+                  <p className="text-sm text-slate-500">
+                    When enabled, subscribers will be automatically migrated according to your settings
+                  </p>
+                </div>
+                <Switch 
+                  checked={automationEnabled} 
+                  onCheckedChange={setAutomationEnabled}
+                />
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-4">Time Window Settings</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="start-hour" className="block text-sm font-medium mb-2">
+                      Start Hour (24h format)
+                    </label>
+                    <input
+                      id="start-hour"
+                      type="number"
+                      min="0"
+                      max="23"
+                      value={startHour}
+                      onChange={(e) => setStartHour(parseInt(e.target.value) || 0)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">
+                      Migrations will only occur after this hour (e.g., 9 for 9:00 AM)
+                    </p>
+                  </div>
+                  <div>
+                    <label htmlFor="end-hour" className="block text-sm font-medium mb-2">
+                      End Hour (24h format)
+                    </label>
+                    <input
+                      id="end-hour"
+                      type="number"
+                      min="0"
+                      max="23"
+                      value={endHour}
+                      onChange={(e) => setEndHour(parseInt(e.target.value) || 0)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">
+                      Migrations will stop at this hour (e.g., 17 for 5:00 PM)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-4">Volume Settings</h4>
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label htmlFor="daily-target" className="block text-sm font-medium mb-2">
+                      Daily Migration Target
+                    </label>
+                    <input
+                      id="daily-target"
+                      type="number"
+                      min="10"
+                      max="10000"
+                      value={dailyTotalTarget}
+                      onChange={(e) => setDailyTotalTarget(parseInt(e.target.value) || 1000)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                    />
+                    <p className="mt-1 text-xs text-slate-500">
+                      Maximum number of subscribers to migrate per day
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="min-batch" className="block text-sm font-medium mb-2">
+                        Minimum Batch Size
+                      </label>
+                      <input
+                        id="min-batch"
+                        type="number"
+                        min="1"
+                        max="1000"
+                        value={minBatchSize}
+                        onChange={(e) => setMinBatchSize(parseInt(e.target.value) || 10)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="max-batch" className="block text-sm font-medium mb-2">
+                        Maximum Batch Size
+                      </label>
+                      <input
+                        id="max-batch"
+                        type="number"
+                        min="1"
+                        max="1000"
+                        value={maxBatchSize}
+                        onChange={(e) => setMaxBatchSize(parseInt(e.target.value) || 100)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Each automated run will process a random number of subscribers between the minimum and maximum batch size.
+                    This creates a more natural-looking migration pattern.
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t pt-4 flex justify-between items-center">
+                {lastAutomatedRun && (
+                  <div className="text-sm text-slate-500">
+                    Last automated run: {formatDate(lastAutomatedRun)}
+                  </div>
+                )}
+                <div className="flex space-x-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => runAutomatedBatchMutation.mutate()}
+                    disabled={runningAutoBatch || !automationEnabled}
+                  >
+                    <PlayCircle className="mr-1 h-4 w-4" />
+                    {runningAutoBatch ? 'Running...' : 'Run Now'}
+                  </Button>
+                  <Button 
+                    onClick={() => updateAutomationMutation.mutate()}
+                    disabled={updateAutomationMutation.isPending}
+                  >
+                    {updateAutomationMutation.isPending ? 'Saving...' : 'Save Settings'}
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>
