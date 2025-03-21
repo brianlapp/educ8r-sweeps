@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '../integrations/supabase/client';
@@ -211,9 +212,10 @@ const AdminEmailMigration = () => {
       console.log(`Parsed ${subscribers.length} subscribers from CSV file`);
       setUploadProgress(100);
       
-      const supabaseUrl = supabase.supabaseUrl;
+      // Fix: Use the correct way to get the Supabase URL
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       if (!supabaseUrl) {
-        throw new Error('Unable to get Supabase URL from client');
+        throw new Error('Missing Supabase URL in environment variables');
       }
       
       const apiUrl = `${supabaseUrl}/functions/v1/email-migration/import`;
