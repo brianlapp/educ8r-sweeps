@@ -41,6 +41,7 @@ const AdminEmailMigration = () => {
   const [processingBatch, setProcessingBatch] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [publicationId, setPublicationId] = useState('pub_7588ba6b-a268-4571-9135-47a68568ee64');
 
   const { data: migrationStats, refetch: refetchStats, isLoading: statsLoading } = useQuery<MigrationStats>({
     queryKey: ['email-migration-stats'],
@@ -66,7 +67,8 @@ const AdminEmailMigration = () => {
         method: 'POST',
         body: { 
           action: 'migrate-batch',
-          batchSize 
+          batchSize,
+          publicationId // Include publicationId in the request
         }
       });
       
@@ -264,6 +266,7 @@ const AdminEmailMigration = () => {
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="import">Import Subscribers</TabsTrigger>
           <TabsTrigger value="migrate">Migrate Batch</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-6">
@@ -478,6 +481,33 @@ const AdminEmailMigration = () => {
                     ? 'No subscribers pending migration' 
                     : `${migrationStats?.counts.pending} subscribers pending migration`
                 )}
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-6">
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Migration Settings</h3>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="publication-id" className="block text-sm font-medium mb-2">
+                  BeehiiV Publication ID
+                </label>
+                <input
+                  id="publication-id"
+                  type="text"
+                  value={publicationId}
+                  onChange={(e) => setPublicationId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                  placeholder="e.g. pub_7588ba6b-a268-4571-9135-47a68568ee64"
+                />
+                <p className="mt-1 text-sm text-slate-500">
+                  The BeehiiV Publication ID is used to specify which publication subscribers should be migrated to.
+                </p>
+                <p className="mt-1 text-sm text-slate-500 font-medium">
+                  Important: This is separate from the sweeps app BeehiiV publication.
+                </p>
               </div>
             </div>
           </Card>

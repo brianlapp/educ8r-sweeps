@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -50,7 +51,6 @@ serve(async (req) => {
 
   try {
     const BEEHIIV_API_KEY = Deno.env.get('BEEHIIV_API_KEY');
-    const BEEHIIV_PUBLICATION_ID = 'pub_4b47c3db-7b59-4c82-a18b-16cf10fc2d23';
     
     if (!BEEHIIV_API_KEY) {
       console.error("Missing BEEHIIV_API_KEY environment variable");
@@ -208,7 +208,10 @@ serve(async (req) => {
         const batchSize = requestData.batchSize || 100; // Default to 100 if not specified
         const batchId = `batch-${new Date().toISOString().split('T')[0]}-${Math.floor(Math.random() * 10000)}`;
         
-        console.log(`Processing migration batch ${batchId} with size ${batchSize}`);
+        // Use the publication ID from the request, with a fallback to prevent breaking changes
+        const publicationId = requestData.publicationId || 'pub_7588ba6b-a268-4571-9135-47a68568ee64';
+        
+        console.log(`Processing migration batch ${batchId} with size ${batchSize} for publication ${publicationId}`);
 
         // Get subscribers to migrate
         const { data: subscribersToMigrate, error: fetchError } = await supabaseAdmin
@@ -281,7 +284,7 @@ serve(async (req) => {
 
             // Send to BeehiiV API
             const subscribeResponse = await fetch(
-              `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`,
+              `https://api.beehiiv.com/v2/publications/${publicationId}/subscriptions`,
               {
                 method: 'POST',
                 headers: {

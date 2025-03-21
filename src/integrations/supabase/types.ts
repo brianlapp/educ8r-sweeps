@@ -552,6 +552,12 @@ export type Database = {
         }
         Returns: Json
       }
+      import_subscribers: {
+        Args: {
+          subscribers_data: Json
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
