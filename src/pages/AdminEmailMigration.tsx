@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase, SUPABASE_URL } from '../integrations/supabase/client';
@@ -46,7 +47,7 @@ const AdminEmailMigration = () => {
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke('email-migration', {
         method: 'GET',
-        query: { action: 'stats' }
+        body: { action: 'stats' }
       });
 
       if (error) {
@@ -487,4 +488,3 @@ const AdminEmailMigration = () => {
 };
 
 export default AdminEmailMigration;
-
