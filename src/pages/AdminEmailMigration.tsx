@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '../integrations/supabase/client';
@@ -211,7 +212,13 @@ const AdminEmailMigration = () => {
       console.log(`Parsed ${subscribers.length} subscribers from CSV file`);
       setUploadProgress(100);
       
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/email-migration/import`;
+      // Fix: Use the correct Supabase URL from environment variables
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        throw new Error('Missing Supabase URL in environment variables');
+      }
+      
+      const apiUrl = `${supabaseUrl}/functions/v1/email-migration/import`;
       console.log(`Sending import request to: ${apiUrl}`);
       
       const response = await fetch(apiUrl, {
@@ -225,9 +232,19 @@ const AdminEmailMigration = () => {
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Import API error response:", errorData);
-        throw new Error(errorData.error || `Failed to import subscribers: ${response.status} ${response.statusText}`);
+        let errorMessage = `Failed to import subscribers: ${response.status} ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          console.error("Import API error response:", errorData);
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          console.error("Could not parse error response:", parseError);
+          // Try to get text response if JSON parsing fails
+          const errorText = await response.text();
+          console.error("Raw error response:", errorText);
+          errorMessage += ` - Response: ${errorText.substring(0, 100)}...`;
+        }
+        throw new Error(errorMessage);
       }
       
       const result = await response.json();
