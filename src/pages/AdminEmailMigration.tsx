@@ -8,8 +8,8 @@ import { Progress } from '../components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { toast } from 'sonner';
-import AdminPageHeader from '../components/admin/AdminPageHeader';
-import BackToAdminButton from '../components/admin/BackToAdminButton';
+import { AdminPageHeader } from '../components/admin/AdminPageHeader';
+import { BackToAdminButton } from '../components/admin/BackToAdminButton';
 
 interface MigrationStats {
   stats: {
@@ -42,7 +42,7 @@ const AdminEmailMigration = () => {
   const { data: migrationStats, refetch: refetchStats, isLoading: statsLoading } = useQuery<MigrationStats>({
     queryKey: ['email-migration-stats'],
     queryFn: async () => {
-      const response = await fetch(`${supabase.functions.url}/email-migration/stats`);
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/email-migration/stats`);
       if (!response.ok) {
         throw new Error('Failed to fetch migration stats');
       }
@@ -54,7 +54,7 @@ const AdminEmailMigration = () => {
   const migrateBatchMutation = useMutation({
     mutationFn: async () => {
       setProcessingBatch(true);
-      const response = await fetch(`${supabase.functions.url}/email-migration/migrate-batch`, {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/email-migration/migrate-batch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -85,7 +85,7 @@ const AdminEmailMigration = () => {
   // Reset failed migrations mutation
   const resetFailedMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`${supabase.functions.url}/email-migration/reset-failed`, {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/email-migration/reset-failed`, {
         method: 'POST'
       });
       
@@ -160,7 +160,7 @@ const AdminEmailMigration = () => {
       }
       
       // Send to the import API
-      const response = await fetch(`${supabase.functions.url}/email-migration/import`, {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/email-migration/import`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
