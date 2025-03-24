@@ -50,15 +50,6 @@ import {
 import { SUPABASE_URL } from "@/integrations/supabase/client";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
 
 const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwZnpyYWVqcXVheHFyZm1rbXl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk0NzA2ODIsImV4cCI6MjA1NTA0NjY4Mn0.LY300ASTr6cn4vl2ZkCR0pV0rmah9YKLaUXVM5ISytM";
 
@@ -96,7 +87,8 @@ const AdminEmailMigration = () => {
   const [isFileImportDialogOpen, setIsFileImportDialogOpen] = useState(false);
   const [subscribersData, setSubscribersData] = useState('');
   const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [batchSize, setBatchSize] = useState<number>(100);
+  const [importBatchSize, setImportBatchSize] = useState<number>(100);
+  const [migrateBatchSize, setMigrateBatchSize] = useState<number>(100);
   const [isMigrating, setIsMigrating] = useState(false);
   const [resettingFailed, setResettingFailed] = useState(false);
   const [clearingQueue, setClearingQueue] = useState(false);
@@ -236,7 +228,7 @@ const AdminEmailMigration = () => {
     try {
       const formData = new FormData();
       formData.append('file', csvFile);
-      formData.append('batchSize', batchSize.toString());
+      formData.append('batchSize', importBatchSize.toString());
 
       const response = await fetch(
         `${SUPABASE_URL}/functions/v1/email-migration?action=import-csv`,
@@ -287,7 +279,7 @@ const AdminEmailMigration = () => {
           },
           body: JSON.stringify({ 
             action: 'migrate-batch',
-            batchSize
+            batchSize: migrateBatchSize
           }),
         }
       );
@@ -533,7 +525,7 @@ const AdminEmailMigration = () => {
             </CardContent>
           </Card>
           
-          {/* Add Clear Queue button in the actions section */}
+          {/* Queue Management Card */}
           <Card className="mt-6">
             <CardHeader>
               <CardTitle>Queue Management</CardTitle>
@@ -658,7 +650,7 @@ const AdminEmailMigration = () => {
                         Import CSV File
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
+                    <DialogContent className="sm:max-w-[500px]">
                       <DialogHeader>
                         <DialogTitle>Import Subscribers (CSV)</DialogTitle>
                         <DialogDescription>
@@ -681,17 +673,18 @@ const AdminEmailMigration = () => {
                           )}
                         </div>
                         <div className="grid grid-cols-1 items-center gap-4">
-                          <Label htmlFor="batchSize">Batch Size</Label>
+                          <Label htmlFor="importBatchSize">Import Batch Size</Label>
                           <Input
-                            id="batchSize"
+                            id="importBatchSize"
                             type="number"
                             min="10"
                             max="1000"
-                            value={batchSize}
-                            onChange={(e) => setBatchSize(Number(e.target.value))}
+                            value={importBatchSize}
+                            onChange={(e) => setImportBatchSize(Number(e.target.value))}
                           />
                           <p className="text-sm text-muted-foreground">
-                            Number of subscribers to process in each migration batch (10-1000).
+                            Number of subscribers to process in each import batch (10-1000).
+                            This controls how the records are grouped when imported to the database.
                           </p>
                         </div>
                       </div>
@@ -721,25 +714,26 @@ const AdminEmailMigration = () => {
             <CardHeader>
               <CardTitle>Migrate Subscribers</CardTitle>
               <CardDescription>
-                Migrate subscribers to Beehiiv.
+                Process the migration of subscribers from the pending queue to Beehiiv.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="migrateBatchSize">Batch Size</Label>
+                    <Label htmlFor="migrateBatchSize">Migration Batch Size</Label>
                     <Input
                       id="migrateBatchSize"
                       type="number"
                       min="10"
                       max="1000"
-                      value={batchSize}
-                      onChange={(e) => setBatchSize(Number(e.target.value))}
+                      value={migrateBatchSize}
+                      onChange={(e) => setMigrateBatchSize(Number(e.target.value))}
                       className="mt-1"
                     />
                     <p className="text-sm text-muted-foreground mt-1">
-                      Number of subscribers to process in this migration batch (10-1000).
+                      Number of subscribers to migrate in this batch (10-1000). 
+                      This controls how many subscribers will be processed in one API call to Beehiiv.
                     </p>
                   </div>
                 </div>
@@ -755,7 +749,7 @@ const AdminEmailMigration = () => {
                       Migrating...
                     </>
                   ) : (
-                    <>Migrate {batchSize} Subscribers</>
+                    <>Migrate {migrateBatchSize} Subscribers</>
                   )}
                 </Button>
               </div>
