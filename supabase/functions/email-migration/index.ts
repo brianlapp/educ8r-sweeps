@@ -86,8 +86,21 @@ serve(async (req) => {
     
     if (req.method === 'POST') {
       try {
-        requestData = await req.json();
-        actionFromBody = requestData?.action;
+        const contentType = req.headers.get("content-type");
+        if (contentType && contentType.includes("multipart/form-data")) {
+          // Handle file upload for CSV
+          const formData = await req.formData();
+          const file = formData.get("file");
+          
+          if (file instanceof File) {
+            actionFromBody = "import-csv";
+            requestData = { file };
+          }
+        } else {
+          // Handle regular JSON requests
+          requestData = await req.json();
+          actionFromBody = requestData?.action;
+        }
       } catch (e) {
         console.error("Error parsing request body:", e);
       }
@@ -100,6 +113,90 @@ serve(async (req) => {
 
     // Handle different actions
     switch (action) {
+      case 'import-csv': {
+        // Import subscribers from CSV file
+        if (req.method !== 'POST') {
+          return new Response(
+            JSON.stringify({ error: "Method not allowed" }),
+            { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const file = requestData.file;
+        if (!(file instanceof File)) {
+          return new Response(
+            JSON.stringify({ error: "No CSV file found in the request" }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Read the file content
+        const fileContent = await file.text();
+        
+        // Parse CSV data
+        const subscribers = parseCSV(fileContent);
+        
+        if (!Array.isArray(subscribers) || subscribers.length === 0) {
+          return new Response(
+            JSON.stringify({ error: "Invalid CSV format or no subscribers found in the file" }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log(`Processing import of ${subscribers.length} subscribers from CSV`);
+
+        // Insert subscribers into the email_migration table
+        // Use a transaction to ensure atomicity
+        const { data: insertedData, error: insertError } = await supabaseAdmin.rpc(
+          'import_subscribers',
+          { subscribers_data: subscribers }
+        );
+
+        if (insertError) {
+          console.error("Error importing subscribers from CSV:", insertError);
+          return new Response(
+            JSON.stringify({ error: "Failed to import subscribers from CSV", details: insertError }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log("CSV Import results:", insertedData);
+
+        // Update the migration stats
+        const { data: statsData, error: getStatsError } = await supabaseAdmin
+          .from('email_migration_stats')
+          .select('*')
+          .single();
+
+        if (getStatsError) {
+          console.error("Error fetching migration stats:", getStatsError);
+        } else {
+          // Update total_subscribers by adding newly inserted subscribers
+          const newTotal = statsData.total_subscribers + insertedData.inserted;
+          
+          const { error: statsError } = await supabaseAdmin
+            .from('email_migration_stats')
+            .update({ total_subscribers: newTotal })
+            .eq('id', statsData.id);
+
+          if (statsError) {
+            console.error("Error updating migration stats after CSV import:", statsError);
+          } else {
+            console.log(`Updated migration stats: total_subscribers = ${newTotal}`);
+          }
+        }
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: `Imported ${insertedData.inserted} subscribers successfully from CSV`,
+            duplicates: insertedData.duplicates,
+            total: insertedData.total
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       case 'import': {
         // Import subscribers from OnGage export file
         if (req.method !== 'POST') {
@@ -1126,4 +1223,67 @@ serve(async (req) => {
     );
   }
 });
+
+/**
+ * Parse CSV data into subscriber objects
+ * @param csvData CSV data as string
+ * @returns Array of subscriber objects
+ */
+function parseCSV(csvData: string): Subscriber[] {
+  const lines = csvData.split('\n');
+  if (lines.length < 2) {
+    return [];
+  }
+  
+  // Extract headers (first line)
+  const headers = lines[0].split(',').map(header => header.trim().toLowerCase());
+  
+  // Find the column indices for email, first_name, and last_name
+  const emailIndex = headers.findIndex(h => h === 'email');
+  const firstNameIndex = headers.findIndex(h => 
+    h === 'first_name' || h === 'firstname' || h === 'first name'
+  );
+  const lastNameIndex = headers.findIndex(h => 
+    h === 'last_name' || h === 'lastname' || h === 'last name'
+  );
+  
+  // If email column is not found, the CSV is invalid
+  if (emailIndex === -1) {
+    console.error("CSV is missing an email column");
+    return [];
+  }
+  
+  // Parse the rest of the lines
+  const subscribers: Subscriber[] = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    // Skip empty lines
+    if (!lines[i].trim()) continue;
+    
+    const values = lines[i].split(',').map(value => value.trim());
+    
+    // Skip this row if it doesn't have enough columns
+    if (values.length <= emailIndex) continue;
+    
+    // Get email (required)
+    const email = values[emailIndex];
+    if (!email) continue;
+    
+    // Create subscriber object
+    const subscriber: Subscriber = { email };
+    
+    // Add optional fields if they exist
+    if (firstNameIndex !== -1 && values.length > firstNameIndex) {
+      subscriber.first_name = values[firstNameIndex];
+    }
+    
+    if (lastNameIndex !== -1 && values.length > lastNameIndex) {
+      subscriber.last_name = values[lastNameIndex];
+    }
+    
+    subscribers.push(subscriber);
+  }
+  
+  return subscribers;
+}
 

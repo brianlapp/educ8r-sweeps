@@ -1,21 +1,22 @@
-
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import { Separator } from "@/components/ui/separator";
 import {
   Table,
   TableBody,
@@ -25,36 +26,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { toast } from "@/components/ui/use-toast"
-import { useToast } from "@/components/ui/use-toast"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Textarea } from "@/components/ui/textarea"
-import { Separator } from "@/components/ui/separator"
-import { 
-  Loader2, 
-  RefreshCw, 
-  Trash, 
-  Copy, 
-  ExternalLink, 
-  Upload,
-  FileUp
-} from "lucide-react"
-import { SUPABASE_URL } from "@/integrations/supabase/client";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import { useQuery } from "@tanstack/react-query";
+} from "@/components/ui/table";
+import { format } from 'date-fns';
 
-const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwZnpyYWVqcXVheHFyZm1rbXl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk0NzA2ODIsImV4cCI6MjA1NTA0NjY4Mn0.LY300ASTr6cn4vl2ZkCR0pV0rmah9YKLaUXVM5ISytM";
+// Add the new import for CSVFileUpload
+import { CSVFileUpload } from "@/features/email-migration/components/CSVFileUpload";
 
 interface MigrationStats {
-  id: string;
   total_subscribers: number;
   migrated_subscribers: number;
   failed_subscribers: number;
@@ -69,822 +47,570 @@ interface StatusCounts {
   failed: number;
 }
 
-interface SuccessfulSubscriber {
+interface LatestBatch {
+  migration_batch: string;
+  count: number;
+}
+
+interface AutomationSettings {
+  enabled: boolean;
+  daily_total_target: number;
+  start_hour: number;
+  end_hour: number;
+  min_batch_size: number;
+  max_batch_size: number;
+  last_automated_run: string | null;
+}
+
+interface RecentMigration {
   email: string;
   first_name: string | null;
   last_name: string | null;
   migrated_at: string;
-  subscriber_id?: string;
-  status?: string;
+  error: string | null;
 }
 
 const AdminEmailMigration = () => {
-  const [migrationStats, setMigrationStats] = useState<MigrationStats | null>(null);
-  const [statusCounts, setStatusCounts] = useState<StatusCounts | null>(null);
-  const [latestBatches, setLatestBatches] = useState<any[]>([]);
-  const [automationSettings, setAutomationSettings] = useState<any>(null);
-  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
-  const [isFileImportDialogOpen, setIsFileImportDialogOpen] = useState(false);
-  const [subscribersData, setSubscribersData] = useState('');
-  const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [importBatchSize, setImportBatchSize] = useState<number>(100);
-  const [migrateBatchSize, setMigrateBatchSize] = useState<number>(100);
-  const [isMigrating, setIsMigrating] = useState(false);
-  const [resettingFailed, setResettingFailed] = useState(false);
-  const [clearingQueue, setClearingQueue] = useState(false);
-  const [latestBatchResults, setLatestBatchResults] = useState<any>(null);
-  const [isUploading, setIsUploading] = useState(false);
-
+  const [activeTab, setActiveTab] = useState("import");
+  const [jsonInput, setJsonInput] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  // Query for recent migrations
-  const recentMigrationsQuery = useQuery({
-    queryKey: ['recentMigrations'],
-    queryFn: fetchRecentMigrations,
-    refetchInterval: 60000, // Refresh every minute
-  });
+  // State for automation settings
+  const [automationEnabled, setAutomationEnabled] = useState(false);
+  const [dailyTarget, setDailyTarget] = useState(1000);
+  const [startHour, setStartHour] = useState(9);
+  const [endHour, setEndHour] = useState(17);
+  const [minBatchSize, setMinBatchSize] = useState(10);
+  const [maxBatchSize, setMaxBatchSize] = useState(100);
 
-  async function fetchRecentMigrations(): Promise<SuccessfulSubscriber[]> {
-    try {
-      const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/email-migration?action=recent-migrations`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ANON_KEY}`
-          },
-        }
-      );
+  // State for recent migrations
+  const [recentMigrations, setRecentMigrations] = useState<RecentMigration[]>([]);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch recent migrations');
+  // Fetch migration stats
+  const { data: stats, isLoading: isStatsLoading } = useQuery(
+    ["emailMigrationStats"],
+    async () => {
+      const { data, error } = await supabase.functions.invoke("email-migration", {
+        method: "GET",
+        queryParams: { action: "stats" },
+      });
+
+      if (error) {
+        console.error("Error fetching migration stats:", error);
+        throw new Error(error.message);
       }
 
-      const data = await response.json();
-      return data.migrations || [];
-    } catch (error: any) {
-      console.error("Error fetching recent migrations:", error);
-      return [];
+      return data;
     }
-  }
+  );
 
-  useEffect(() => {
-    refetchMigrationStats();
-  }, []);
+  // Mutation to reset failed migrations
+  const resetFailedMutation = useMutation(
+    async () => {
+      const { data, error } = await supabase.functions.invoke("email-migration", {
+        method: "POST",
+        queryParams: { action: "reset-failed" },
+      });
 
-  const refetchMigrationStats = async () => {
-    try {
-      const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/email-migration?action=stats`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ANON_KEY}`
-          },
-        }
-      );
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch migration stats');
+      if (error) {
+        console.error("Error resetting failed migrations:", error);
+        throw new Error(error.message);
       }
 
-      setMigrationStats(data.stats);
-      setStatusCounts(data.counts);
-      setLatestBatches(data.latest_batches);
-      setAutomationSettings(data.automation);
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      })
+      return data;
+    },
+    {
+      onSuccess: () => {
+        toast({
+          title: "Failed migrations reset",
+          description: "All failed migrations have been reset to pending.",
+        });
+        queryClient.invalidateQueries(["emailMigrationStats"]);
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error resetting failed migrations",
+          description: error.message,
+          variant: "destructive",
+        });
+      },
     }
-  };
+  );
 
-  const handleImportSubscribers = async () => {
+  // Mutation to clear the migration queue
+  const clearQueueMutation = useMutation(
+    async () => {
+      const { data, error } = await supabase.functions.invoke("email-migration", {
+        method: "POST",
+        queryParams: { action: "clear-queue" },
+      });
+
+      if (error) {
+        console.error("Error clearing migration queue:", error);
+        throw new Error(error.message);
+      }
+
+      return data;
+    },
+    {
+      onSuccess: () => {
+        toast({
+          title: "Migration queue cleared",
+          description: "All pending migrations have been removed from the queue.",
+        });
+        queryClient.invalidateQueries(["emailMigrationStats"]);
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error clearing migration queue",
+          description: error.message,
+          variant: "destructive",
+        });
+      },
+    }
+  );
+
+  // Mutation to update automation settings
+  const updateAutomationMutation = useMutation(
+    async (settings: Partial<AutomationSettings>) => {
+      const { data, error } = await supabase.functions.invoke("email-migration", {
+        method: "POST",
+        queryParams: { action: "update-automation" },
+        body: { settings },
+      });
+
+      if (error) {
+        console.error("Error updating automation settings:", error);
+        throw new Error(error.message);
+      }
+
+      return data;
+    },
+    {
+      onSuccess: () => {
+        toast({
+          title: "Automation settings updated",
+          description: "Automation settings have been updated successfully.",
+        });
+        queryClient.invalidateQueries(["emailMigrationStats"]);
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error updating automation settings",
+          description: error.message,
+          variant: "destructive",
+        });
+      },
+    }
+  );
+
+  // Function to refresh stats
+  const refreshStats = useCallback(() => {
+    queryClient.invalidateQueries(["emailMigrationStats"]);
+  }, [queryClient]);
+
+  // Handle JSON import
+  const handleJsonImport = async () => {
+    setIsImporting(true);
     try {
-      const subscribers = JSON.parse(subscribersData);
+      const subscribers = JSON.parse(jsonInput);
 
       if (!Array.isArray(subscribers)) {
-        throw new Error("Invalid subscriber data format: expected an array");
+        toast({
+          title: "Invalid JSON",
+          description: "The input must be a JSON array of subscribers.",
+          variant: "destructive",
+        });
+        return;
       }
 
-      const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/email-migration?action=import`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ANON_KEY}`
-          },
-          body: JSON.stringify({ subscribers }),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to import subscribers');
-      }
-
-      toast({
-        title: "Success",
-        description: result.message || 'Subscribers imported successfully',
-      })
-      setIsImportDialogOpen(false);
-      setSubscribersData('');
-      refetchMigrationStats();
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      })
-    }
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setCsvFile(file);
-    }
-  };
-
-  const handleCsvImport = async () => {
-    if (!csvFile) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "No CSV file selected",
+      const { data, error } = await supabase.functions.invoke("email-migration", {
+        method: "POST",
+        queryParams: { action: "import" },
+        body: { subscribers },
       });
-      return;
-    }
 
-    setIsUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', csvFile);
-      formData.append('batchSize', importBatchSize.toString());
-
-      const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/email-migration?action=import-csv`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${ANON_KEY}`
-          },
-          body: formData,
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to import CSV file');
+      if (error) {
+        console.error("Error importing subscribers:", error);
+        toast({
+          title: "Import failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
       }
 
       toast({
-        title: "CSV Import Successful",
-        description: `${result.inserted} subscribers imported. ${result.duplicates} duplicates skipped.`,
+        title: "Subscribers imported",
+        description: `Successfully imported ${data.total} subscribers. Inserted: ${data.success}, Duplicates: ${data.duplicates}`,
       });
-      
-      setIsFileImportDialogOpen(false);
-      setCsvFile(null);
-      refetchMigrationStats();
+      setJsonInput("");
+      refreshStats();
     } catch (error: any) {
+      console.error("Error importing subscribers:", error);
       toast({
-        variant: "destructive",
-        title: "CSV Import Failed",
+        title: "Import failed",
         description: error.message,
+        variant: "destructive",
       });
     } finally {
-      setIsUploading(false);
+      setIsImporting(false);
     }
   };
 
-  const handleMigrateSubscribers = async () => {
-    setIsMigrating(true);
-    try {
-      const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/email-migration`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ANON_KEY}`
-          },
-          body: JSON.stringify({ 
-            action: 'migrate-batch',
-            batchSize: migrateBatchSize
-          }),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to migrate subscribers');
-      }
-
-      // Store the latest batch results
-      setLatestBatchResults(result);
-
-      toast({
-        title: "Success",
-        description: `Migration batch ${result.batchId} started. ${result.results.success} migrated, ${result.results.failed} failed.`,
-      })
-      
-      refetchMigrationStats();
-      // Also refresh recent migrations
-      recentMigrationsQuery.refetch();
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      })
-    } finally {
-      setIsMigrating(false);
-    }
-  };
-
-  const handleResetFailed = async () => {
-    if (!window.confirm("Are you sure you want to reset all failed migrations?")) {
-      return;
-    }
-
-    setResettingFailed(true);
-    try {
-      const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/email-migration`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ANON_KEY}`
-          },
-          body: JSON.stringify({ action: 'reset-failed' }),
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to reset failed migrations');
-      }
-
-      toast({
-        title: "Success",
-        description: result.message || 'Failed migrations reset successfully',
-      })
-      refetchMigrationStats();
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      })
-    } finally {
-      setResettingFailed(false);
-    }
-  };
-
-  // Add function to clear the migration queue
-  const clearMigrationQueue = async () => {
-    if (!window.confirm("Are you sure you want to clear all pending migrations from the queue? This action cannot be undone.")) {
-      return;
-    }
-    
-    setClearingQueue(true);
-    try {
-      const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/email-migration`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${ANON_KEY}`
-          },
-          body: JSON.stringify({ 
-            action: 'clear-queue'
-          })
-        }
-      );
-      
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Unknown error occurred');
-      }
-      
-      toast({
-        title: "Success",
-        description: result.message || 'Migration queue cleared successfully',
-      });
-      
-      // Refresh stats and counts after clearing
-      refetchMigrationStats();
-    } catch (error: any) {
-      toast({
-        variant: "destructive", 
-        title: "Error", 
-        description: `Error clearing migration queue: ${error.message}`
-      });
-    } finally {
-      setClearingQueue(false);
-    }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      toast({
-        title: "Copied",
-        description: "Text copied to clipboard",
-      });
+  // Handle automation settings save
+  const handleAutomationSave = async () => {
+    await updateAutomationMutation.mutateAsync({
+      enabled: automationEnabled,
+      daily_total_target: dailyTarget,
+      start_hour: startHour,
+      end_hour: endHour,
+      min_batch_size: minBatchSize,
+      max_batch_size: maxBatchSize,
     });
   };
 
+  // Fetch recent migrations
+  useEffect(() => {
+    const fetchRecentMigrations = async () => {
+      const { data, error } = await supabase.functions.invoke("email-migration", {
+        method: "GET",
+        queryParams: { action: "recent-migrations" },
+      });
+
+      if (error) {
+        console.error("Error fetching recent migrations:", error);
+        toast({
+          title: "Error fetching recent migrations",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setRecentMigrations(data.migrations);
+    };
+
+    fetchRecentMigrations();
+  }, [toast]);
+
+  // In the Import tab content, update to include the CSVFileUpload component:
+  const ImportTab = () => {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>CSV File Import</CardTitle>
+            <CardDescription>
+              Upload a CSV file with subscriber data to import to BeehiiV
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CSVFileUpload onSuccess={refreshStats} />
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>JSON Import</CardTitle>
+            <CardDescription>
+              Import subscribers from a JSON array
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Textarea
+                placeholder="Paste JSON array of subscribers here..."
+                className="min-h-[200px] font-mono text-sm"
+                value={jsonInput}
+                onChange={(e) => setJsonInput(e.target.value)}
+              />
+              <Button onClick={handleJsonImport} disabled={isImporting}>
+                {isImporting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  "Import Subscribers"
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  const StatsTab = () => {
+    if (isStatsLoading || !stats) {
+      return <p>Loading stats...</p>;
+    }
+
+    const { counts, latest_batches, automation } = stats;
+
+    // Set initial automation state from fetched data
+    useEffect(() => {
+      if (automation) {
+        setAutomationEnabled(automation.enabled);
+        setDailyTarget(automation.daily_total_target);
+        setStartHour(automation.start_hour);
+        setEndHour(automation.end_hour);
+        setMinBatchSize(automation.min_batch_size);
+        setMaxBatchSize(automation.max_batch_size);
+      }
+    }, [automation]);
+
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Migration Statistics</CardTitle>
+            <CardDescription>
+              Overview of the email migration process.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Total Subscribers</CardTitle>
+                </CardHeader>
+                <CardContent>{stats.stats.total_subscribers}</CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Migrated Subscribers</CardTitle>
+                </CardHeader>
+                <CardContent>{stats.stats.migrated_subscribers}</CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Failed Subscribers</CardTitle>
+                </CardHeader>
+                <CardContent>{stats.stats.failed_subscribers}</CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Pending Subscribers</CardTitle>
+                </CardHeader>
+                <CardContent>{counts.pending}</CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>In Progress</CardTitle>
+                </CardHeader>
+                <CardContent>{counts.in_progress}</CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Latest Batches</CardTitle>
+            <CardDescription>
+              Recent migration batches.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Batch ID</TableHead>
+                  <TableHead>Subscribers</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {latest_batches.map((batch: LatestBatch) => (
+                  <TableRow key={batch.migration_batch}>
+                    <TableCell>{batch.migration_batch}</TableCell>
+                    <TableCell>{batch.count}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Automation Settings</CardTitle>
+            <CardDescription>
+              Configure automated email migrations.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="automation-enabled">Automation Enabled</Label>
+              <Switch
+                id="automation-enabled"
+                checked={automationEnabled}
+                onCheckedChange={(checked) => setAutomationEnabled(checked)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="daily-target">Daily Total Target</Label>
+              <Input
+                type="number"
+                id="daily-target"
+                value={dailyTarget}
+                onChange={(e) => setDailyTarget(Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <Label>Allowed Time Window</Label>
+              <div className="flex items-center space-x-2">
+                <Input
+                  type="number"
+                  value={startHour}
+                  onChange={(e) => setStartHour(Number(e.target.value))}
+                />
+                <span>-</span>
+                <Input
+                  type="number"
+                  value={endHour}
+                  onChange={(e) => setEndHour(Number(e.target.value))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Batch Size Range</Label>
+              <div className="flex items-center space-x-2">
+                <Input
+                  type="number"
+                  value={minBatchSize}
+                  onChange={(e) => setMinBatchSize(Number(e.target.value))}
+                />
+                <span>-</span>
+                <Input
+                  type="number"
+                  value={maxBatchSize}
+                  onChange={(e) => setMaxBatchSize(Number(e.target.value))}
+                />
+              </div>
+            </div>
+            <Button onClick={handleAutomationSave}>Save Automation Settings</Button>
+            {automation && automation.last_automated_run && (
+              <p>
+                Last automated run:{" "}
+                {format(new Date(automation.last_automated_run), 'yyyy-MM-dd HH:mm:ss')}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Actions</CardTitle>
+            <CardDescription>
+              Perform actions on the email migration process.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button
+              variant="destructive"
+              onClick={() => resetFailedMutation.mutate()}
+              disabled={resetFailedMutation.isLoading}
+            >
+              {resetFailedMutation.isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Resetting...
+                </>
+              ) : (
+                "Reset Failed Migrations"
+              )}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => clearQueueMutation.mutate()}
+              disabled={clearQueueMutation.isLoading}
+            >
+              {clearQueueMutation.isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Clearing...
+                </>
+              ) : (
+                "Clear Migration Queue"
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
+
+  const RecentTab = () => {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Migrations</CardTitle>
+          <CardDescription>
+            The 10 most recent successful migrations.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Email</TableHead>
+                <TableHead>First Name</TableHead>
+                <TableHead>Last Name</TableHead>
+                <TableHead>Migrated At</TableHead>
+                <TableHead>Error</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {recentMigrations.map((migration) => (
+                <TableRow key={migration.email}>
+                  <TableCell>{migration.email}</TableCell>
+                  <TableCell>{migration.first_name}</TableCell>
+                  <TableCell>{migration.last_name}</TableCell>
+                  <TableCell>
+                    {format(new Date(migration.migrated_at), 'yyyy-MM-dd HH:mm:ss')}
+                  </TableCell>
+                  <TableCell>{migration.error}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
-    <div className="container mx-auto py-8">
-      <AdminPageHeader 
-        title="Email Migration Tool" 
-        description="Migrate subscribers from Ongage to BeehiiV"
-      />
-      
-      <Tabs defaultValue="stats" className="w-full mt-6">
-        <TabsList className="grid w-full grid-cols-4 mb-4">
-          <TabsTrigger value="stats">Migration Stats</TabsTrigger>
-          <TabsTrigger value="import">Import Subscribers</TabsTrigger>
-          <TabsTrigger value="migrate">Migrate Subscribers</TabsTrigger>
-          <TabsTrigger value="recent">Recent Migrations</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="stats">
-          <Card>
-            <CardHeader>
-              <CardTitle>Migration Statistics</CardTitle>
-              <CardDescription>
-                Overview of the email migration process.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {migrationStats ? (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium">Total Subscribers:</p>
-                    <p>{migrationStats.total_subscribers}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Migrated Subscribers:</p>
-                    <p>{migrationStats.migrated_subscribers}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Failed Subscribers:</p>
-                    <p>{migrationStats.failed_subscribers}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Last Batch ID:</p>
-                    <p>{migrationStats.last_batch_id || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Last Batch Date:</p>
-                    <p>{migrationStats.last_batch_date || 'N/A'}</p>
-                  </div>
-                </div>
-              ) : (
-                <p>Loading migration statistics...</p>
-              )}
-            </CardContent>
-          </Card>
+    <div className="container mx-auto py-10">
+      <h1 className="text-3xl font-bold mb-6">Email Migration Admin</h1>
 
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Status Counts</CardTitle>
-              <CardDescription>
-                Current counts of subscribers by status.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {statusCounts ? (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium">Pending:</p>
-                    <p>{statusCounts.pending}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">In Progress:</p>
-                    <p>{statusCounts.in_progress}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Migrated:</p>
-                    <p>{statusCounts.migrated}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Failed:</p>
-                    <p>{statusCounts.failed}</p>
-                  </div>
-                </div>
-              ) : (
-                <p>Loading status counts...</p>
-              )}
-            </CardContent>
-          </Card>
+      <div className="flex space-x-4 mb-6">
+        <Button
+          variant={activeTab === "import" ? "default" : "outline"}
+          onClick={() => setActiveTab("import")}
+        >
+          Import
+        </Button>
+        <Button
+          variant={activeTab === "stats" ? "default" : "outline"}
+          onClick={() => setActiveTab("stats")}
+        >
+          Stats & Automation
+        </Button>
+        <Button
+          variant={activeTab === "recent" ? "default" : "outline"}
+          onClick={() => setActiveTab("recent")}
+        >
+          Recent Migrations
+        </Button>
+      </div>
 
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Latest Batches</CardTitle>
-              <CardDescription>
-                The 5 most recent migration batches.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {latestBatches && latestBatches.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[100px]">Batch ID</TableHead>
-                      <TableHead>Count</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {latestBatches.map((batch) => (
-                      <TableRow key={batch.migration_batch}>
-                        <TableCell className="font-medium">{batch.migration_batch}</TableCell>
-                        <TableCell>{batch.count}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p>No recent batches found.</p>
-              )}
-            </CardContent>
-          </Card>
-          
-          {/* Queue Management Card */}
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Queue Management</CardTitle>
-              <CardDescription>
-                Manage the migration queue
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col space-y-4">
-                <div>
-                  <h3 className="text-lg font-medium">Clear Migration Queue</h3>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Remove all pending migrations from the queue. This is useful if you've uploaded the wrong data and want to start fresh.
-                  </p>
-                  <Button 
-                    variant="destructive" 
-                    onClick={clearMigrationQueue} 
-                    disabled={clearingQueue || !statusCounts?.pending}
-                  >
-                    {clearingQueue ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Clearing...
-                      </>
-                    ) : (
-                      <>
-                        <Trash className="mr-2 h-4 w-4" />
-                        Clear Migration Queue ({statusCounts?.pending || 0} pending)
-                      </>
-                    )}
-                  </Button>
-                </div>
-                
-                <Separator />
-                
-                <div>
-                  <h3 className="text-lg font-medium">Reset Failed Migrations</h3>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Reset all failed migrations back to pending status to retry them.
-                  </p>
-                  <Button 
-                    variant="secondary" 
-                    onClick={handleResetFailed} 
-                    disabled={resettingFailed || !statusCounts?.failed}
-                  >
-                    {resettingFailed ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Resetting...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                        Reset Failed Migrations ({statusCounts?.failed || 0})
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="import">
-          <Card>
-            <CardHeader>
-              <CardTitle>Import Subscribers</CardTitle>
-              <CardDescription>
-                Import subscribers from a JSON file or CSV file.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col space-y-4">
-                {/* JSON Import */}
-                <div>
-                  <h3 className="text-lg font-medium">JSON Import</h3>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Import subscribers from a JSON array.
-                  </p>
-                  <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button>
-                        <FileUp className="mr-2 h-4 w-4" />
-                        Import JSON Data
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                      <DialogHeader>
-                        <DialogTitle>Import Subscribers (JSON)</DialogTitle>
-                        <DialogDescription>
-                          Enter the subscribers data in JSON format.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="subscribers">Subscribers Data</Label>
-                          <Textarea
-                            id="subscribers"
-                            className="col-span-3"
-                            value={subscribersData}
-                            onChange={(e) => setSubscribersData(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      <Button onClick={handleImportSubscribers}>Import</Button>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-
-                <Separator />
-
-                {/* CSV Import */}
-                <div>
-                  <h3 className="text-lg font-medium">CSV Import</h3>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Import subscribers from a CSV file.
-                  </p>
-                  <Dialog open={isFileImportDialogOpen} onOpenChange={setIsFileImportDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button>
-                        <Upload className="mr-2 h-4 w-4" />
-                        Import CSV File
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[500px]">
-                      <DialogHeader>
-                        <DialogTitle>Import Subscribers (CSV)</DialogTitle>
-                        <DialogDescription>
-                          Upload a CSV file with subscriber data.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-1 items-center gap-4">
-                          <Label htmlFor="csvFile">CSV File</Label>
-                          <Input
-                            id="csvFile"
-                            type="file"
-                            accept=".csv"
-                            onChange={handleFileUpload}
-                          />
-                          {csvFile && (
-                            <p className="text-sm text-muted-foreground">
-                              Selected: {csvFile.name} ({(csvFile.size / 1024).toFixed(2)} KB)
-                            </p>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-1 items-center gap-4">
-                          <Label htmlFor="importBatchSize">Import Batch Size</Label>
-                          <Input
-                            id="importBatchSize"
-                            type="number"
-                            min="10"
-                            max="1000"
-                            value={importBatchSize}
-                            onChange={(e) => setImportBatchSize(Number(e.target.value))}
-                          />
-                          <p className="text-sm text-muted-foreground">
-                            Number of subscribers to process in each import batch (10-1000).
-                            This controls how the records are grouped when imported to the database.
-                          </p>
-                        </div>
-                      </div>
-                      <Button 
-                        onClick={handleCsvImport} 
-                        disabled={!csvFile || isUploading}
-                      >
-                        {isUploading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Uploading...
-                          </>
-                        ) : (
-                          "Import CSV"
-                        )}
-                      </Button>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="migrate">
-          <Card>
-            <CardHeader>
-              <CardTitle>Migrate Subscribers</CardTitle>
-              <CardDescription>
-                Process the migration of subscribers from the pending queue to Beehiiv.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="migrateBatchSize">Migration Batch Size</Label>
-                    <Input
-                      id="migrateBatchSize"
-                      type="number"
-                      min="10"
-                      max="1000"
-                      value={migrateBatchSize}
-                      onChange={(e) => setMigrateBatchSize(Number(e.target.value))}
-                      className="mt-1"
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Number of subscribers to migrate in this batch (10-1000). 
-                      This controls how many subscribers will be processed in one API call to Beehiiv.
-                    </p>
-                  </div>
-                </div>
-                
-                <Button 
-                  onClick={handleMigrateSubscribers} 
-                  disabled={isMigrating || !statusCounts?.pending}
-                  className="mt-4"
-                >
-                  {isMigrating ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Migrating...
-                    </>
-                  ) : (
-                    <>Migrate {migrateBatchSize} Subscribers</>
-                  )}
-                </Button>
-              </div>
-              
-              {latestBatchResults && (
-                <div className="mt-6">
-                  <h3 className="text-lg font-medium mb-2">Latest Migration Results</h3>
-                  <div className="bg-muted p-4 rounded-md">
-                    <p><strong>Batch ID:</strong> {latestBatchResults.batchId}</p>
-                    <p><strong>Success:</strong> {latestBatchResults.results.success}</p>
-                    <p><strong>Failed:</strong> {latestBatchResults.results.failed}</p>
-                    
-                    {latestBatchResults.results.successful_sample && latestBatchResults.results.successful_sample.length > 0 && (
-                      <>
-                        <h4 className="text-md font-medium mt-2 mb-1">Sample of Successful Migrations:</h4>
-                        <ul className="list-disc pl-5">
-                          {latestBatchResults.results.successful_sample.map((sub: any, index: number) => (
-                            <li key={index}>
-                              {sub.email} 
-                              {sub.response?.data?.id && (
-                                <span className="ml-2 text-xs">
-                                  (ID: {sub.response.data.id}) 
-                                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0 ml-1" onClick={() => copyToClipboard(sub.response.data.id)}>
-                                    <Copy className="h-3 w-3" />
-                                  </Button>
-                                </span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    )}
-                    
-                    {latestBatchResults.results.errors && latestBatchResults.results.errors.length > 0 && (
-                      <>
-                        <h4 className="text-md font-medium mt-2 mb-1">Errors:</h4>
-                        <ul className="list-disc pl-5">
-                          {latestBatchResults.results.errors.map((error: any, index: number) => (
-                            <li key={index}>{error.email}: {error.error}</li>
-                          ))}
-                        </ul>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="recent">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle>Recent Migrations</CardTitle>
-                  <CardDescription>
-                    List of recently migrated subscribers.
-                  </CardDescription>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => recentMigrationsQuery.refetch()}
-                  disabled={recentMigrationsQuery.isFetching}
-                >
-                  {recentMigrationsQuery.isFetching ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {recentMigrationsQuery.isLoading ? (
-                <div className="flex justify-center py-4">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
-              ) : recentMigrationsQuery.isError ? (
-                <div className="text-destructive">
-                  Error loading recent migrations: {(recentMigrationsQuery.error as Error).message}
-                </div>
-              ) : recentMigrationsQuery.data.length === 0 ? (
-                <p>No recent migrations found.</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Migrated At</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {recentMigrationsQuery.data.map((migration) => (
-                      <TableRow key={migration.email}>
-                        <TableCell className="font-medium">
-                          {migration.email}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 ml-1"
-                            onClick={() => copyToClipboard(migration.email)}
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                        </TableCell>
-                        <TableCell>{[migration.first_name, migration.last_name].filter(Boolean).join(' ') || 'N/A'}</TableCell>
-                        <TableCell>
-                          {migration.migrated_at ? new Date(migration.migrated_at).toLocaleString() : 'N/A'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {migration.subscriber_id && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7"
-                              onClick={() => copyToClipboard(migration.subscriber_id || '')}
-                            >
-                              <Copy className="h-3 w-3 mr-1" />
-                              Copy ID
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      {activeTab === "import" && <ImportTab />}
+      {activeTab === "stats" && <StatsTab />}
+      {activeTab === "recent" && <RecentTab />}
     </div>
   );
 };
