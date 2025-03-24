@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { AdminPageHeader } from '../components/admin/AdminPageHeader';
 import { BackToAdminButton } from '../components/admin/BackToAdminButton';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { AlertCircle, PlayCircle, StopCircle } from 'lucide-react';
+import { AlertCircle, PlayCircle, StopCircle, Clipboard, Check, RefreshCw } from 'lucide-react';
 import { Switch } from '../components/ui/switch';
 
 interface MigrationStats {
@@ -43,6 +43,15 @@ interface MigrationStats {
   };
 }
 
+interface SuccessfulSubscriber {
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  status?: string;
+  created?: number;
+  subscriber_id?: string;
+}
+
 const AdminEmailMigration = () => {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -63,6 +72,9 @@ const AdminEmailMigration = () => {
   const [verifyEmail, setVerifyEmail] = useState('');
   const [verificationResult, setVerificationResult] = useState<any>(null);
   const [verifying, setVerifying] = useState(false);
+  const [recentMigrations, setRecentMigrations] = useState<SuccessfulSubscriber[]>([]);
+  const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
+  const [loadingRecent, setLoadingRecent] = useState(false);
 
   const { data: migrationStats, refetch: refetchStats, isLoading: statsLoading } = useQuery<MigrationStats>({
     queryKey: ['email-migration-stats'],
@@ -401,6 +413,61 @@ const AdminEmailMigration = () => {
     }
   });
 
+  const refetchRecentMigrations = useQuery({
+    queryKey: ['recent-migrated-subscribers'],
+    queryFn: async () => {
+      setLoadingRecent(true);
+      try {
+        const { data, error } = await supabase
+          .from('email_migration')
+          .select('email, first_name, last_name, migrated_at')
+          .eq('status', 'migrated')
+          .order('migrated_at', { ascending: false })
+          .limit(10);
+          
+        if (error) {
+          throw new Error(`Failed to fetch recent migrations: ${error.message}`);
+        }
+        
+        setRecentMigrations(data.map(item => ({
+          email: item.email,
+          first_name: item.first_name,
+          last_name: item.last_name,
+          migrated_at: item.migrated_at
+        })));
+        
+        return data;
+      } catch (error) {
+        toast.error(`Error fetching recent migrations: ${error.message}`);
+        return [];
+      } finally {
+        setLoadingRecent(false);
+      }
+    },
+    enabled: false
+  });
+
+  useEffect(() => {
+    if (migrationStats) {
+      refetchRecentMigrations();
+    }
+  }, [migrationStats, refetchRecentMigrations]);
+
+  const copyToClipboard = (email: string) => {
+    navigator.clipboard.writeText(email)
+      .then(() => {
+        setCopiedEmail(email);
+        toast.success('Email copied to clipboard');
+        
+        setTimeout(() => {
+          setCopiedEmail(null);
+        }, 2000);
+      })
+      .catch(err => {
+        toast.error(`Failed to copy: ${err.message}`);
+      });
+  };
+
   return (
     <div className="container mx-auto py-6">
       <BackToAdminButton />
@@ -414,6 +481,7 @@ const AdminEmailMigration = () => {
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="import">Import Subscribers</TabsTrigger>
           <TabsTrigger value="migrate">Migrate Batch</TabsTrigger>
+          <TabsTrigger value="recent">Recent Migrations</TabsTrigger>
           <TabsTrigger value="automation">Automation</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="verify">Verify Subscriber</TabsTrigger>
@@ -663,6 +731,140 @@ const AdminEmailMigration = () => {
               </div>
             </div>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="recent" className="space-y-6">
+          <Card className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Recently Migrated Subscribers</h3>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => refetchRecentMigrations()} 
+                disabled={loadingRecent}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loadingRecent ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
+            
+            {loadingRecent ? (
+              <div className="py-8 text-center text-slate-500">Loading recent migrations...</div>
+            ) : recentMigrations.length === 0 ? (
+              <div className="py-8 text-center text-slate-500">No recently migrated subscribers found</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Migrated At</TableHead>
+                    <TableHead className="w-[100px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentMigrations.map((subscriber) => (
+                    <TableRow key={subscriber.email}>
+                      <TableCell className="font-medium">{subscriber.email}</TableCell>
+                      <TableCell>
+                        {subscriber.first_name || ''} {subscriber.last_name || ''}
+                      </TableCell>
+                      <TableCell>
+                        {subscriber.migrated_at ? new Date(subscriber.migrated_at).toLocaleString() : 'Unknown'}
+                      </TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => copyToClipboard(subscriber.email)}
+                          title="Copy email to clipboard"
+                        >
+                          {copiedEmail === subscriber.email ? (
+                            <Check className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Clipboard className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+            
+            <div className="mt-4 text-sm text-slate-500">
+              <p>Use this list to verify subscribers have been correctly migrated to BeehiiV.</p>
+              <p>Click the clipboard icon to copy an email address for quick searching in BeehiiV.</p>
+            </div>
+          </Card>
+          
+          {migrateBatchMutation.data && (
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-2">Latest Batch Results</h3>
+              <div className="text-sm">
+                <p>Batch ID: <span className="font-mono">{migrateBatchMutation.data.batchId}</span></p>
+                <p className="mt-2">
+                  Processed {migrateBatchMutation.data.results.total} subscribers:
+                  <span className="text-green-600 ml-1">{migrateBatchMutation.data.results.success} successful</span>,
+                  <span className="text-red-600 ml-1">{migrateBatchMutation.data.results.failed} failed</span>
+                </p>
+                
+                {migrateBatchMutation.data.results.successful_sample && 
+                  migrateBatchMutation.data.results.successful_sample.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-medium mb-2">Sample of Successfully Migrated Subscribers:</h4>
+                    <div className="bg-slate-50 p-4 rounded-lg overflow-auto max-h-56">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Subscriber ID</TableHead>
+                            <TableHead>Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {migrateBatchMutation.data.results.successful_sample.map((item: any) => (
+                            <TableRow key={item.email}>
+                              <TableCell className="font-mono text-xs">{item.email}</TableCell>
+                              <TableCell>
+                                {item.response?.data?.status ? (
+                                  <span className={`px-2 py-1 rounded text-xs ${
+                                    item.response.data.status === 'active' 
+                                      ? 'bg-green-100 text-green-800' 
+                                      : 'bg-amber-100 text-amber-800'
+                                  }`}>
+                                    {item.response.data.status}
+                                  </span>
+                                ) : 'Unknown'}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs truncate max-w-[150px]">
+                                {item.response?.data?.id || 'N/A'}
+                              </TableCell>
+                              <TableCell>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => copyToClipboard(item.email)}
+                                  title="Copy email to clipboard"
+                                >
+                                  {copiedEmail === item.email ? (
+                                    <Check className="h-4 w-4 text-green-500" />
+                                  ) : (
+                                    <Clipboard className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="automation" className="space-y-6">
