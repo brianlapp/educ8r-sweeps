@@ -265,14 +265,17 @@ serve(async (req) => {
           );
         }
 
-        // ENHANCED LOGGING: Log the API endpoint being used
-        console.log(`Using BeehiiV API endpoint: https://api.beehiiv.com/v2/publications/${publicationId}/subscriptions`);
+        // Before processing subscribers, let's log the BeehiiV API key status (without revealing it)
+        console.log(`BeehiiV API Key present and length: ${BEEHIIV_API_KEY ? BEEHIIV_API_KEY.length : 0} characters`);
+        console.log(`Publication ID being used: ${publicationId}`);
+        console.log(`Complete BeehiiV API endpoint being used: https://api.beehiiv.com/v2/publications/${publicationId}/subscriptions`);
         
         // Process each subscriber
         const results = {
           success: 0,
           failed: 0,
-          errors: [] as Array<{ email: string, error: string }>
+          errors: [] as Array<{ email: string, error: string }>,
+          successful_subscribers: [] as Array<{ email: string, response: any }>
         };
 
         for (const subscriber of subscribersToMigrate) {
@@ -314,7 +317,34 @@ serve(async (req) => {
             // ENHANCED LOGGING: Log the exact request payload
             console.log(`BeehiiV API request for ${subscriber.email}:`, JSON.stringify(beehiivData, null, 2));
 
-            // Send to BeehiiV API
+            // Test the BeehiiV API endpoint first with a basic curl-like request
+            try {
+              console.log(`Testing BeehiiV API connectivity before actual request...`);
+              const testResponse = await fetch(
+                `https://api.beehiiv.com/v2/publications/${publicationId}`,
+                {
+                  method: 'GET',
+                  headers: {
+                    'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+                    'Content-Type': 'application/json',
+                  }
+                }
+              );
+              
+              const testResponseText = await testResponse.text();
+              console.log(`BeehiiV API test response status: ${testResponse.status}`);
+              console.log(`BeehiiV API test response: ${testResponseText}`);
+              
+              if (!testResponse.ok) {
+                console.error(`❌ BeehiiV API test failed with status ${testResponse.status}`);
+                throw new Error(`BeehiiV API test failed: ${testResponseText}`);
+              }
+            } catch (testError) {
+              console.error(`Error testing BeehiiV API: ${testError.message}`);
+            }
+
+            // Send to BeehiiV API with complete logs of request and response
+            console.log(`Sending actual subscription request to BeehiiV...`);
             const subscribeResponse = await fetch(
               `https://api.beehiiv.com/v2/publications/${publicationId}/subscriptions`,
               {
@@ -329,12 +359,12 @@ serve(async (req) => {
 
             const responseText = await subscribeResponse.text();
             
-            // ENHANCED LOGGING: More detailed API response logging
+            // Detailed API response logging
             console.log(`BeehiiV API response status for ${subscriber.email}: ${subscribeResponse.status}`);
             console.log(`BeehiiV API response headers for ${subscriber.email}:`, JSON.stringify(Object.fromEntries([...subscribeResponse.headers]), null, 2));
             console.log(`BeehiiV API response body for ${subscriber.email}: ${responseText}`);
 
-            // ENHANCED LOGGING: Try to parse response as JSON for better debugging
+            // Try to parse response JSON for better debugging
             let responseData = null;
             try {
               responseData = JSON.parse(responseText);
@@ -342,15 +372,21 @@ serve(async (req) => {
               
               // ENHANCED LOGGING: Check if subscriber ID is present in response
               if (responseData?.data?.id) {
-                console.log(`✅ Subscriber ID returned: ${responseData.data.id} for email: ${subscriber.email}`);
+                console.log(`✅ SUCCESS: Subscriber ID returned: ${responseData.data.id} for email: ${subscriber.email}`);
               } else {
-                console.log(`⚠️ No subscriber ID returned for email: ${subscriber.email}`);
+                console.log(`⚠️ WARNING: No subscriber ID returned for email: ${subscriber.email} even though status was OK`);
               }
             } catch (parseError) {
               console.error(`Could not parse response as JSON for ${subscriber.email}:`, parseError);
             }
 
             if (subscribeResponse.ok) {
+              // Store successful subscription data
+              results.successful_subscribers.push({
+                email: subscriber.email,
+                response: responseData
+              });
+              
               // Update subscriber status to 'migrated'
               const { error: updateError } = await supabaseAdmin
                 .from('email_migration')
@@ -369,7 +405,7 @@ serve(async (req) => {
 
               results.success++;
             } else {
-              // ENHANCED LOGGING: More detailed error logging
+              // More detailed error logging
               console.error(`❌ BeehiiV API error for ${subscriber.email}: Status ${subscribeResponse.status}`);
               
               // Parse error message from response if possible
@@ -461,25 +497,26 @@ serve(async (req) => {
           }
         }
 
-        // ENHANCED LOGGING: Final batch summary
-        console.log(`=== Batch ${batchId} Migration Summary ===`);
-        console.log(`Total processed: ${subscribersToMigrate.length}`);
-        console.log(`Successful migrations: ${results.success}`);
-        console.log(`Failed migrations: ${results.failed}`);
-        if (results.errors.length > 0) {
-          console.log("Errors:", results.errors);
+        // Enhance the response with details of the successful migrations
+        console.log(`=== Batch ${batchId} Migration Details ===`);
+        console.log(`Total successful migrations: ${results.success}`);
+        console.log(`Details of successful subscribers:`, JSON.stringify(results.successful_subscribers.slice(0, 5), null, 2));
+        if (results.successful_subscribers.length > 5) {
+          console.log(`... and ${results.successful_subscribers.length - 5} more`);
         }
 
         return new Response(
           JSON.stringify({ 
             success: true, 
             batchId,
-            publicationId, // ADDED: Return the publication ID used for clarity
+            publicationId,
             results: {
               total: subscribersToMigrate.length,
               success: results.success,
               failed: results.failed,
-              errors: results.errors
+              errors: results.errors,
+              // Include first 5 successful subscribers in the response for verification
+              successful_sample: results.successful_subscribers.slice(0, 5)
             }
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
