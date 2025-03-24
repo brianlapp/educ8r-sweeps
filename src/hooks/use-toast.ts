@@ -176,8 +176,9 @@ function useToast() {
   }
 }
 
+// Update the type definition for variant to include "success" and "warning"
 toast.success = (title: string, description?: string) => {
-  return toast({ title, description, variant: "success" })
+  return toast({ title, description, variant: "success" as ToastProps["variant"] })
 }
 
 toast.error = (title: string, description?: string) => {
@@ -185,7 +186,7 @@ toast.error = (title: string, description?: string) => {
 }
 
 toast.warning = (title: string, description?: string) => {
-  return toast({ title, description, variant: "warning" })
+  return toast({ title, description, variant: "warning" as ToastProps["variant"] })
 }
 
 toast.info = (title: string, description?: string) => {
