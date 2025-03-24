@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -220,7 +219,8 @@ serve(async (req) => {
         const batchId = `batch-${new Date().toISOString().split('T')[0]}-${Math.floor(Math.random() * 10000)}`;
         
         // Use the publication ID from the request, with a fallback to prevent breaking changes
-        const publicationId = requestData.publicationId || 'pub_7588ba6b-a268-4571-9135-47a68568ee64';
+        // FIXED: Default publication ID to what worked previously for our test upload
+        const publicationId = requestData.publicationId || 'pub_4b47c3db-87fa-4253-956a-21c7afeb3e29';
         
         console.log(`Processing migration batch ${batchId} with size ${batchSize} for publication ${publicationId}`);
 
@@ -265,6 +265,9 @@ serve(async (req) => {
           );
         }
 
+        // ENHANCED LOGGING: Log the API endpoint being used
+        console.log(`Using BeehiiV API endpoint: https://api.beehiiv.com/v2/publications/${publicationId}/subscriptions`);
+        
         // Process each subscriber
         const results = {
           success: 0,
@@ -289,9 +292,17 @@ serve(async (req) => {
                 {
                   name: 'migrated_from_ongage',
                   value: 'true'
+                },
+                // ADDED: New custom field for tracking migration batch
+                {
+                  name: 'migration_batch_id',
+                  value: batchId
                 }
               ]
             };
+
+            // ENHANCED LOGGING: Log the exact request payload
+            console.log(`BeehiiV API request for ${subscriber.email}:`, JSON.stringify(beehiivData, null, 2));
 
             // Send to BeehiiV API
             const subscribeResponse = await fetch(
@@ -307,7 +318,27 @@ serve(async (req) => {
             );
 
             const responseText = await subscribeResponse.text();
-            console.log(`BeehiiV API response for ${subscriber.email}: ${subscribeResponse.status} - ${responseText}`);
+            
+            // ENHANCED LOGGING: More detailed API response logging
+            console.log(`BeehiiV API response status for ${subscriber.email}: ${subscribeResponse.status}`);
+            console.log(`BeehiiV API response headers for ${subscriber.email}:`, JSON.stringify(Object.fromEntries([...subscribeResponse.headers]), null, 2));
+            console.log(`BeehiiV API response body for ${subscriber.email}: ${responseText}`);
+
+            // ENHANCED LOGGING: Try to parse response as JSON for better debugging
+            let responseData = null;
+            try {
+              responseData = JSON.parse(responseText);
+              console.log(`BeehiiV API parsed response for ${subscriber.email}:`, JSON.stringify(responseData, null, 2));
+              
+              // ENHANCED LOGGING: Check if subscriber ID is present in response
+              if (responseData?.data?.id) {
+                console.log(`✅ Subscriber ID returned: ${responseData.data.id} for email: ${subscriber.email}`);
+              } else {
+                console.log(`⚠️ No subscriber ID returned for email: ${subscriber.email}`);
+              }
+            } catch (parseError) {
+              console.error(`Could not parse response as JSON for ${subscriber.email}:`, parseError);
+            }
 
             if (subscribeResponse.ok) {
               // Update subscriber status to 'migrated'
@@ -322,27 +353,46 @@ serve(async (req) => {
 
               if (updateError) {
                 console.error(`Error updating migrated status for ${subscriber.email}:`, updateError);
+              } else {
+                console.log(`✅ Successfully updated database status to 'migrated' for ${subscriber.email}`);
               }
 
               results.success++;
             } else {
+              // ENHANCED LOGGING: More detailed error logging
+              console.error(`❌ BeehiiV API error for ${subscriber.email}: Status ${subscribeResponse.status}`);
+              
+              // Parse error message from response if possible
+              let errorMessage = responseText;
+              try {
+                const errorData = JSON.parse(responseText);
+                if (errorData.error) {
+                  errorMessage = `API Error: ${errorData.error}`;
+                  console.error(`BeehiiV error message: ${errorData.error}`);
+                }
+              } catch (e) {
+                // Keep the original error text if parsing fails
+              }
+
               // Update subscriber status to 'failed'
               const { error: updateError } = await supabaseAdmin
                 .from('email_migration')
                 .update({ 
                   status: 'failed',
-                  error: `API Error: ${subscribeResponse.status} - ${responseText}`
+                  error: `API Error: ${subscribeResponse.status} - ${errorMessage}`
                 })
                 .eq('id', subscriber.id);
 
               if (updateError) {
                 console.error(`Error updating failed status for ${subscriber.email}:`, updateError);
+              } else {
+                console.log(`Updated database status to 'failed' for ${subscriber.email}`);
               }
 
               results.failed++;
               results.errors.push({ 
                 email: subscriber.email,
-                error: `API Error: ${subscribeResponse.status} - ${responseText}`
+                error: `API Error: ${subscribeResponse.status} - ${errorMessage}`
               });
             }
           } catch (error) {
@@ -369,7 +419,10 @@ serve(async (req) => {
           }
 
           // Add a small delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // ENHANCED: Randomize delay slightly to make it more natural
+          const delay = 500 + Math.floor(Math.random() * 500); // 500-1000ms
+          console.log(`Waiting ${delay}ms before processing next subscriber`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
 
         // Update the migration stats
@@ -393,13 +446,25 @@ serve(async (req) => {
 
           if (updateStatsError) {
             console.error("Error updating migration stats:", updateStatsError);
+          } else {
+            console.log("Successfully updated migration stats");
           }
+        }
+
+        // ENHANCED LOGGING: Final batch summary
+        console.log(`=== Batch ${batchId} Migration Summary ===`);
+        console.log(`Total processed: ${subscribersToMigrate.length}`);
+        console.log(`Successful migrations: ${results.success}`);
+        console.log(`Failed migrations: ${results.failed}`);
+        if (results.errors.length > 0) {
+          console.log("Errors:", results.errors);
         }
 
         return new Response(
           JSON.stringify({ 
             success: true, 
             batchId,
+            publicationId, // ADDED: Return the publication ID used for clarity
             results: {
               total: subscribersToMigrate.length,
               success: results.success,
