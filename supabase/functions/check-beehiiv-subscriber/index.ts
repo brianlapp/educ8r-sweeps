@@ -29,6 +29,8 @@ serve(async (req) => {
 
     // Parse request data
     const requestData = await req.json();
+    console.log("Request data received:", JSON.stringify(requestData));
+    
     const { email, publicationId } = requestData;
     
     if (!email) {
