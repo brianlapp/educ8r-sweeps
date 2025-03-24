@@ -50,6 +50,7 @@ interface SuccessfulSubscriber {
   status?: string;
   created?: number;
   subscriber_id?: string;
+  migrated_at?: string; // Add this property to fix the type error
 }
 
 const AdminEmailMigration = () => {
@@ -413,45 +414,42 @@ const AdminEmailMigration = () => {
     }
   });
 
-  const refetchRecentMigrations = useQuery({
-    queryKey: ['recent-migrated-subscribers'],
-    queryFn: async () => {
-      setLoadingRecent(true);
-      try {
-        const { data, error } = await supabase
-          .from('email_migration')
-          .select('email, first_name, last_name, migrated_at')
-          .eq('status', 'migrated')
-          .order('migrated_at', { ascending: false })
-          .limit(10);
-          
-        if (error) {
-          throw new Error(`Failed to fetch recent migrations: ${error.message}`);
-        }
+  // Fix: Change from useQuery to a regular function that uses the fetchRecentMigrations function
+  const fetchRecentMigrations = async () => {
+    setLoadingRecent(true);
+    try {
+      const { data, error } = await supabase
+        .from('email_migration')
+        .select('email, first_name, last_name, migrated_at')
+        .eq('status', 'migrated')
+        .order('migrated_at', { ascending: false })
+        .limit(10);
         
-        setRecentMigrations(data.map(item => ({
-          email: item.email,
-          first_name: item.first_name,
-          last_name: item.last_name,
-          migrated_at: item.migrated_at
-        })));
-        
-        return data;
-      } catch (error) {
-        toast.error(`Error fetching recent migrations: ${error.message}`);
-        return [];
-      } finally {
-        setLoadingRecent(false);
+      if (error) {
+        throw new Error(`Failed to fetch recent migrations: ${error.message}`);
       }
-    },
-    enabled: false
-  });
+      
+      setRecentMigrations(data.map(item => ({
+        email: item.email,
+        first_name: item.first_name,
+        last_name: item.last_name,
+        migrated_at: item.migrated_at
+      })));
+      
+      return data;
+    } catch (error: any) {
+      toast.error(`Error fetching recent migrations: ${error.message}`);
+      return [];
+    } finally {
+      setLoadingRecent(false);
+    }
+  };
 
   useEffect(() => {
     if (migrationStats) {
-      refetchRecentMigrations();
+      fetchRecentMigrations();
     }
-  }, [migrationStats, refetchRecentMigrations]);
+  }, [migrationStats]);
 
   const copyToClipboard = (email: string) => {
     navigator.clipboard.writeText(email)
@@ -740,7 +738,7 @@ const AdminEmailMigration = () => {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => refetchRecentMigrations()} 
+                onClick={fetchRecentMigrations} 
                 disabled={loadingRecent}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${loadingRecent ? 'animate-spin' : ''}`} />
