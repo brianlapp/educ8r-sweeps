@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '../integrations/supabase/client';
@@ -58,22 +57,33 @@ const AdminEmailMigration = () => {
   const [migrationSummary, setMigrationSummary] = useState<any>(null);
   const [clearingQueue, setClearingQueue] = useState(false);
 
-  // Fetch migration stats
+  const handleError = (error: any, message: string) => {
+    console.error(message, error);
+    toast.error(`${message}: ${error.message}`);
+  };
+
+  // Fetch migration stats - FIXED to use POST method for the API call
   const { data: migrationStats, refetch: refetchStats, isLoading: statsLoading } = useQuery({
     queryKey: ['email-migration-stats'],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('email-migration', {
-        method: 'GET',
-        body: { action: 'stats' }
-      });
+      try {
+        const { data, error } = await supabase.functions.invoke('email-migration', {
+          method: 'POST', // Changed from GET to POST
+          body: { action: 'stats' }
+        });
 
-      if (error) {
-        console.error('Stats fetch error:', error);
-        toast.error(`Error fetching migration stats: ${error.message}`);
-        throw new Error(`Failed to fetch migration stats: ${error.message}`);
+        if (error) {
+          console.error('Stats fetch error:', error);
+          handleError(error, 'Error fetching migration stats');
+          throw new Error(`Failed to fetch migration stats: ${error.message}`);
+        }
+        
+        return data;
+      } catch (err: any) {
+        console.error('Error in stats query:', err);
+        handleError(err, 'Failed to load migration statistics');
+        throw err;
       }
-      
-      return data;
     }
   });
 
@@ -100,9 +110,11 @@ const AdminEmailMigration = () => {
     onSuccess: (data) => {
       toast.success(`Processed batch: ${data.results.success} migrated, ${data.results.duplicates} duplicates, ${data.results.failed} failed`);
       setMigrationSummary(data);
-      refetchStats();
+      setTimeout(() => {
+        refetchStats(); // Refresh stats after successful batch with a slight delay
+      }, 500);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast.error(`Error processing batch: ${error.message}`);
     },
     onSettled: () => {
@@ -133,7 +145,7 @@ const AdminEmailMigration = () => {
       toast.success(data.message);
       refetchStats();
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast.error(`Error clearing queue: ${error.message}`);
     },
     onSettled: () => {
@@ -159,10 +171,14 @@ const AdminEmailMigration = () => {
       toast.success(data.message);
       refetchStats();
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast.error(`Error resetting failed migrations: ${error.message}`);
     }
   });
+
+  useEffect(() => {
+    refetchStats();
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null;
@@ -271,6 +287,10 @@ const AdminEmailMigration = () => {
       console.log(`Parsed ${subscribers.length} subscribers from CSV file`);
       setUploadProgress(100);
       
+      // First, let's automatically clear any in_progress subscribers to avoid confusion
+      await clearQueueMutation.mutateAsync('in_progress');
+      
+      // Then import the new subscribers
       const { data, error } = await supabase.functions.invoke('email-migration', {
         method: 'POST',
         body: {
@@ -288,7 +308,7 @@ const AdminEmailMigration = () => {
       
       toast.success(`Imported ${data.message || `${subscribers.length} subscribers`}`);
       setFile(null);
-      refetchStats();
+      refetchStats(); // Refresh stats after successful import
     } catch (error: any) {
       console.error("Error during file upload:", error);
       setFileError(error.message);
@@ -840,3 +860,4 @@ const AdminEmailMigration = () => {
 };
 
 export default AdminEmailMigration;
+
