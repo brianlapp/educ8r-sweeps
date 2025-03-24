@@ -279,14 +279,14 @@ serve(async (req) => {
           try {
             console.log(`Migrating subscriber: ${subscriber.email}`);
             
-            // Create BeehiiV subscriber data
+            // Create BeehiiV subscriber data with improved tracking
             const beehiivData: BeehiivSubscriberData = {
               email: subscriber.email,
               first_name: subscriber.first_name || '',
               last_name: subscriber.last_name || '',
-              utm_source: 'migration',
-              utm_medium: 'ongage',
-              utm_campaign: 'email_migration',
+              utm_source: 'ongage_migration', // Updated for better tracking
+              utm_medium: 'email_migration',
+              utm_campaign: `batch_${batchId}`, // Include batch ID in campaign
               reactivate: true, // Prevent welcome emails
               custom_fields: [
                 {
@@ -297,6 +297,16 @@ serve(async (req) => {
                 {
                   name: 'migration_batch_id',
                   value: batchId
+                },
+                // NEW: Add a clear tracking tag to easily identify migrated subscribers
+                {
+                  name: 'subscriber_source',
+                  value: 'ongage_migration'
+                },
+                // NEW: Add timestamp of migration
+                {
+                  name: 'migration_date',
+                  value: new Date().toISOString()
                 }
               ]
             };
@@ -810,19 +820,33 @@ serve(async (req) => {
           try {
             console.log(`Migrating subscriber: ${subscriber.email}`);
             
-            // Create BeehiiV subscriber data
+            // Create BeehiiV subscriber data with improved tracking parameters
             const beehiivData: BeehiivSubscriberData = {
               email: subscriber.email,
               first_name: subscriber.first_name || '',
               last_name: subscriber.last_name || '',
-              utm_source: 'migration',
-              utm_medium: 'ongage',
-              utm_campaign: 'email_migration',
+              utm_source: 'ongage_migration', // Updated for better tracking
+              utm_medium: 'email_migration',
+              utm_campaign: `auto_batch_${batchId}`, // Include batch ID in campaign
               reactivate: true, // Prevent welcome emails
               custom_fields: [
                 {
                   name: 'migrated_from_ongage',
                   value: 'true'
+                },
+                {
+                  name: 'migration_batch_id',
+                  value: batchId
+                },
+                // NEW: Add a clear tracking tag to easily identify migrated subscribers
+                {
+                  name: 'subscriber_source',
+                  value: 'ongage_migration'
+                },
+                // NEW: Add timestamp of migration
+                {
+                  name: 'migration_date',
+                  value: new Date().toISOString()
                 }
               ]
             };
@@ -973,3 +997,4 @@ serve(async (req) => {
     );
   }
 });
+
