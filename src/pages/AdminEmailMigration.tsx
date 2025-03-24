@@ -38,10 +38,27 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
-import { Loader2, RefreshCw, Trash, Copy, ExternalLink } from "lucide-react"
+import { 
+  Loader2, 
+  RefreshCw, 
+  Trash, 
+  Copy, 
+  ExternalLink, 
+  Upload,
+  FileUp
+} from "lucide-react"
 import { SUPABASE_URL } from "@/integrations/supabase/client";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useQuery } from "@tanstack/react-query";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
 const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwZnpyYWVqcXVheHFyZm1rbXl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk0NzA2ODIsImV4cCI6MjA1NTA0NjY4Mn0.LY300ASTr6cn4vl2ZkCR0pV0rmah9YKLaUXVM5ISytM";
 
@@ -76,11 +93,15 @@ const AdminEmailMigration = () => {
   const [latestBatches, setLatestBatches] = useState<any[]>([]);
   const [automationSettings, setAutomationSettings] = useState<any>(null);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [isFileImportDialogOpen, setIsFileImportDialogOpen] = useState(false);
   const [subscribersData, setSubscribersData] = useState('');
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [batchSize, setBatchSize] = useState<number>(100);
   const [isMigrating, setIsMigrating] = useState(false);
   const [resettingFailed, setResettingFailed] = useState(false);
   const [clearingQueue, setClearingQueue] = useState(false);
   const [latestBatchResults, setLatestBatchResults] = useState<any>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const { toast } = useToast();
 
@@ -194,6 +215,65 @@ const AdminEmailMigration = () => {
     }
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setCsvFile(file);
+    }
+  };
+
+  const handleCsvImport = async () => {
+    if (!csvFile) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No CSV file selected",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', csvFile);
+      formData.append('batchSize', batchSize.toString());
+
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/email-migration?action=import-csv`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${ANON_KEY}`
+          },
+          body: formData,
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to import CSV file');
+      }
+
+      toast({
+        title: "CSV Import Successful",
+        description: `${result.inserted} subscribers imported. ${result.duplicates} duplicates skipped.`,
+      });
+      
+      setIsFileImportDialogOpen(false);
+      setCsvFile(null);
+      refetchMigrationStats();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "CSV Import Failed",
+        description: error.message,
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleMigrateSubscribers = async () => {
     setIsMigrating(true);
     try {
@@ -205,7 +285,10 @@ const AdminEmailMigration = () => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${ANON_KEY}`
           },
-          body: JSON.stringify({ action: 'migrate-batch' }),
+          body: JSON.stringify({ 
+            action: 'migrate-batch',
+            batchSize
+          }),
         }
       );
 
@@ -519,35 +602,116 @@ const AdminEmailMigration = () => {
             <CardHeader>
               <CardTitle>Import Subscribers</CardTitle>
               <CardDescription>
-                Import subscribers from a JSON file.
+                Import subscribers from a JSON file or CSV file.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>Import Subscribers</Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>Import Subscribers</DialogTitle>
-                    <DialogDescription>
-                      Enter the subscribers data in JSON format.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="subscribers">Subscribers Data</Label>
-                      <Textarea
-                        id="subscribers"
-                        className="col-span-3"
-                        value={subscribersData}
-                        onChange={(e) => setSubscribersData(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <Button onClick={handleImportSubscribers}>Import</Button>
-                </DialogContent>
-              </Dialog>
+              <div className="flex flex-col space-y-4">
+                {/* JSON Import */}
+                <div>
+                  <h3 className="text-lg font-medium">JSON Import</h3>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Import subscribers from a JSON array.
+                  </p>
+                  <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <FileUp className="mr-2 h-4 w-4" />
+                        Import JSON Data
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Import Subscribers (JSON)</DialogTitle>
+                        <DialogDescription>
+                          Enter the subscribers data in JSON format.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="subscribers">Subscribers Data</Label>
+                          <Textarea
+                            id="subscribers"
+                            className="col-span-3"
+                            value={subscribersData}
+                            onChange={(e) => setSubscribersData(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <Button onClick={handleImportSubscribers}>Import</Button>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+
+                <Separator />
+
+                {/* CSV Import */}
+                <div>
+                  <h3 className="text-lg font-medium">CSV Import</h3>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Import subscribers from a CSV file.
+                  </p>
+                  <Dialog open={isFileImportDialogOpen} onOpenChange={setIsFileImportDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Import CSV File
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Import Subscribers (CSV)</DialogTitle>
+                        <DialogDescription>
+                          Upload a CSV file with subscriber data.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-1 items-center gap-4">
+                          <Label htmlFor="csvFile">CSV File</Label>
+                          <Input
+                            id="csvFile"
+                            type="file"
+                            accept=".csv"
+                            onChange={handleFileUpload}
+                          />
+                          {csvFile && (
+                            <p className="text-sm text-muted-foreground">
+                              Selected: {csvFile.name} ({(csvFile.size / 1024).toFixed(2)} KB)
+                            </p>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 items-center gap-4">
+                          <Label htmlFor="batchSize">Batch Size</Label>
+                          <Input
+                            id="batchSize"
+                            type="number"
+                            min="10"
+                            max="1000"
+                            value={batchSize}
+                            onChange={(e) => setBatchSize(Number(e.target.value))}
+                          />
+                          <p className="text-sm text-muted-foreground">
+                            Number of subscribers to process in each migration batch (10-1000).
+                          </p>
+                        </div>
+                      </div>
+                      <Button 
+                        onClick={handleCsvImport} 
+                        disabled={!csvFile || isUploading}
+                      >
+                        {isUploading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          "Import CSV"
+                        )}
+                      </Button>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -561,16 +725,40 @@ const AdminEmailMigration = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={handleMigrateSubscribers} disabled={isMigrating}>
-                {isMigrating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Migrating...
-                  </>
-                ) : (
-                  "Migrate Subscribers"
-                )}
-              </Button>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="migrateBatchSize">Batch Size</Label>
+                    <Input
+                      id="migrateBatchSize"
+                      type="number"
+                      min="10"
+                      max="1000"
+                      value={batchSize}
+                      onChange={(e) => setBatchSize(Number(e.target.value))}
+                      className="mt-1"
+                    />
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Number of subscribers to process in this migration batch (10-1000).
+                    </p>
+                  </div>
+                </div>
+                
+                <Button 
+                  onClick={handleMigrateSubscribers} 
+                  disabled={isMigrating || !statusCounts?.pending}
+                  className="mt-4"
+                >
+                  {isMigrating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Migrating...
+                    </>
+                  ) : (
+                    <>Migrate {batchSize} Subscribers</>
+                  )}
+                </Button>
+              </div>
               
               {latestBatchResults && (
                 <div className="mt-6">
