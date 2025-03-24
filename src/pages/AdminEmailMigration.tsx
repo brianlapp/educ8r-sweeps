@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { supabase, SUPABASE_URL } from '../integrations/supabase/client';
+import { supabase } from '../integrations/supabase/client';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { toast } from 'sonner';
+import { toast } from '../components/ui/use-toast';
 import { AdminPageHeader } from '../components/admin/AdminPageHeader';
 import { BackToAdminButton } from '../components/admin/BackToAdminButton';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -80,7 +80,7 @@ const AdminEmailMigration = () => {
   const [checkingExisting, setCheckingExisting] = useState(false);
   const [checkExistingBatchSize, setCheckExistingBatchSize] = useState(100);
 
-  const { data: migrationStats, refetch: refetchStats, isLoading: statsLoading } = useQuery<MigrationStats>({
+  const { data: migrationStats, refetch: refetchStats, isLoading: statsLoading } = useQuery({
     queryKey: ['email-migration-stats'],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke('email-migration', {
@@ -89,6 +89,12 @@ const AdminEmailMigration = () => {
       });
 
       if (error) {
+        console.error('Stats fetch error:', error);
+        toast({
+          title: "Error fetching migration stats",
+          description: error.message,
+          variant: "destructive"
+        });
         throw new Error(`Failed to fetch migration stats: ${error.message}`);
       }
       
@@ -232,27 +238,45 @@ const AdminEmailMigration = () => {
     mutationFn: async () => {
       setCheckingExisting(true);
       
-      const { data, error } = await supabase.functions.invoke('email-migration', {
-        method: 'POST',
-        body: { 
-          action: 'check-existing',
-          batchSize: checkExistingBatchSize,
-          publicationId
+      console.log('Starting check-existing with batch size:', checkExistingBatchSize);
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('email-migration', {
+          method: 'POST',
+          body: { 
+            action: 'check-existing',
+            batchSize: checkExistingBatchSize,
+            publicationId
+          }
+        });
+        
+        if (error) {
+          console.error('Check existing error:', error);
+          throw new Error(`Failed to check existing subscribers: ${error.message}`);
         }
-      });
-      
-      if (error) {
-        throw new Error(`Failed to check existing subscribers: ${error.message}`);
+        
+        console.log('Check existing response:', data);
+        return data;
+      } catch (error) {
+        console.error('Check existing caught error:', error);
+        throw error;
       }
-      
-      return data;
     },
     onSuccess: (data) => {
-      toast.success(`Checked ${data.results.checked} subscribers, found ${data.results.already_exists} already in BeehiiV`);
+      console.log('Check existing success:', data);
+      toast({
+        title: "Check Complete",
+        description: `Checked ${data.results.checked} subscribers, found ${data.results.already_exists} already in BeehiiV`,
+      });
       refetchStats();
     },
     onError: (error) => {
-      toast.error(`Error checking subscribers: ${error.message}`);
+      console.error('Check existing mutation error:', error);
+      toast({
+        title: "Error checking subscribers",
+        description: error.message,
+        variant: "destructive"
+      });
     },
     onSettled: () => {
       setCheckingExisting(false);
@@ -759,8 +783,11 @@ const AdminEmailMigration = () => {
               </div>
               
               <Button 
-                onClick={() => checkExistingSubscribersMutation.mutate()}
-                disabled={checkingExisting || statsLoading || (migrationStats?.counts.pending === 0)}
+                onClick={() => {
+                  console.log('Check batch button clicked');
+                  checkExistingSubscribersMutation.mutate();
+                }}
+                disabled={checkingExisting}
               >
                 <Filter className="mr-2 h-4 w-4" />
                 {checkingExisting ? 'Checking...' : 'Check Batch'}
@@ -768,9 +795,9 @@ const AdminEmailMigration = () => {
               
               <div className="text-sm text-slate-500 mt-2">
                 {statsLoading ? 'Loading...' : (
-                  migrationStats?.counts.pending === 0 
+                  migrationStats?.counts.pending === 0 || migrationStats?.counts.pending === undefined 
                     ? 'No subscribers pending check' 
-                    : `${migrationStats?.counts.pending} subscribers pending check`
+                    : `${migrationStats?.counts.pending || 0} subscribers pending check`
                 )}
               </div>
               
@@ -791,6 +818,15 @@ const AdminEmailMigration = () => {
                     )}
                   </div>
                 </div>
+              )}
+
+              {checkExistingSubscribersMutation.isError && (
+                <Alert variant="destructive" className="mt-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {checkExistingSubscribersMutation.error?.message || "An error occurred while checking subscribers"}
+                  </AlertDescription>
+                </Alert>
               )}
             </div>
           </Card>
@@ -1216,3 +1252,4 @@ const AdminEmailMigration = () => {
 };
 
 export default AdminEmailMigration;
+

@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -236,8 +237,18 @@ serve(async (req) => {
         }
 
         if (!subscribersToCheck || subscribersToCheck.length === 0) {
+          console.log("No pending subscribers found to check");
           return new Response(
-            JSON.stringify({ success: true, message: "No pending subscribers to check" }),
+            JSON.stringify({ 
+              success: true, 
+              message: "No pending subscribers to check",
+              results: {
+                checked: 0,
+                already_exists: 0,
+                errors: 0,
+                error_details: []
+              }
+            }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -318,6 +329,8 @@ serve(async (req) => {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
 
+        console.log(`Check results: ${results.checked} checked, ${results.already_exists} already exist, ${results.errors} errors`);
+        
         return new Response(
           JSON.stringify({ 
             success: true, 
