@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import {
   Card,
@@ -30,7 +29,6 @@ import {
 } from "@/components/ui/table";
 import { format } from 'date-fns';
 
-// Add the new import for CSVFileUpload
 import { CSVFileUpload } from "@/features/email-migration/components/CSVFileUpload";
 
 interface MigrationStats {
@@ -85,7 +83,6 @@ const AdminEmailMigration = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // State for automation settings
   const [automationEnabled, setAutomationEnabled] = useState(false);
   const [dailyTarget, setDailyTarget] = useState(1000);
   const [startHour, setStartHour] = useState(9);
@@ -93,16 +90,14 @@ const AdminEmailMigration = () => {
   const [minBatchSize, setMinBatchSize] = useState(10);
   const [maxBatchSize, setMaxBatchSize] = useState(100);
 
-  // State for recent migrations
   const [recentMigrations, setRecentMigrations] = useState<RecentMigration[]>([]);
 
-  // Fetch migration stats
-  const { data: stats, isLoading: isStatsLoading } = useQuery({
+  const { data: stats, isLoading: isStatsLoading } = useQuery<StatsResponse>({
     queryKey: ["emailMigrationStats"],
-    queryFn: async (): Promise<StatsResponse> => {
+    queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("email-migration", {
         method: "GET",
-        query: { action: "stats" },
+        params: { action: "stats" },
       });
 
       if (error) {
@@ -114,12 +109,11 @@ const AdminEmailMigration = () => {
     }
   });
 
-  // Mutation to reset failed migrations
   const resetFailedMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("email-migration", {
         method: "POST",
-        query: { action: "reset-failed" },
+        params: { action: "reset-failed" },
       });
 
       if (error) {
@@ -145,12 +139,11 @@ const AdminEmailMigration = () => {
     },
   });
 
-  // Mutation to clear the migration queue
   const clearQueueMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("email-migration", {
         method: "POST",
-        query: { action: "clear-queue" },
+        params: { action: "clear-queue" },
       });
 
       if (error) {
@@ -176,12 +169,11 @@ const AdminEmailMigration = () => {
     },
   });
 
-  // Mutation to update automation settings
   const updateAutomationMutation = useMutation({
     mutationFn: async (settings: Partial<AutomationSettings>) => {
       const { data, error } = await supabase.functions.invoke("email-migration", {
         method: "POST",
-        query: { action: "update-automation" },
+        params: { action: "update-automation" },
         body: { settings },
       });
 
@@ -208,12 +200,10 @@ const AdminEmailMigration = () => {
     },
   });
 
-  // Function to refresh stats
   const refreshStats = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["emailMigrationStats"] });
   }, [queryClient]);
 
-  // Handle JSON import
   const handleJsonImport = async () => {
     setIsImporting(true);
     try {
@@ -230,7 +220,7 @@ const AdminEmailMigration = () => {
 
       const { data, error } = await supabase.functions.invoke("email-migration", {
         method: "POST",
-        query: { action: "import" },
+        params: { action: "import" },
         body: { subscribers },
       });
 
@@ -262,7 +252,6 @@ const AdminEmailMigration = () => {
     }
   };
 
-  // Handle automation settings save
   const handleAutomationSave = async () => {
     await updateAutomationMutation.mutateAsync({
       enabled: automationEnabled,
@@ -274,12 +263,11 @@ const AdminEmailMigration = () => {
     });
   };
 
-  // Fetch recent migrations
   useEffect(() => {
     const fetchRecentMigrations = async () => {
       const { data, error } = await supabase.functions.invoke("email-migration", {
         method: "GET",
-        query: { action: "recent-migrations" },
+        params: { action: "recent-migrations" },
       });
 
       if (error) {
@@ -298,7 +286,6 @@ const AdminEmailMigration = () => {
     fetchRecentMigrations();
   }, [toast]);
 
-  // In the Import tab content, update to include the CSVFileUpload component:
   const ImportTab = () => {
     return (
       <div className="space-y-6">
@@ -353,7 +340,6 @@ const AdminEmailMigration = () => {
 
     const { counts, latest_batches, automation } = stats;
 
-    // Set initial automation state from fetched data
     useEffect(() => {
       if (automation) {
         setAutomationEnabled(automation.enabled);
