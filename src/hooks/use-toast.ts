@@ -170,6 +170,40 @@ function toast({ ...props }: Toast) {
   }
 }
 
+// Add convenience methods
+toast.success = (props: Omit<Toast, "variant"> | string) => {
+  const options: Toast = typeof props === "string" 
+    ? { description: props, variant: "default" } 
+    : { ...props, variant: "default" };
+
+  return toast({
+    title: options.title || "Success",
+    ...options,
+  });
+};
+
+toast.error = (props: Omit<Toast, "variant"> | string) => {
+  const options: Toast = typeof props === "string"
+    ? { description: props, variant: "destructive" }
+    : { ...props, variant: "destructive" };
+
+  return toast({
+    title: options.title || "Error",
+    ...options,
+  });
+};
+
+toast.info = (props: Omit<Toast, "variant"> | string) => {
+  const options: Toast = typeof props === "string"
+    ? { description: props, variant: "default" }
+    : { ...props, variant: "default" };
+
+  return toast({
+    title: options.title || "Info",
+    ...options,
+  });
+};
+
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
 
