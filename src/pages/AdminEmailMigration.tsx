@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import {
   Card,
@@ -70,6 +71,13 @@ interface RecentMigration {
   error: string | null;
 }
 
+interface StatsResponse {
+  stats: MigrationStats;
+  counts: StatusCounts;
+  latest_batches: LatestBatch[];
+  automation: AutomationSettings;
+}
+
 const AdminEmailMigration = () => {
   const [activeTab, setActiveTab] = useState("import");
   const [jsonInput, setJsonInput] = useState("");
@@ -89,12 +97,12 @@ const AdminEmailMigration = () => {
   const [recentMigrations, setRecentMigrations] = useState<RecentMigration[]>([]);
 
   // Fetch migration stats
-  const { data: stats, isLoading: isStatsLoading } = useQuery(
-    ["emailMigrationStats"],
-    async () => {
+  const { data: stats, isLoading: isStatsLoading } = useQuery({
+    queryKey: ["emailMigrationStats"],
+    queryFn: async (): Promise<StatsResponse> => {
       const { data, error } = await supabase.functions.invoke("email-migration", {
         method: "GET",
-        queryParams: { action: "stats" },
+        query: { action: "stats" },
       });
 
       if (error) {
@@ -104,14 +112,14 @@ const AdminEmailMigration = () => {
 
       return data;
     }
-  );
+  });
 
   // Mutation to reset failed migrations
-  const resetFailedMutation = useMutation(
-    async () => {
+  const resetFailedMutation = useMutation({
+    mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("email-migration", {
         method: "POST",
-        queryParams: { action: "reset-failed" },
+        query: { action: "reset-failed" },
       });
 
       if (error) {
@@ -121,30 +129,28 @@ const AdminEmailMigration = () => {
 
       return data;
     },
-    {
-      onSuccess: () => {
-        toast({
-          title: "Failed migrations reset",
-          description: "All failed migrations have been reset to pending.",
-        });
-        queryClient.invalidateQueries(["emailMigrationStats"]);
-      },
-      onError: (error: any) => {
-        toast({
-          title: "Error resetting failed migrations",
-          description: error.message,
-          variant: "destructive",
-        });
-      },
-    }
-  );
+    onSuccess: () => {
+      toast({
+        title: "Failed migrations reset",
+        description: "All failed migrations have been reset to pending.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["emailMigrationStats"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error resetting failed migrations",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   // Mutation to clear the migration queue
-  const clearQueueMutation = useMutation(
-    async () => {
+  const clearQueueMutation = useMutation({
+    mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("email-migration", {
         method: "POST",
-        queryParams: { action: "clear-queue" },
+        query: { action: "clear-queue" },
       });
 
       if (error) {
@@ -154,30 +160,28 @@ const AdminEmailMigration = () => {
 
       return data;
     },
-    {
-      onSuccess: () => {
-        toast({
-          title: "Migration queue cleared",
-          description: "All pending migrations have been removed from the queue.",
-        });
-        queryClient.invalidateQueries(["emailMigrationStats"]);
-      },
-      onError: (error: any) => {
-        toast({
-          title: "Error clearing migration queue",
-          description: error.message,
-          variant: "destructive",
-        });
-      },
-    }
-  );
+    onSuccess: () => {
+      toast({
+        title: "Migration queue cleared",
+        description: "All pending migrations have been removed from the queue.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["emailMigrationStats"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error clearing migration queue",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   // Mutation to update automation settings
-  const updateAutomationMutation = useMutation(
-    async (settings: Partial<AutomationSettings>) => {
+  const updateAutomationMutation = useMutation({
+    mutationFn: async (settings: Partial<AutomationSettings>) => {
       const { data, error } = await supabase.functions.invoke("email-migration", {
         method: "POST",
-        queryParams: { action: "update-automation" },
+        query: { action: "update-automation" },
         body: { settings },
       });
 
@@ -188,27 +192,25 @@ const AdminEmailMigration = () => {
 
       return data;
     },
-    {
-      onSuccess: () => {
-        toast({
-          title: "Automation settings updated",
-          description: "Automation settings have been updated successfully.",
-        });
-        queryClient.invalidateQueries(["emailMigrationStats"]);
-      },
-      onError: (error: any) => {
-        toast({
-          title: "Error updating automation settings",
-          description: error.message,
-          variant: "destructive",
-        });
-      },
-    }
-  );
+    onSuccess: () => {
+      toast({
+        title: "Automation settings updated",
+        description: "Automation settings have been updated successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["emailMigrationStats"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error updating automation settings",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   // Function to refresh stats
   const refreshStats = useCallback(() => {
-    queryClient.invalidateQueries(["emailMigrationStats"]);
+    queryClient.invalidateQueries({ queryKey: ["emailMigrationStats"] });
   }, [queryClient]);
 
   // Handle JSON import
@@ -228,7 +230,7 @@ const AdminEmailMigration = () => {
 
       const { data, error } = await supabase.functions.invoke("email-migration", {
         method: "POST",
-        queryParams: { action: "import" },
+        query: { action: "import" },
         body: { subscribers },
       });
 
@@ -277,7 +279,7 @@ const AdminEmailMigration = () => {
     const fetchRecentMigrations = async () => {
       const { data, error } = await supabase.functions.invoke("email-migration", {
         method: "GET",
-        queryParams: { action: "recent-migrations" },
+        query: { action: "recent-migrations" },
       });
 
       if (error) {
@@ -513,9 +515,9 @@ const AdminEmailMigration = () => {
             <Button
               variant="destructive"
               onClick={() => resetFailedMutation.mutate()}
-              disabled={resetFailedMutation.isLoading}
+              disabled={resetFailedMutation.isPending}
             >
-              {resetFailedMutation.isLoading ? (
+              {resetFailedMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Resetting...
@@ -527,9 +529,9 @@ const AdminEmailMigration = () => {
             <Button
               variant="destructive"
               onClick={() => clearQueueMutation.mutate()}
-              disabled={clearQueueMutation.isLoading}
+              disabled={clearQueueMutation.isPending}
             >
-              {clearQueueMutation.isLoading ? (
+              {clearQueueMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Clearing...

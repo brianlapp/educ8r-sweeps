@@ -54,8 +54,8 @@ export function CSVFileUpload({ onSuccess }: CSVFileUploadProps) {
           'Content-Type': 'multipart/form-data',
         },
         body: formData,
-        // Use query parameters to specify the action
-        queryParams: { action: 'import-csv' },
+        // Use query string instead of queryParams
+        query: { action: 'import-csv' },
       });
 
       if (error) {
