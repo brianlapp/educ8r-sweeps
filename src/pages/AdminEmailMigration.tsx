@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '../integrations/supabase/client';
@@ -10,8 +11,7 @@ import { toast } from '../components/ui/use-toast';
 import { AdminPageHeader } from '../components/admin/AdminPageHeader';
 import { BackToAdminButton } from '../components/admin/BackToAdminButton';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { AlertCircle, PlayCircle, StopCircle, Clipboard, Check, RefreshCw, Filter } from 'lucide-react';
-import { Switch } from '../components/ui/switch';
+import { AlertCircle, PlayCircle, Clipboard, Check, RefreshCw, Trash2 } from 'lucide-react';
 
 interface MigrationStats {
   stats: {
@@ -33,15 +33,6 @@ interface MigrationStats {
     migration_batch: string;
     count: number;
   }>;
-  automation?: {
-    enabled: boolean;
-    daily_total_target: number;
-    start_hour: number;
-    end_hour: number;
-    min_batch_size: number;
-    max_batch_size: number;
-    last_automated_run: string | null;
-  };
 }
 
 interface SuccessfulSubscriber {
@@ -49,7 +40,6 @@ interface SuccessfulSubscriber {
   first_name?: string;
   last_name?: string;
   status?: string;
-  created?: number;
   subscriber_id?: string;
   migrated_at?: string;
 }
@@ -57,29 +47,18 @@ interface SuccessfulSubscriber {
 const AdminEmailMigration = () => {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [batchSize, setBatchSize] = useState(100);
+  const [batchSize, setBatchSize] = useState(500); // Default to 500 for BeehiiV API
   const [processingBatch, setProcessingBatch] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [publicationId, setPublicationId] = useState('pub_7588ba6b-a268-4571-9135-47a68568ee64');
-  
-  const [automationEnabled, setAutomationEnabled] = useState(false);
-  const [dailyTotalTarget, setDailyTotalTarget] = useState(1000);
-  const [startHour, setStartHour] = useState(9);
-  const [endHour, setEndHour] = useState(17);
-  const [minBatchSize, setMinBatchSize] = useState(10);
-  const [maxBatchSize, setMaxBatchSize] = useState(100);
-  const [lastAutomatedRun, setLastAutomatedRun] = useState<string | null>(null);
-  const [runningAutoBatch, setRunningAutoBatch] = useState(false);
-  const [verifyEmail, setVerifyEmail] = useState('');
-  const [verificationResult, setVerificationResult] = useState<any>(null);
-  const [verifying, setVerifying] = useState(false);
   const [recentMigrations, setRecentMigrations] = useState<SuccessfulSubscriber[]>([]);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
   const [loadingRecent, setLoadingRecent] = useState(false);
-  const [checkingExisting, setCheckingExisting] = useState(false);
-  const [checkExistingBatchSize, setCheckExistingBatchSize] = useState(100);
+  const [migrationSummary, setMigrationSummary] = useState<any>(null);
+  const [clearingQueue, setClearingQueue] = useState(false);
 
+  // Fetch migration stats
   const { data: migrationStats, refetch: refetchStats, isLoading: statsLoading } = useQuery({
     queryKey: ['email-migration-stats'],
     queryFn: async () => {
@@ -90,11 +69,7 @@ const AdminEmailMigration = () => {
 
       if (error) {
         console.error('Stats fetch error:', error);
-        toast({
-          title: "Error fetching migration stats",
-          description: error.message,
-          variant: "destructive"
-        });
+        toast.error(`Error fetching migration stats: ${error.message}`);
         throw new Error(`Failed to fetch migration stats: ${error.message}`);
       }
       
@@ -102,18 +77,7 @@ const AdminEmailMigration = () => {
     }
   });
 
-  useEffect(() => {
-    if (migrationStats?.automation) {
-      setAutomationEnabled(migrationStats.automation.enabled);
-      setDailyTotalTarget(migrationStats.automation.daily_total_target);
-      setStartHour(migrationStats.automation.start_hour);
-      setEndHour(migrationStats.automation.end_hour);
-      setMinBatchSize(migrationStats.automation.min_batch_size);
-      setMaxBatchSize(migrationStats.automation.max_batch_size);
-      setLastAutomatedRun(migrationStats.automation.last_automated_run);
-    }
-  }, [migrationStats]);
-
+  // Migrate a batch of subscribers
   const migrateBatchMutation = useMutation({
     mutationFn: async () => {
       setProcessingBatch(true);
@@ -134,7 +98,8 @@ const AdminEmailMigration = () => {
       return data;
     },
     onSuccess: (data) => {
-      toast.success(`Processed batch ${data.batchId}: ${data.results.success} succeeded, ${data.results.failed} failed`);
+      toast.success(`Processed batch: ${data.results.success} migrated, ${data.results.duplicates} duplicates, ${data.results.failed} failed`);
+      setMigrationSummary(data);
       refetchStats();
     },
     onError: (error) => {
@@ -145,6 +110,38 @@ const AdminEmailMigration = () => {
     }
   });
 
+  // Clear subscribers from the queue
+  const clearQueueMutation = useMutation({
+    mutationFn: async (status: string) => {
+      setClearingQueue(true);
+      
+      const { data, error } = await supabase.functions.invoke('email-migration', {
+        method: 'POST',
+        body: { 
+          action: 'clear-queue',
+          status
+        }
+      });
+      
+      if (error) {
+        throw new Error(`Failed to clear ${status} subscribers: ${error.message}`);
+      }
+      
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(data.message);
+      refetchStats();
+    },
+    onError: (error) => {
+      toast.error(`Error clearing queue: ${error.message}`);
+    },
+    onSettled: () => {
+      setClearingQueue(false);
+    }
+  });
+
+  // Reset failed subscribers to pending
   const resetFailedMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke('email-migration', {
@@ -164,122 +161,6 @@ const AdminEmailMigration = () => {
     },
     onError: (error) => {
       toast.error(`Error resetting failed migrations: ${error.message}`);
-    }
-  });
-
-  const updateAutomationMutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('email-migration', {
-        method: 'POST',
-        body: { 
-          action: 'update-automation',
-          settings: {
-            enabled: automationEnabled,
-            daily_total_target: dailyTotalTarget,
-            start_hour: startHour,
-            end_hour: endHour,
-            min_batch_size: minBatchSize,
-            max_batch_size: maxBatchSize,
-            publication_id: publicationId
-          }
-        }
-      });
-      
-      if (error) {
-        throw new Error(`Failed to update automation settings: ${error.message}`);
-      }
-      
-      return data;
-    },
-    onSuccess: (data) => {
-      toast.success("Automation settings updated successfully");
-      refetchStats();
-    },
-    onError: (error) => {
-      toast.error(`Error updating automation settings: ${error.message}`);
-    }
-  });
-
-  const runAutomatedBatchMutation = useMutation({
-    mutationFn: async () => {
-      setRunningAutoBatch(true);
-      
-      const { data, error } = await supabase.functions.invoke('email-migration', {
-        method: 'POST',
-        body: { 
-          action: 'run-automated-batch',
-          publicationId
-        }
-      });
-      
-      if (error) {
-        throw new Error(`Failed to run automated batch: ${error.message}`);
-      }
-      
-      return data;
-    },
-    onSuccess: (data) => {
-      if (data.success) {
-        toast.success(`Automated batch ${data.batchId}: ${data.results.success} succeeded, ${data.results.failed} failed`);
-      } else {
-        toast.info(data.message);
-      }
-      refetchStats();
-    },
-    onError: (error) => {
-      toast.error(`Error running automated batch: ${error.message}`);
-    },
-    onSettled: () => {
-      setRunningAutoBatch(false);
-    }
-  });
-
-  const checkExistingSubscribersMutation = useMutation({
-    mutationFn: async () => {
-      setCheckingExisting(true);
-      
-      console.log('Starting check-existing with batch size:', checkExistingBatchSize);
-      
-      try {
-        const { data, error } = await supabase.functions.invoke('email-migration', {
-          method: 'POST',
-          body: { 
-            action: 'check-existing',
-            batchSize: checkExistingBatchSize,
-            publicationId
-          }
-        });
-        
-        if (error) {
-          console.error('Check existing error:', error);
-          throw new Error(`Failed to check existing subscribers: ${error.message}`);
-        }
-        
-        console.log('Check existing response:', data);
-        return data;
-      } catch (error) {
-        console.error('Check existing caught error:', error);
-        throw error;
-      }
-    },
-    onSuccess: (data) => {
-      console.log('Check existing success:', data);
-      toast({
-        title: "Check Complete",
-        description: `Checked ${data.results.checked} subscribers, found ${data.results.already_exists} already in BeehiiV`,
-      });
-      refetchStats();
-    },
-    onError: (error) => {
-      console.error('Check existing mutation error:', error);
-      toast({
-        title: "Error checking subscribers",
-        description: error.message,
-        variant: "destructive"
-      });
-    },
-    onSettled: () => {
-      setCheckingExisting(false);
     }
   });
 
@@ -408,7 +289,7 @@ const AdminEmailMigration = () => {
       toast.success(`Imported ${data.message || `${subscribers.length} subscribers`}`);
       setFile(null);
       refetchStats();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error during file upload:", error);
       setFileError(error.message);
       toast.error(`Error uploading file: ${error.message}`);
@@ -420,7 +301,6 @@ const AdminEmailMigration = () => {
 
   const calculateProgress = () => {
     if (!migrationStats || migrationStats.stats.total_subscribers === 0) return 0;
-    
     return (migrationStats.stats.migrated_subscribers / migrationStats.stats.total_subscribers) * 100;
   };
 
@@ -429,48 +309,6 @@ const AdminEmailMigration = () => {
     const date = new Date(dateString);
     return date.toLocaleString();
   };
-
-  const verifySubscriberInBeehiivMutation = useMutation({
-    mutationFn: async () => {
-      setVerifying(true);
-      setVerificationResult(null);
-      
-      try {
-        const encodedEmail = encodeURIComponent(verifyEmail);
-        
-        const { data, error } = await supabase.functions.invoke('check-beehiiv-subscriber', {
-          method: 'POST',
-          body: { 
-            publicationId,
-            email: verifyEmail 
-          }
-        });
-        
-        if (error) {
-          throw new Error(`Failed to verify subscriber: ${error.message}`);
-        }
-        
-        return data;
-      } catch (error) {
-        throw error;
-      }
-    },
-    onSuccess: (data) => {
-      setVerificationResult(data);
-      if (data.exists) {
-        toast.success(`Subscriber ${verifyEmail} exists in BeehiiV!`);
-      } else {
-        toast.info(`Subscriber ${verifyEmail} was not found in BeehiiV.`);
-      }
-    },
-    onError: (error) => {
-      toast.error(`Error verifying subscriber: ${error.message}`);
-      setVerificationResult({ error: error.message });
-    },
-    onSettled: () => {
-      setVerifying(false);
-    }
-  });
 
   const fetchRecentMigrations = async () => {
     setLoadingRecent(true);
@@ -531,181 +369,17 @@ const AdminEmailMigration = () => {
         description="Migrate subscribers from OnGage to BeehiiV"
       />
 
-      <Tabs defaultValue="dashboard" className="w-full mt-6">
+      <Tabs defaultValue="workflow" className="w-full mt-6">
         <TabsList>
+          <TabsTrigger value="workflow">Migration Workflow</TabsTrigger>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="import">Import Subscribers</TabsTrigger>
-          <TabsTrigger value="pre-check">Pre-Check Existing</TabsTrigger>
-          <TabsTrigger value="migrate">Migrate Batch</TabsTrigger>
-          <TabsTrigger value="recent">Recent Migrations</TabsTrigger>
-          <TabsTrigger value="automation">Automation</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
-          <TabsTrigger value="verify">Verify Subscriber</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dashboard" className="space-y-6">
+        <TabsContent value="workflow" className="space-y-6">
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-2">Migration Progress</h3>
-            {statsLoading ? (
-              <div>Loading statistics...</div>
-            ) : !migrationStats ? (
-              <div>No migration data available</div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
-                  <div className="bg-slate-100 p-4 rounded-lg">
-                    <div className="text-sm text-slate-500">Total Subscribers</div>
-                    <div className="text-2xl font-bold">{migrationStats.stats.total_subscribers}</div>
-                  </div>
-                  <div className="bg-slate-100 p-4 rounded-lg">
-                    <div className="text-sm text-slate-500">Migrated</div>
-                    <div className="text-2xl font-bold text-green-600">{migrationStats.stats.migrated_subscribers}</div>
-                  </div>
-                  <div className="bg-slate-100 p-4 rounded-lg">
-                    <div className="text-sm text-slate-500">Failed</div>
-                    <div className="text-2xl font-bold text-red-600">{migrationStats.stats.failed_subscribers}</div>
-                  </div>
-                  <div className="bg-slate-100 p-4 rounded-lg">
-                    <div className="text-sm text-slate-500">Completion</div>
-                    <div className="text-2xl font-bold">
-                      {migrationStats.stats.total_subscribers === 0 
-                        ? '0%' 
-                        : `${Math.round((migrationStats.stats.migrated_subscribers / migrationStats.stats.total_subscribers) * 100)}%`}
-                    </div>
-                  </div>
-                  <div className="bg-slate-100 p-4 rounded-lg">
-                    <div className="text-sm text-slate-500">Already in BeehiiV</div>
-                    <div className="text-2xl font-bold text-blue-600">{migrationStats.counts.already_exists || 0}</div>
-                  </div>
-                </div>
-
-                <div className="mb-6">
-                  <div className="flex justify-between mb-2">
-                    <span>Migration Progress</span>
-                    <span>{`${Math.round(calculateProgress())}%`}</span>
-                  </div>
-                  <Progress value={calculateProgress()} className="h-2" />
-                </div>
-
-                {migrationStats.automation && (
-                  <div className="bg-slate-50 p-4 rounded-lg mb-6 flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">Automation Status</h4>
-                      <p className="text-sm text-slate-600">
-                        {migrationStats.automation.enabled 
-                          ? `Active: ${migrationStats.automation.daily_total_target} subscribers per day` 
-                          : 'Disabled'}
-                      </p>
-                      {migrationStats.automation.last_automated_run && (
-                        <p className="text-xs text-slate-500">
-                          Last run: {formatDate(migrationStats.automation.last_automated_run)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex space-x-2">
-                      <Button 
-                        size="sm" 
-                        variant={migrationStats.automation.enabled ? "default" : "outline"}
-                        onClick={() => runAutomatedBatchMutation.mutate()}
-                        disabled={runningAutoBatch || !migrationStats.automation.enabled}
-                      >
-                        <PlayCircle className="mr-1 h-4 w-4" /> 
-                        {runningAutoBatch ? 'Running...' : 'Run Now'}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-medium mb-2">Status Breakdown</h4>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Count</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        <TableRow>
-                          <TableCell>Pending</TableCell>
-                          <TableCell>{migrationStats.counts.pending}</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>In Progress</TableCell>
-                          <TableCell>{migrationStats.counts.in_progress}</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>Migrated</TableCell>
-                          <TableCell>{migrationStats.counts.migrated}</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>Failed</TableCell>
-                          <TableCell>{migrationStats.counts.failed}</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-
-                  <div>
-                    <h4 className="font-medium mb-2">Recent Batches</h4>
-                    {migrationStats.latest_batches.length === 0 ? (
-                      <p>No batches processed yet</p>
-                    ) : (
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Batch ID</TableHead>
-                            <TableHead>Count</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {migrationStats.latest_batches.map((batch) => (
-                            <TableRow key={batch.migration_batch}>
-                              <TableCell>{batch.migration_batch}</TableCell>
-                              <TableCell>{batch.count}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    )}
-                  </div>
-                </div>
-
-                {migrationStats.stats.failed_subscribers > 0 && (
-                  <div className="mt-6">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => resetFailedMutation.mutate()}
-                      disabled={resetFailedMutation.isPending}
-                    >
-                      {resetFailedMutation.isPending ? 'Resetting...' : 'Reset Failed Migrations'}
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
-          </Card>
-
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Migration Documentation</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button variant="outline" onClick={() => window.open('/docs/EMAIL_MIGRATION_PLAN.md', '_blank')}>
-                View Migration Plan
-              </Button>
-              <Button variant="outline" onClick={() => window.open('/docs/EMAIL_MIGRATION_PROGRESS.md', '_blank')}>
-                View Progress Tracker
-              </Button>
-              <Button variant="outline" onClick={() => window.open('/docs/EMAIL_MIGRATION_DECISIONS.md', '_blank')}>
-                View Technical Decisions
-              </Button>
-            </div>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="import" className="space-y-6">
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Import Subscribers from CSV</h3>
+            <h3 className="text-lg font-semibold mb-4">Step 1: Upload Subscribers</h3>
             
             {fileError && (
               <Alert variant="destructive" className="mb-4">
@@ -747,98 +421,56 @@ const AdminEmailMigration = () => {
                 </div>
               )}
               
-              <Button 
-                onClick={handleFileUpload} 
-                disabled={!file || uploading || !!fileError}
-              >
-                {uploading ? 'Uploading...' : 'Upload & Import'}
-              </Button>
-            </div>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="pre-check" className="space-y-6">
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Pre-Check Existing Subscribers in BeehiiV</h3>
-            <div className="space-y-4">
-              <p className="text-sm text-slate-600">
-                This process will check if subscribers already exist in BeehiiV before attempting to migrate them.
-                Subscribers found to already exist will be marked as "already_exists" in the database.
-              </p>
-              
-              <div>
-                <label htmlFor="check-batch-size" className="block text-sm font-medium mb-2">
-                  Batch Size
-                </label>
-                <input
-                  id="check-batch-size"
-                  type="number"
-                  min="10"
-                  max="1000"
-                  value={checkExistingBatchSize}
-                  onChange={(e) => setCheckExistingBatchSize(parseInt(e.target.value) || 100)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                  disabled={checkingExisting}
-                />
+              <div className="flex space-x-2">
+                <Button 
+                  onClick={handleFileUpload} 
+                  disabled={!file || uploading || !!fileError}
+                >
+                  {uploading ? 'Uploading...' : 'Upload & Queue'}
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  onClick={() => clearQueueMutation.mutate('pending')} 
+                  disabled={clearingQueue || !migrationStats || migrationStats.counts.pending === 0}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Clear Queue
+                </Button>
               </div>
               
-              <Button 
-                onClick={() => {
-                  console.log('Check batch button clicked');
-                  checkExistingSubscribersMutation.mutate();
-                }}
-                disabled={checkingExisting}
-              >
-                <Filter className="mr-2 h-4 w-4" />
-                {checkingExisting ? 'Checking...' : 'Check Batch'}
-              </Button>
-              
-              <div className="text-sm text-slate-500 mt-2">
-                {statsLoading ? 'Loading...' : (
-                  migrationStats?.counts.pending === 0 || migrationStats?.counts.pending === undefined 
-                    ? 'No subscribers pending check' 
-                    : `${migrationStats?.counts.pending || 0} subscribers pending check`
-                )}
-              </div>
-              
-              {checkExistingSubscribersMutation.data && (
+              {migrationStats && (
                 <div className="mt-4 p-4 bg-slate-50 rounded-lg">
-                  <h4 className="font-medium mb-2">Pre-Check Results</h4>
-                  <div className="space-y-2">
-                    <div>
-                      <span className="font-medium">Checked:</span> {checkExistingSubscribersMutation.data.results.checked} subscribers
-                    </div>
-                    <div>
-                      <span className="font-medium">Already in BeehiiV:</span> {checkExistingSubscribersMutation.data.results.already_exists} subscribers
-                    </div>
-                    {checkExistingSubscribersMutation.data.results.errors > 0 && (
-                      <div>
-                        <span className="font-medium text-red-600">Errors:</span> {checkExistingSubscribersMutation.data.results.errors} errors
-                      </div>
+                  <div className="text-sm">
+                    <p>
+                      <span className="font-medium">Pending in queue:</span> {migrationStats.counts.pending} subscribers
+                    </p>
+                    {migrationStats.counts.in_progress > 0 && (
+                      <p>
+                        <span className="font-medium">In progress:</span> {migrationStats.counts.in_progress} subscribers
+                        <Button 
+                          variant="link" 
+                          size="sm"
+                          className="text-xs p-0 h-auto ml-2"
+                          onClick={() => clearQueueMutation.mutate('in_progress')}
+                          disabled={clearingQueue}
+                        >
+                          Clear
+                        </Button>
+                      </p>
                     )}
                   </div>
                 </div>
               )}
-
-              {checkExistingSubscribersMutation.isError && (
-                <Alert variant="destructive" className="mt-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    {checkExistingSubscribersMutation.error?.message || "An error occurred while checking subscribers"}
-                  </AlertDescription>
-                </Alert>
-              )}
             </div>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="migrate" className="space-y-6">
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Migrate Batch to BeehiiV</h3>
+            <h3 className="text-lg font-semibold mb-4">Step 2: Process Migration Batch</h3>
             <div className="space-y-4">
               <div>
                 <label htmlFor="batch-size" className="block text-sm font-medium mb-2">
-                  Batch Size
+                  Batch Size (Max 500 recommended for BeehiiV API)
                 </label>
                 <input
                   id="batch-size"
@@ -846,17 +478,33 @@ const AdminEmailMigration = () => {
                   min="10"
                   max="1000"
                   value={batchSize}
-                  onChange={(e) => setBatchSize(parseInt(e.target.value) || 100)}
+                  onChange={(e) => setBatchSize(parseInt(e.target.value) || 500)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
                   disabled={processingBatch}
                 />
               </div>
-              <Button 
-                onClick={() => migrateBatchMutation.mutate()}
-                disabled={processingBatch || statsLoading || (migrationStats?.counts.pending === 0 && migrationStats?.counts.in_progress === 0)}
-              >
-                {processingBatch ? 'Processing...' : 'Process Batch'}
-              </Button>
+              
+              <div className="flex space-x-2">
+                <Button 
+                  onClick={() => migrateBatchMutation.mutate()}
+                  disabled={processingBatch || statsLoading || (migrationStats?.counts.pending === 0)}
+                >
+                  <PlayCircle className="mr-2 h-4 w-4" />
+                  {processingBatch ? 'Processing...' : 'Migrate Batch'}
+                </Button>
+                
+                {migrationStats?.counts.failed > 0 && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => resetFailedMutation.mutate()}
+                    disabled={resetFailedMutation.isPending}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Reset Failed ({migrationStats.counts.failed})
+                  </Button>
+                )}
+              </div>
+              
               <div className="text-sm text-slate-500 mt-2">
                 {statsLoading ? 'Loading...' : (
                   migrationStats?.counts.pending === 0 
@@ -864,11 +512,45 @@ const AdminEmailMigration = () => {
                     : `${migrationStats?.counts.pending} subscribers pending migration`
                 )}
               </div>
+              
+              {migrationSummary && (
+                <div className="mt-4 p-4 bg-slate-50 rounded-lg">
+                  <h4 className="font-medium mb-2">Latest Batch Results</h4>
+                  <div className="text-sm space-y-1">
+                    <p>
+                      <span className="font-medium">Batch ID:</span> {migrationSummary.batchId}
+                    </p>
+                    <p>
+                      <span className="font-medium">Processed:</span> {migrationSummary.results.total} subscribers
+                    </p>
+                    <p>
+                      <span className="font-medium">Successfully migrated:</span> {migrationSummary.results.success} subscribers
+                    </p>
+                    <p>
+                      <span className="font-medium">Duplicates found:</span> {migrationSummary.results.duplicates} subscribers
+                    </p>
+                    <p>
+                      <span className="font-medium">Failed:</span> {migrationSummary.results.failed} subscribers
+                    </p>
+                  </div>
+                  
+                  {migrationSummary.results.failed > 0 && (
+                    <div className="mt-2">
+                      <p className="text-sm font-medium">Errors:</p>
+                      <div className="mt-1 max-h-40 overflow-auto text-xs bg-slate-100 p-2 rounded">
+                        {migrationSummary.results.errors.map((error: any, index: number) => (
+                          <div key={index} className="mb-1">
+                            <span className="font-mono">{error.email}</span>: {error.error}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="recent" className="space-y-6">
+          
           <Card className="p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Recently Migrated Subscribers</h3>
@@ -926,221 +608,174 @@ const AdminEmailMigration = () => {
                 </TableBody>
               </Table>
             )}
-            
-            <div className="mt-4 text-sm text-slate-500">
-              <p>Use this list to verify subscribers have been correctly migrated to BeehiiV.</p>
-              <p>Click the clipboard icon to copy an email address for quick searching in BeehiiV.</p>
-            </div>
           </Card>
-          
-          {migrateBatchMutation.data && (
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-2">Latest Batch Results</h3>
-              <div className="text-sm">
-                <p>Batch ID: <span className="font-mono">{migrateBatchMutation.data.batchId}</span></p>
-                <p className="mt-2">
-                  Processed {migrateBatchMutation.data.results.total} subscribers:
-                  <span className="text-green-600 ml-1">{migrateBatchMutation.data.results.success} successful</span>,
-                  <span className="text-red-600 ml-1">{migrateBatchMutation.data.results.failed} failed</span>
-                </p>
-                
-                {migrateBatchMutation.data.results.successful_sample && 
-                  migrateBatchMutation.data.results.successful_sample.length > 0 && (
-                  <div className="mt-4">
-                    <h4 className="font-medium mb-2">Sample of Successfully Migrated Subscribers:</h4>
-                    <div className="bg-slate-50 p-4 rounded-lg overflow-auto max-h-56">
+        </TabsContent>
+
+        <TabsContent value="dashboard" className="space-y-6">
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-2">Migration Progress</h3>
+            {statsLoading ? (
+              <div>Loading statistics...</div>
+            ) : !migrationStats ? (
+              <div>No migration data available</div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+                  <div className="bg-slate-100 p-4 rounded-lg">
+                    <div className="text-sm text-slate-500">Total Subscribers</div>
+                    <div className="text-2xl font-bold">{migrationStats.stats.total_subscribers}</div>
+                  </div>
+                  <div className="bg-slate-100 p-4 rounded-lg">
+                    <div className="text-sm text-slate-500">Migrated</div>
+                    <div className="text-2xl font-bold text-green-600">{migrationStats.stats.migrated_subscribers}</div>
+                  </div>
+                  <div className="bg-slate-100 p-4 rounded-lg">
+                    <div className="text-sm text-slate-500">Already in BeehiiV</div>
+                    <div className="text-2xl font-bold text-blue-600">{migrationStats.counts.already_exists || 0}</div>
+                  </div>
+                  <div className="bg-slate-100 p-4 rounded-lg">
+                    <div className="text-sm text-slate-500">Failed</div>
+                    <div className="text-2xl font-bold text-red-600">{migrationStats.stats.failed_subscribers}</div>
+                  </div>
+                  <div className="bg-slate-100 p-4 rounded-lg">
+                    <div className="text-sm text-slate-500">Completion</div>
+                    <div className="text-2xl font-bold">
+                      {migrationStats.stats.total_subscribers === 0 
+                        ? '0%' 
+                        : `${Math.round((migrationStats.stats.migrated_subscribers / migrationStats.stats.total_subscribers) * 100)}%`}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <div className="flex justify-between mb-2">
+                    <span>Migration Progress</span>
+                    <span>{`${Math.round(calculateProgress())}%`}</span>
+                  </div>
+                  <Progress value={calculateProgress()} className="h-2" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium mb-2">Status Breakdown</h4>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Count</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell>Pending</TableCell>
+                          <TableCell>{migrationStats.counts.pending}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>In Progress</TableCell>
+                          <TableCell>{migrationStats.counts.in_progress}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Migrated</TableCell>
+                          <TableCell>{migrationStats.counts.migrated}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Already in BeehiiV</TableCell>
+                          <TableCell>{migrationStats.counts.already_exists || 0}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>Failed</TableCell>
+                          <TableCell>{migrationStats.counts.failed}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium mb-2">Recent Batches</h4>
+                    {!migrationStats.latest_batches || migrationStats.latest_batches.length === 0 ? (
+                      <p>No batches processed yet</p>
+                    ) : (
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Email</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Subscriber ID</TableHead>
-                            <TableHead>Action</TableHead>
+                            <TableHead>Batch ID</TableHead>
+                            <TableHead>Count</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {migrateBatchMutation.data.results.successful_sample.map((item: any) => (
-                            <TableRow key={item.email}>
-                              <TableCell className="font-mono text-xs">{item.email}</TableCell>
-                              <TableCell>
-                                {item.response?.data?.status ? (
-                                  <span className={`px-2 py-1 rounded text-xs ${
-                                    item.response.data.status === 'active' 
-                                      ? 'bg-green-100 text-green-800' 
-                                      : 'bg-amber-100 text-amber-800'
-                                  }`}>
-                                    {item.response.data.status}
-                                  </span>
-                                ) : 'Unknown'}
-                              </TableCell>
-                              <TableCell className="font-mono text-xs truncate max-w-[150px]">
-                                {item.response?.data?.id || 'N/A'}
-                              </TableCell>
-                              <TableCell>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={() => copyToClipboard(item.email)}
-                                  title="Copy email to clipboard"
-                                >
-                                  {copiedEmail === item.email ? (
-                                    <Check className="h-4 w-4 text-green-500" />
-                                  ) : (
-                                    <Clipboard className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </TableCell>
+                          {migrationStats.latest_batches.map((batch) => (
+                            <TableRow key={batch.migration_batch}>
+                              <TableCell>{batch.migration_batch}</TableCell>
+                              <TableCell>{batch.count}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
                       </Table>
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </Card>
-          )}
+                </div>
+              </>
+            )}
+          </Card>
         </TabsContent>
 
-        <TabsContent value="automation" className="space-y-6">
+        <TabsContent value="reports" className="space-y-6">
           <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Migration Automation</h3>
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">Enable Automation</h4>
-                  <p className="text-sm text-slate-500">
-                    When enabled, subscribers will be automatically migrated according to your settings
-                  </p>
-                </div>
-                <Switch 
-                  checked={automationEnabled} 
-                  onCheckedChange={setAutomationEnabled}
-                />
-              </div>
-
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-4">Time Window Settings</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="start-hour" className="block text-sm font-medium mb-2">
-                      Start Hour (24h format)
-                    </label>
-                    <input
-                      id="start-hour"
-                      type="number"
-                      min="0"
-                      max="23"
-                      value={startHour}
-                      onChange={(e) => setStartHour(parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                    />
-                    <p className="mt-1 text-xs text-slate-500">
-                      Migrations will only occur after this hour (e.g., 9 for 9:00 AM)
-                    </p>
-                  </div>
-                  <div>
-                    <label htmlFor="end-hour" className="block text-sm font-medium mb-2">
-                      End Hour (24h format)
-                    </label>
-                    <input
-                      id="end-hour"
-                      type="number"
-                      min="0"
-                      max="23"
-                      value={endHour}
-                      onChange={(e) => setEndHour(parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                    />
-                    <p className="mt-1 text-xs text-slate-500">
-                      Migrations will stop at this hour (e.g., 17 for 5:00 PM)
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-4">Volume Settings</h4>
-                <div className="grid grid-cols-1 gap-4">
-                  <div>
-                    <label htmlFor="daily-target" className="block text-sm font-medium mb-2">
-                      Daily Migration Target
-                    </label>
-                    <input
-                      id="daily-target"
-                      type="number"
-                      min="10"
-                      max="10000"
-                      value={dailyTotalTarget}
-                      onChange={(e) => setDailyTotalTarget(parseInt(e.target.value) || 1000)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                    />
-                    <p className="mt-1 text-xs text-slate-500">
-                      Maximum number of subscribers to migrate per day
-                    </p>
-                  </div>
-                  
+            <h3 className="text-lg font-semibold mb-4">Migration Summary</h3>
+            {statsLoading ? (
+              <div>Loading statistics...</div>
+            ) : !migrationStats ? (
+              <div>No migration data available</div>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-slate-50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-2">Overview</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="min-batch" className="block text-sm font-medium mb-2">
-                        Minimum Batch Size
-                      </label>
-                      <input
-                        id="min-batch"
-                        type="number"
-                        min="1"
-                        max="1000"
-                        value={minBatchSize}
-                        onChange={(e) => setMinBatchSize(parseInt(e.target.value) || 10)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                      />
+                      <p><span className="font-medium">Total Subscribers:</span> {migrationStats.stats.total_subscribers}</p>
+                      <p><span className="font-medium">Successfully Migrated:</span> {migrationStats.stats.migrated_subscribers}</p>
+                      <p><span className="font-medium">Already in BeehiiV:</span> {migrationStats.counts.already_exists || 0}</p>
+                      <p><span className="font-medium">Failed Migrations:</span> {migrationStats.stats.failed_subscribers}</p>
+                      <p><span className="font-medium">Pending Migration:</span> {migrationStats.counts.pending}</p>
+                      <p><span className="font-medium">In Progress:</span> {migrationStats.counts.in_progress}</p>
                     </div>
                     <div>
-                      <label htmlFor="max-batch" className="block text-sm font-medium mb-2">
-                        Maximum Batch Size
-                      </label>
-                      <input
-                        id="max-batch"
-                        type="number"
-                        min="1"
-                        max="1000"
-                        value={maxBatchSize}
-                        onChange={(e) => setMaxBatchSize(parseInt(e.target.value) || 100)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                      />
+                      <p><span className="font-medium">Last Batch ID:</span> {migrationStats.stats.last_batch_id || 'None'}</p>
+                      <p><span className="font-medium">Last Batch Date:</span> {formatDate(migrationStats.stats.last_batch_date)}</p>
+                      <p><span className="font-medium">Completion Percentage:</span> {migrationStats.stats.total_subscribers === 0 
+                        ? '0%' 
+                        : `${Math.round((migrationStats.stats.migrated_subscribers / migrationStats.stats.total_subscribers) * 100)}%`}
+                      </p>
                     </div>
                   </div>
-                  <p className="text-xs text-slate-500">
-                    Each automated run will process a random number of subscribers between the minimum and maximum batch size.
-                    This creates a more natural-looking migration pattern.
-                  </p>
                 </div>
-              </div>
-
-              <div className="border-t pt-4 flex justify-between items-center">
-                {lastAutomatedRun && (
-                  <div className="text-sm text-slate-500">
-                    Last automated run: {formatDate(lastAutomatedRun)}
-                  </div>
-                )}
-                <div className="flex space-x-2">
+                
+                <div className="flex justify-end space-x-2">
                   <Button 
                     variant="outline" 
-                    onClick={() => runAutomatedBatchMutation.mutate()}
-                    disabled={runningAutoBatch || !automationEnabled}
+                    onClick={() => window.print()} 
+                    className="print:hidden"
                   >
-                    <PlayCircle className="mr-1 h-4 w-4" />
-                    {runningAutoBatch ? 'Running...' : 'Run Now'}
+                    Print Report
                   </Button>
                   <Button 
-                    onClick={() => updateAutomationMutation.mutate()}
-                    disabled={updateAutomationMutation.isPending}
+                    variant="outline" 
+                    onClick={() => {
+                      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(migrationStats, null, 2));
+                      const downloadAnchorNode = document.createElement('a');
+                      downloadAnchorNode.setAttribute("href", dataStr);
+                      downloadAnchorNode.setAttribute("download", `beehiiv-migration-report-${new Date().toISOString().split('T')[0]}.json`);
+                      document.body.appendChild(downloadAnchorNode);
+                      downloadAnchorNode.click();
+                      downloadAnchorNode.remove();
+                    }}
+                    className="print:hidden"
                   >
-                    {updateAutomationMutation.isPending ? 'Saving...' : 'Save Settings'}
+                    Export JSON
                   </Button>
                 </div>
               </div>
-            </div>
+            )}
           </Card>
         </TabsContent>
 
@@ -1161,88 +796,41 @@ const AdminEmailMigration = () => {
                   placeholder="e.g. pub_7588ba6b-a268-4571-9135-47a68568ee64"
                 />
                 <p className="mt-1 text-sm text-slate-500">
-                  The BeehiiV Publication ID is used to specify which publication subscribers should be migrated to.
-                </p>
-                <p className="mt-1 text-sm text-slate-500 font-medium">
-                  Important: This is separate from the sweeps app BeehiiV publication.
+                  The BeehiiV Publication ID is used to specify which publication subscribers should be migrated to
                 </p>
               </div>
-            </div>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="verify" className="space-y-6">
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Verify BeehiiV Subscriber</h3>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="verify-email" className="block text-sm font-medium mb-2">
-                  Email to Verify
-                </label>
-                <input
-                  id="verify-email"
-                  type="email"
-                  value={verifyEmail}
-                  onChange={(e) => setVerifyEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                  placeholder="Enter email to check in BeehiiV"
-                />
-              </div>
               
-              <Button 
-                onClick={() => verifySubscriberInBeehiivMutation.mutate()}
-                disabled={!verifyEmail || verifying}
-              >
-                {verifying ? 'Checking...' : 'Check Subscriber Status'}
-              </Button>
-              
-              {verificationResult && (
-                <div className="mt-4 p-4 bg-slate-50 rounded-lg">
-                  <h4 className="font-medium mb-2">Verification Result</h4>
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-2">Queue Management</h4>
+                <div className="space-y-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => clearQueueMutation.mutate('pending')}
+                    disabled={clearingQueue || !migrationStats || migrationStats.counts.pending === 0}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Clear Pending Queue ({migrationStats?.counts.pending || 0})
+                  </Button>
                   
-                  {verificationResult.error ? (
-                    <div className="text-red-600">
-                      <p>Error: {verificationResult.error}</p>
-                    </div>
-                  ) : (
-                    <div>
-                      {verificationResult.exists ? (
-                        <>
-                          <div className="text-green-600 font-medium mb-2">
-                            Subscriber Found in BeehiiV
-                          </div>
-                          {verificationResult.data && (
-                            <div className="space-y-2 text-sm">
-                              <div>
-                                <span className="font-medium">Email:</span> {verificationResult.data.email}
-                              </div>
-                              {verificationResult.data.first_name && (
-                                <div>
-                                  <span className="font-medium">First name:</span> {verificationResult.data.first_name}
-                                </div>
-                              )}
-                              {verificationResult.data.status && (
-                                <div>
-                                  <span className="font-medium">Status:</span> {verificationResult.data.status}
-                                </div>
-                              )}
-                              {verificationResult.data.created && (
-                                <div>
-                                  <span className="font-medium">Created:</span> {new Date(verificationResult.data.created).toLocaleString()}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <div className="text-amber-600">
-                          No subscriber with email <span className="font-medium">{verifyEmail}</span> found in BeehiiV.
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <Button 
+                    variant="outline" 
+                    onClick={() => clearQueueMutation.mutate('in_progress')}
+                    disabled={clearingQueue || !migrationStats || migrationStats.counts.in_progress === 0}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Clear In Progress ({migrationStats?.counts.in_progress || 0})
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    onClick={() => resetFailedMutation.mutate()}
+                    disabled={resetFailedMutation.isPending || !migrationStats || migrationStats.counts.failed === 0}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Reset Failed ({migrationStats?.counts.failed || 0})
+                  </Button>
                 </div>
-              )}
+              </div>
             </div>
           </Card>
         </TabsContent>
@@ -1252,4 +840,3 @@ const AdminEmailMigration = () => {
 };
 
 export default AdminEmailMigration;
-

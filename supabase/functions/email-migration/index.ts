@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -154,6 +153,18 @@ serve(async (req) => {
         }
 
         console.log(`Processing import of ${subscribers.length} subscribers`);
+
+        // Clear any 'in_progress' subscribers first
+        const { error: clearError } = await supabaseAdmin
+          .from('email_migration')
+          .update({ status: 'pending' })
+          .eq('status', 'in_progress');
+
+        if (clearError) {
+          console.error("Error clearing in_progress subscribers:", clearError);
+        } else {
+          console.log("Cleared any subscribers that were stuck in 'in_progress' state");
+        }
 
         // Insert subscribers into the email_migration table
         // Use a transaction to ensure atomicity
@@ -350,11 +361,10 @@ serve(async (req) => {
           );
         }
 
-        const batchSize = requestData.batchSize || 100; // Default to 100 if not specified
+        const batchSize = requestData.batchSize || 500; // Default to 500 which is what BeehiiV API can handle reliably
         const batchId = `batch-${new Date().toISOString().split('T')[0]}-${Math.floor(Math.random() * 10000)}`;
         
         // Use the publication ID from the request, with a fallback to prevent breaking changes
-        // FIXED: Default publication ID to what worked previously for our test upload
         const publicationId = requestData.publicationId || 'pub_4b47c3db-87fa-4253-956a-21c7afeb3e29';
         
         console.log(`Processing migration batch ${batchId} with size ${batchSize} for publication ${publicationId}`);
@@ -409,6 +419,7 @@ serve(async (req) => {
         const results = {
           success: 0,
           failed: 0,
+          duplicates: 0,
           errors: [] as Array<{ email: string, error: string }>,
           successful_subscribers: [] as Array<{ email: string, response: any }>
         };
@@ -452,34 +463,8 @@ serve(async (req) => {
             // ENHANCED LOGGING: Log the exact request payload
             console.log(`BeehiiV API request for ${subscriber.email}:`, JSON.stringify(beehiivData, null, 2));
 
-            // Test the BeehiiV API endpoint first with a basic curl-like request
-            try {
-              console.log(`Testing BeehiiV API connectivity before actual request...`);
-              const testResponse = await fetch(
-                `https://api.beehiiv.com/v2/publications/${publicationId}`,
-                {
-                  method: 'GET',
-                  headers: {
-                    'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-                    'Content-Type': 'application/json',
-                  }
-                }
-              );
-              
-              const testResponseText = await testResponse.text();
-              console.log(`BeehiiV API test response status: ${testResponse.status}`);
-              console.log(`BeehiiV API test response: ${testResponseText}`);
-              
-              if (!testResponse.ok) {
-                console.error(`❌ BeehiiV API test failed with status ${testResponse.status}`);
-                throw new Error(`BeehiiV API test failed: ${testResponseText}`);
-              }
-            } catch (testError) {
-              console.error(`Error testing BeehiiV API: ${testError.message}`);
-            }
-
             // Send to BeehiiV API with complete logs of request and response
-            console.log(`Sending actual subscription request to BeehiiV...`);
+            console.log(`Sending subscription request to BeehiiV...`);
             const subscribeResponse = await fetch(
               `https://api.beehiiv.com/v2/publications/${publicationId}/subscriptions`,
               {
@@ -504,6 +489,30 @@ serve(async (req) => {
             try {
               responseData = JSON.parse(responseText);
               console.log(`BeehiiV API parsed response for ${subscriber.email}:`, JSON.stringify(responseData, null, 2));
+              
+              // Check if this is a duplicate subscriber
+              if (responseData?.error && responseData.error.includes("already exists")) {
+                console.log(`✅ DUPLICATE: Subscriber ${subscriber.email} already exists in BeehiiV`);
+                
+                // Update subscriber status to 'already_exists'
+                const { error: updateError } = await supabaseAdmin
+                  .from('email_migration')
+                  .update({ 
+                    status: 'already_exists',
+                    migrated_at: new Date().toISOString(),
+                    error: null
+                  })
+                  .eq('id', subscriber.id);
+
+                if (updateError) {
+                  console.error(`Error updating duplicate status for ${subscriber.email}:`, updateError);
+                } else {
+                  console.log(`Updated database status to 'already_exists' for ${subscriber.email}`);
+                }
+
+                results.duplicates++;
+                continue;
+              }
               
               // ENHANCED LOGGING: Check if subscriber ID is present in response
               if (responseData?.data?.id) {
@@ -550,6 +559,28 @@ serve(async (req) => {
                 if (errorData.error) {
                   errorMessage = `API Error: ${errorData.error}`;
                   console.error(`BeehiiV error message: ${errorData.error}`);
+                  
+                  // Check if this is a duplicate subscriber
+                  if (errorData.error.includes("already exists")) {
+                    // Update subscriber status to 'already_exists'
+                    const { error: updateError } = await supabaseAdmin
+                      .from('email_migration')
+                      .update({ 
+                        status: 'already_exists',
+                        migrated_at: new Date().toISOString(),
+                        error: null
+                      })
+                      .eq('id', subscriber.id);
+
+                    if (updateError) {
+                      console.error(`Error updating duplicate status for ${subscriber.email}:`, updateError);
+                    } else {
+                      console.log(`Updated database status to 'already_exists' for ${subscriber.email}`);
+                    }
+
+                    results.duplicates++;
+                    continue;
+                  }
                 }
               } catch (e) {
                 // Keep the original error text if parsing fails
@@ -601,7 +632,7 @@ serve(async (req) => {
 
           // Add a small delay to avoid rate limiting
           // ENHANCED: Randomize delay slightly to make it more natural
-          const delay = 500 + Math.floor(Math.random() * 500); // 500-1000ms
+          const delay = 200 + Math.floor(Math.random() * 300); // 200-500ms
           console.log(`Waiting ${delay}ms before processing next subscriber`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
@@ -635,6 +666,7 @@ serve(async (req) => {
         // Enhance the response with details of the successful migrations
         console.log(`=== Batch ${batchId} Migration Details ===`);
         console.log(`Total successful migrations: ${results.success}`);
+        console.log(`Total duplicates found: ${results.duplicates}`);
         console.log(`Details of successful subscribers:`, JSON.stringify(results.successful_subscribers.slice(0, 5), null, 2));
         if (results.successful_subscribers.length > 5) {
           console.log(`... and ${results.successful_subscribers.length - 5} more`);
@@ -649,6 +681,7 @@ serve(async (req) => {
               total: subscribersToMigrate.length,
               success: results.success,
               failed: results.failed,
+              duplicates: results.duplicates,
               errors: results.errors,
               // Include first 5 successful subscribers in the response for verification
               successful_sample: results.successful_subscribers.slice(0, 5)
@@ -1151,6 +1184,87 @@ serve(async (req) => {
               failed: results.failed,
               errors: results.errors
             }
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'clear-queue': {
+        // Clear the migration queue - new action
+        if (req.method !== 'POST') {
+          return new Response(
+            JSON.stringify({ error: "Method not allowed" }),
+            { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const status = requestData.status || 'in_progress';
+        
+        // Only allow clearing certain statuses
+        if (!['pending', 'in_progress', 'failed'].includes(status)) {
+          return new Response(
+            JSON.stringify({ error: "Invalid status. Can only clear 'pending', 'in_progress', or 'failed'" }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Delete the subscribers with the specified status
+        const { data, error } = await supabaseAdmin
+          .from('email_migration')
+          .delete()
+          .eq('status', status)
+          .select('count');
+
+        if (error) {
+          console.error(`Error clearing ${status} subscribers:`, error);
+          return new Response(
+            JSON.stringify({ error: `Failed to clear ${status} subscribers`, details: error }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const count = data?.[0]?.count || 0;
+        console.log(`Cleared ${count} ${status} subscribers`);
+
+        // If we cleared pending or in_progress subscribers, update the stats
+        if (status === 'pending' || status === 'in_progress') {
+          const { data: statsData, error: getStatsError } = await supabaseAdmin
+            .from('email_migration_stats')
+            .select('*')
+            .single();
+
+          if (!getStatsError && statsData) {
+            const { error: updateStatsError } = await supabaseAdmin
+              .from('email_migration_stats')
+              .update({ 
+                total_subscribers: statsData.total_subscribers - count
+              })
+              .eq('id', statsData.id);
+
+            if (updateStatsError) {
+              console.error("Error updating migration stats:", updateStatsError);
+            }
+          }
+        }
+
+        // If we cleared failed subscribers, update the stats
+        if (status === 'failed') {
+          const { error: updateStatsError } = await supabaseAdmin
+            .from('email_migration_stats')
+            .update({ 
+              failed_subscribers: 0
+            })
+            .eq('id', 'default');
+
+          if (updateStatsError) {
+            console.error("Error updating failed stats:", updateStatsError);
+          }
+        }
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: `Cleared ${count} ${status} subscribers`
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
