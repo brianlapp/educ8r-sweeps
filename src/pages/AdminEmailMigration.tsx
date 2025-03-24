@@ -365,7 +365,6 @@ const AdminEmailMigration = () => {
       setVerificationResult(null);
       
       try {
-        // First, encode the email for URL use
         const encodedEmail = encodeURIComponent(verifyEmail);
         
         const { data, error } = await supabase.functions.invoke('check-beehiiv-subscriber', {
@@ -869,3 +868,50 @@ const AdminEmailMigration = () => {
                       <p>Error: {verificationResult.error}</p>
                     </div>
                   ) : (
+                    <div>
+                      {verificationResult.exists ? (
+                        <>
+                          <div className="text-green-600 font-medium mb-2">
+                            Subscriber Found in BeehiiV
+                          </div>
+                          {verificationResult.data && (
+                            <div className="space-y-2 text-sm">
+                              <div>
+                                <span className="font-medium">Email:</span> {verificationResult.data.email}
+                              </div>
+                              {verificationResult.data.first_name && (
+                                <div>
+                                  <span className="font-medium">First name:</span> {verificationResult.data.first_name}
+                                </div>
+                              )}
+                              {verificationResult.data.status && (
+                                <div>
+                                  <span className="font-medium">Status:</span> {verificationResult.data.status}
+                                </div>
+                              )}
+                              {verificationResult.data.created && (
+                                <div>
+                                  <span className="font-medium">Created:</span> {new Date(verificationResult.data.created).toLocaleString()}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-amber-600">
+                          No subscriber with email <span className="font-medium">{verifyEmail}</span> found in BeehiiV.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+export default AdminEmailMigration;
