@@ -1020,6 +1020,65 @@ serve(async (req) => {
         );
       }
 
+      case 'clear-queue': {
+        // Clear the migration queue by deleting all pending items
+        if (req.method !== 'POST') {
+          return new Response(
+            JSON.stringify({ error: "Method not allowed" }),
+            { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log("Clearing migration queue - removing all pending migrations");
+        
+        // Update all pending records to be deleted
+        const { data: deletedData, error: deleteError } = await supabaseAdmin
+          .from('email_migration')
+          .delete()
+          .eq('status', 'pending')
+          .select('count');
+
+        if (deleteError) {
+          console.error("Error clearing migration queue:", deleteError);
+          return new Response(
+            JSON.stringify({ error: "Failed to clear migration queue", details: deleteError }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Update the migration stats
+        const { data: statsData, error: getStatsError } = await supabaseAdmin
+          .from('email_migration_stats')
+          .select('*')
+          .single();
+
+        if (!getStatsError && statsData) {
+          // Adjust total subscribers count by subtracting the pending count
+          const newTotal = statsData.total_subscribers - (deletedData?.length || 0);
+          
+          const { error: updateStatsError } = await supabaseAdmin
+            .from('email_migration_stats')
+            .update({ 
+              total_subscribers: Math.max(0, newTotal) // Ensure we don't go negative
+            })
+            .eq('id', statsData.id);
+
+          if (updateStatsError) {
+            console.error("Error updating migration stats after queue clear:", updateStatsError);
+          } else {
+            console.log(`Updated migration stats: total_subscribers = ${Math.max(0, newTotal)}`);
+          }
+        }
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: `Migration queue cleared. Removed ${deletedData?.length || 0} pending migrations.`
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       default:
         return new Response(
           JSON.stringify({ error: "Invalid action" }),
