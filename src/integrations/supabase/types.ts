@@ -195,48 +195,6 @@ export type Database = {
         }
         Relationships: []
       }
-      email_migration_automation: {
-        Row: {
-          created_at: string | null
-          daily_total_target: number
-          enabled: boolean
-          end_hour: number
-          id: string
-          last_automated_run: string | null
-          max_batch_size: number
-          min_batch_size: number
-          publication_id: string | null
-          start_hour: number
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          daily_total_target?: number
-          enabled?: boolean
-          end_hour?: number
-          id?: string
-          last_automated_run?: string | null
-          max_batch_size?: number
-          min_batch_size?: number
-          publication_id?: string | null
-          start_hour?: number
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          daily_total_target?: number
-          enabled?: boolean
-          end_hour?: number
-          id?: string
-          last_automated_run?: string | null
-          max_batch_size?: number
-          min_batch_size?: number
-          publication_id?: string | null
-          start_hour?: number
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       email_migration_stats: {
         Row: {
           created_at: string | null
@@ -591,12 +549,6 @@ export type Database = {
       handle_everflow_webhook: {
         Args: {
           payload: Json
-        }
-        Returns: Json
-      }
-      import_subscribers: {
-        Args: {
-          subscribers_data: Json
         }
         Returns: Json
       }

@@ -25,17 +25,6 @@
 - Allows for better monitoring and issue resolution
 - Maintains normal operation of sweepstakes during migration
 
-### Decision: Implement Automated Natural Migration Pattern
-**Context:** Batch migrations might appear artificial and set off alarms.
-
-**Decision:** Add randomized timing and batch sizes within configurable time windows.
-
-**Reasoning:**
-- Creates a more natural, organic-looking subscription pattern
-- Varies batch sizes to mimic real user behavior
-- Restricts migrations to business hours for realistic patterns
-- Provides flexibility in controlling migration speed while appearing natural
-
 ### Decision: Prevent Duplicate Welcome Emails
 **Context:** Subscribers being migrated have already received welcome emails via OnGage.
 
@@ -68,15 +57,3 @@
 - Maintains consistent approach to BeehiiV interactions
 - Reduces risk of introducing new API integration bugs
 - Can be enhanced with specific migration requirements while preserving core functionality
-
-### Decision: Database-First Implementation Approach
-**Context:** Past feature implementations have encountered issues due to database dependencies being added after code implementation.
-
-**Decision:** Adopt a strict "Database-First" approach to all feature implementations.
-
-**Reasoning:**
-- Ensures all required database tables and schemas are in place before code implementation
-- Prevents runtime errors and unexpected behavior when new features are tested
-- Creates a clear implementation sequence: database → backend → frontend
-- Simplifies debugging by eliminating database-related issues early in development
-- Improves team communication about schema requirements and dependencies

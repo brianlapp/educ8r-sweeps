@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -41,18 +40,6 @@ interface BeehiivSubscriberData {
   }>;
 }
 
-// Define interface for automation settings
-interface AutomationSettings {
-  enabled: boolean;
-  daily_total_target: number;
-  start_hour: number;
-  end_hour: number;
-  min_batch_size: number;
-  max_batch_size: number;
-  last_automated_run: string | null;
-  publication_id: string | null;
-}
-
 serve(async (req) => {
   console.log("Email migration function called with method:", req.method);
   
@@ -63,6 +50,7 @@ serve(async (req) => {
 
   try {
     const BEEHIIV_API_KEY = Deno.env.get('BEEHIIV_API_KEY');
+    const BEEHIIV_PUBLICATION_ID = 'pub_4b47c3db-7b59-4c82-a18b-16cf10fc2d23';
     
     if (!BEEHIIV_API_KEY) {
       console.error("Missing BEEHIIV_API_KEY environment variable");
@@ -78,25 +66,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Parse the request URL and body to get the action
+    // Parse the request URL to get the action
     const url = new URL(req.url);
-    let actionFromQuery = url.searchParams.get('action');
-    
-    // Try to get action from the request body if not in query params
-    let requestData = {};
-    let actionFromBody = null;
-    
-    if (req.method === 'POST') {
-      try {
-        requestData = await req.json();
-        actionFromBody = requestData?.action;
-      } catch (e) {
-        console.error("Error parsing request body:", e);
-      }
-    }
-    
-    // Use action from query params or body
-    const action = actionFromQuery || actionFromBody;
+    const action = url.pathname.split('/').pop();
     
     console.log("Action requested:", action);
 
@@ -108,6 +80,19 @@ serve(async (req) => {
           return new Response(
             JSON.stringify({ error: "Method not allowed" }),
             { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Parse the request body
+        let requestData;
+        try {
+          requestData = await req.json();
+          console.log("Received import request with data:", JSON.stringify(requestData).substring(0, 200) + "...");
+        } catch (e) {
+          console.error("Error parsing request body:", e);
+          return new Response(
+            JSON.stringify({ error: "Invalid JSON in request body", details: e.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
@@ -217,13 +202,12 @@ serve(async (req) => {
           );
         }
 
+        // Parse the request body
+        const requestData = await req.json();
         const batchSize = requestData.batchSize || 100; // Default to 100 if not specified
         const batchId = `batch-${new Date().toISOString().split('T')[0]}-${Math.floor(Math.random() * 10000)}`;
         
-        // Use the publication ID from the request, with a fallback to prevent breaking changes
-        const publicationId = requestData.publicationId || 'pub_7588ba6b-a268-4571-9135-47a68568ee64';
-        
-        console.log(`Processing migration batch ${batchId} with size ${batchSize} for publication ${publicationId}`);
+        console.log(`Processing migration batch ${batchId} with size ${batchSize}`);
 
         // Get subscribers to migrate
         const { data: subscribersToMigrate, error: fetchError } = await supabaseAdmin
@@ -296,7 +280,7 @@ serve(async (req) => {
 
             // Send to BeehiiV API
             const subscribeResponse = await fetch(
-              `https://api.beehiiv.com/v2/publications/${publicationId}/subscriptions`,
+              `https://api.beehiiv.com/v2/publications/${BEEHIIV_PUBLICATION_ID}/subscriptions`,
               {
                 method: 'POST',
                 headers: {
@@ -472,54 +456,11 @@ serve(async (req) => {
           console.error("Error fetching latest batches:", batchError);
         }
 
-        // Get automation settings
-        const { data: automationSettings, error: automationError } = await supabaseAdmin
-          .from('email_migration_automation')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        let automation: AutomationSettings = {
-          enabled: false,
-          daily_total_target: 1000,
-          start_hour: 9,
-          end_hour: 17,
-          min_batch_size: 10,
-          max_batch_size: 100,
-          last_automated_run: null,
-          publication_id: null
-        };
-
-        if (automationError) {
-          console.log("No automation settings found, using defaults");
-          
-          // Create default automation settings if they don't exist
-          const { error: createAutomationError } = await supabaseAdmin
-            .from('email_migration_automation')
-            .insert([{
-              id: 'default',
-              enabled: false,
-              daily_total_target: 1000,
-              start_hour: 9,
-              end_hour: 17,
-              min_batch_size: 10,
-              max_batch_size: 100,
-            }]);
-            
-          if (createAutomationError) {
-            console.error("Error creating default automation settings:", createAutomationError);
-          }
-        } else if (automationSettings) {
-          automation = automationSettings;
-        }
-
         return new Response(
           JSON.stringify({ 
             stats: statsData,
             counts,
-            latest_batches: latestBatches || [],
-            automation
+            latest_batches: latestBatches || []
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -581,364 +522,6 @@ serve(async (req) => {
         );
       }
 
-      case 'update-automation': {
-        // Update automation settings
-        if (req.method !== 'POST') {
-          return new Response(
-            JSON.stringify({ error: "Method not allowed" }),
-            { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        const settings = requestData.settings as Partial<AutomationSettings>;
-        
-        if (!settings) {
-          return new Response(
-            JSON.stringify({ error: "Missing automation settings" }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        // Update automation settings
-        const { error: updateError } = await supabaseAdmin
-          .from('email_migration_automation')
-          .update(settings)
-          .eq('id', 'default');
-
-        if (updateError) {
-          console.error("Error updating automation settings:", updateError);
-          return new Response(
-            JSON.stringify({ error: "Failed to update automation settings", details: updateError }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        return new Response(
-          JSON.stringify({ 
-            success: true, 
-            message: "Automation settings updated successfully"
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      case 'run-automated-batch': {
-        // Run an automated batch migration
-        if (req.method !== 'POST') {
-          return new Response(
-            JSON.stringify({ error: "Method not allowed" }),
-            { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        // Get automation settings - get the most recent record instead of looking for a specific ID
-        const { data: automationData, error: automationError } = await supabaseAdmin
-          .from('email_migration_automation')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-
-        if (automationError || !automationData) {
-          console.error("Error fetching automation settings:", automationError);
-          return new Response(
-            JSON.stringify({ 
-              success: false, 
-              message: "Failed to fetch automation settings. Please try again.",
-              error: automationError
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        console.log("Automation settings:", automationData);
-
-        // Force enable automation if running manually
-        if (!automationData.enabled) {
-          console.log("Automation is disabled but user is running manually - proceeding anyway");
-        }
-
-        // Check if we're in the allowed time window - SKIP THIS CHECK FOR MANUAL RUNS
-        const now = new Date();
-        const hour = now.getHours();
-        
-        console.log(`Current hour: ${hour}, Allowed window: ${automationData.start_hour}-${automationData.end_hour}`);
-
-        // Check how many have been migrated today to respect daily limit
-        const today = now.toISOString().split('T')[0];
-        const { data: migratedToday, error: countError } = await supabaseAdmin
-          .from('email_migration')
-          .select('count')
-          .eq('status', 'migrated')
-          .gte('migrated_at', `${today}T00:00:00Z`)
-          .lt('migrated_at', `${today}T23:59:59Z`);
-
-        let migratedCount = 0;
-        if (!countError && migratedToday && migratedToday.length > 0) {
-          migratedCount = migratedToday[0].count;
-        }
-
-        console.log(`Migrated today: ${migratedCount}/${automationData.daily_total_target}`);
-
-        // Check if we've reached the daily limit
-        if (migratedCount >= automationData.daily_total_target) {
-          return new Response(
-            JSON.stringify({ 
-              success: false, 
-              message: `Daily migration limit reached (${migratedCount}/${automationData.daily_total_target})`
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        // Get count of pending subscribers
-        const { data: pendingData, error: pendingError } = await supabaseAdmin
-          .from('email_migration')
-          .select('count')
-          .eq('status', 'pending');
-
-        let pendingCount = 0;
-        if (!pendingError && pendingData && pendingData.length > 0) {
-          pendingCount = pendingData[0].count;
-        }
-
-        if (pendingCount === 0) {
-          return new Response(
-            JSON.stringify({ 
-              success: false, 
-              message: "No subscribers pending migration"
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        console.log(`Pending subscribers: ${pendingCount}`);
-
-        // Calculate remaining subscribers to migrate today
-        const remaining = automationData.daily_total_target - migratedCount;
-        
-        // Randomly determine batch size within the configured range
-        // But don't exceed the remaining count
-        const minBatch = Math.min(automationData.min_batch_size, remaining, pendingCount);
-        const maxBatch = Math.min(automationData.max_batch_size, remaining, pendingCount);
-        const randomBatchSize = Math.floor(Math.random() * (maxBatch - minBatch + 1)) + minBatch;
-
-        console.log(`Automated migration: Migrated today=${migratedCount}, Remaining=${remaining}, Batch size=${randomBatchSize}`);
-
-        // Use the migrate-batch functionality with the random batch size
-        const batchId = `auto-${new Date().toISOString().split('T')[0]}-${Math.floor(Math.random() * 10000)}`;
-        const publicationId = requestData.publicationId || automationData.publication_id || 'pub_7588ba6b-a268-4571-9135-47a68568ee64';
-
-        // Get subscribers to migrate
-        const { data: subscribersToMigrate, error: fetchError } = await supabaseAdmin
-          .from('email_migration')
-          .select('*')
-          .eq('status', 'pending')
-          .limit(randomBatchSize);
-
-        if (fetchError) {
-          console.error("Error fetching subscribers to migrate:", fetchError);
-          return new Response(
-            JSON.stringify({ 
-              success: false,
-              message: "Error fetching subscribers", 
-              error: fetchError 
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        if (!subscribersToMigrate || subscribersToMigrate.length === 0) {
-          return new Response(
-            JSON.stringify({ 
-              success: false, 
-              message: "No subscribers to migrate"
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        // Mark these subscribers as 'in_progress' with the batch ID
-        const { error: updateError } = await supabaseAdmin
-          .from('email_migration')
-          .update({ 
-            status: 'in_progress',
-            migration_batch: batchId
-          })
-          .in('id', subscribersToMigrate.map(s => s.id));
-
-        if (updateError) {
-          console.error("Error updating subscribers status:", updateError);
-          return new Response(
-            JSON.stringify({ 
-              success: false, 
-              message: "Error updating subscribers status", 
-              error: updateError
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        // Process each subscriber with more random delays to appear natural
-        const results = {
-          success: 0,
-          failed: 0,
-          errors: [] as Array<{ email: string, error: string }>
-        };
-
-        for (const subscriber of subscribersToMigrate) {
-          try {
-            console.log(`Migrating subscriber: ${subscriber.email}`);
-            
-            // Create BeehiiV subscriber data
-            const beehiivData: BeehiivSubscriberData = {
-              email: subscriber.email,
-              first_name: subscriber.first_name || '',
-              last_name: subscriber.last_name || '',
-              utm_source: 'migration',
-              utm_medium: 'ongage',
-              utm_campaign: 'email_migration',
-              reactivate: true, // Prevent welcome emails
-              custom_fields: [
-                {
-                  name: 'migrated_from_ongage',
-                  value: 'true'
-                }
-              ]
-            };
-
-            // Send to BeehiiV API
-            const subscribeResponse = await fetch(
-              `https://api.beehiiv.com/v2/publications/${publicationId}/subscriptions`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
-                },
-                body: JSON.stringify(beehiivData)
-              }
-            );
-
-            const responseText = await subscribeResponse.text();
-            console.log(`BeehiiV API response for ${subscriber.email}: ${subscribeResponse.status} - ${responseText}`);
-
-            if (subscribeResponse.ok) {
-              // Update subscriber status to 'migrated'
-              const { error: updateError } = await supabaseAdmin
-                .from('email_migration')
-                .update({ 
-                  status: 'migrated',
-                  migrated_at: new Date().toISOString(),
-                  error: null
-                })
-                .eq('id', subscriber.id);
-
-              if (updateError) {
-                console.error(`Error updating migrated status for ${subscriber.email}:`, updateError);
-              }
-
-              results.success++;
-            } else {
-              // Update subscriber status to 'failed'
-              const { error: updateError } = await supabaseAdmin
-                .from('email_migration')
-                .update({ 
-                  status: 'failed',
-                  error: `API Error: ${subscribeResponse.status} - ${responseText}`
-                })
-                .eq('id', subscriber.id);
-
-              if (updateError) {
-                console.error(`Error updating failed status for ${subscriber.email}:`, updateError);
-              }
-
-              results.failed++;
-              results.errors.push({ 
-                email: subscriber.email,
-                error: `API Error: ${subscribeResponse.status} - ${responseText}`
-              });
-            }
-          } catch (error) {
-            console.error(`Exception processing ${subscriber.email}:`, error);
-            
-            // Update subscriber status to 'failed'
-            const { error: updateError } = await supabaseAdmin
-              .from('email_migration')
-              .update({ 
-                status: 'failed',
-                error: `Exception: ${error.message}`
-              })
-              .eq('id', subscriber.id);
-
-            if (updateError) {
-              console.error(`Error updating failed status for ${subscriber.email}:`, updateError);
-            }
-
-            results.failed++;
-            results.errors.push({ 
-              email: subscriber.email,
-              error: `Exception: ${error.message}`
-            });
-          }
-
-          // Add a random delay between subscribers (between 1-3 seconds)
-          // This makes the migration pattern look more organic
-          const randomDelay = Math.floor(Math.random() * 2000) + 1000;
-          await new Promise(resolve => setTimeout(resolve, randomDelay));
-        }
-
-        // Update the migration stats
-        const { data: statsData, error: getStatsError } = await supabaseAdmin
-          .from('email_migration_stats')
-          .select('*')
-          .single();
-
-        if (getStatsError) {
-          console.error("Error fetching migration stats:", getStatsError);
-        } else if (statsData) {
-          const { error: updateStatsError } = await supabaseAdmin
-            .from('email_migration_stats')
-            .update({ 
-              migrated_subscribers: statsData.migrated_subscribers + results.success,
-              failed_subscribers: statsData.failed_subscribers + results.failed,
-              last_batch_id: batchId,
-              last_batch_date: new Date().toISOString()
-            })
-            .eq('id', statsData.id);
-
-          if (updateStatsError) {
-            console.error("Error updating migration stats:", updateStatsError);
-          }
-        }
-
-        // Update the last automated run timestamp (use the record's actual ID)
-        const { error: updateAutomationError } = await supabaseAdmin
-          .from('email_migration_automation')
-          .update({ 
-            last_automated_run: new Date().toISOString()
-          })
-          .eq('id', automationData.id);
-
-        if (updateAutomationError) {
-          console.error("Error updating automation last run:", updateAutomationError);
-        }
-
-        return new Response(
-          JSON.stringify({ 
-            success: true, 
-            batchId,
-            results: {
-              total: subscribersToMigrate.length,
-              success: results.success,
-              failed: results.failed,
-              errors: results.errors
-            }
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
       default:
         return new Response(
           JSON.stringify({ error: "Invalid action" }),
@@ -953,3 +536,4 @@ serve(async (req) => {
     );
   }
 });
+
