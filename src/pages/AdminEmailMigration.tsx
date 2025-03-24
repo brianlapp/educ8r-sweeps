@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -37,9 +38,10 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
-import { Loader2, RefreshCw, Trash } from "lucide-react"
+import { Loader2, RefreshCw, Trash, Copy, ExternalLink } from "lucide-react"
 import { SUPABASE_URL } from "@/integrations/supabase/client";
-import AdminPageHeader from "@/components/AdminPageHeader";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { useQuery } from "@tanstack/react-query";
 
 const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwZnpyYWVqcXVheHFyZm1rbXl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk0NzA2ODIsImV4cCI6MjA1NTA0NjY4Mn0.LY300ASTr6cn4vl2ZkCR0pV0rmah9YKLaUXVM5ISytM";
 
@@ -59,6 +61,15 @@ interface StatusCounts {
   failed: number;
 }
 
+interface SuccessfulSubscriber {
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  migrated_at: string;
+  subscriber_id?: string;
+  status?: string;
+}
+
 const AdminEmailMigration = () => {
   const [migrationStats, setMigrationStats] = useState<MigrationStats | null>(null);
   const [statusCounts, setStatusCounts] = useState<StatusCounts | null>(null);
@@ -69,8 +80,42 @@ const AdminEmailMigration = () => {
   const [isMigrating, setIsMigrating] = useState(false);
   const [resettingFailed, setResettingFailed] = useState(false);
   const [clearingQueue, setClearingQueue] = useState(false);
+  const [latestBatchResults, setLatestBatchResults] = useState<any>(null);
 
   const { toast } = useToast();
+
+  // Query for recent migrations
+  const recentMigrationsQuery = useQuery({
+    queryKey: ['recentMigrations'],
+    queryFn: fetchRecentMigrations,
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  async function fetchRecentMigrations(): Promise<SuccessfulSubscriber[]> {
+    try {
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/email-migration?action=recent-migrations`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${ANON_KEY}`
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch recent migrations');
+      }
+
+      const data = await response.json();
+      return data.migrations || [];
+    } catch (error: any) {
+      console.error("Error fetching recent migrations:", error);
+      return [];
+    }
+  }
 
   useEffect(() => {
     refetchMigrationStats();
@@ -170,11 +215,17 @@ const AdminEmailMigration = () => {
         throw new Error(result.error || 'Failed to migrate subscribers');
       }
 
+      // Store the latest batch results
+      setLatestBatchResults(result);
+
       toast({
         title: "Success",
         description: `Migration batch ${result.batchId} started. ${result.results.success} migrated, ${result.results.failed} failed.`,
       })
+      
       refetchMigrationStats();
+      // Also refresh recent migrations
+      recentMigrationsQuery.refetch();
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -255,15 +306,31 @@ const AdminEmailMigration = () => {
         throw new Error(result.error || 'Unknown error occurred');
       }
       
-      toast.success(result.message || 'Migration queue cleared successfully');
+      toast({
+        title: "Success",
+        description: result.message || 'Migration queue cleared successfully',
+      });
       
       // Refresh stats and counts after clearing
       refetchMigrationStats();
     } catch (error: any) {
-      toast.error(`Error clearing migration queue: ${error.message}`);
+      toast({
+        variant: "destructive", 
+        title: "Error", 
+        description: `Error clearing migration queue: ${error.message}`
+      });
     } finally {
       setClearingQueue(false);
     }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast({
+        title: "Copied",
+        description: "Text copied to clipboard",
+      });
+    });
   };
 
   return (
@@ -274,7 +341,7 @@ const AdminEmailMigration = () => {
       />
       
       <Tabs defaultValue="stats" className="w-full mt-6">
-        <TabsList className="grid grid-cols-4 mb-4">
+        <TabsList className="grid w-full grid-cols-4 mb-4">
           <TabsTrigger value="stats">Migration Stats</TabsTrigger>
           <TabsTrigger value="import">Import Subscribers</TabsTrigger>
           <TabsTrigger value="migrate">Migrate Subscribers</TabsTrigger>
@@ -504,6 +571,49 @@ const AdminEmailMigration = () => {
                   "Migrate Subscribers"
                 )}
               </Button>
+              
+              {latestBatchResults && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-medium mb-2">Latest Migration Results</h3>
+                  <div className="bg-muted p-4 rounded-md">
+                    <p><strong>Batch ID:</strong> {latestBatchResults.batchId}</p>
+                    <p><strong>Success:</strong> {latestBatchResults.results.success}</p>
+                    <p><strong>Failed:</strong> {latestBatchResults.results.failed}</p>
+                    
+                    {latestBatchResults.results.successful_sample && latestBatchResults.results.successful_sample.length > 0 && (
+                      <>
+                        <h4 className="text-md font-medium mt-2 mb-1">Sample of Successful Migrations:</h4>
+                        <ul className="list-disc pl-5">
+                          {latestBatchResults.results.successful_sample.map((sub: any, index: number) => (
+                            <li key={index}>
+                              {sub.email} 
+                              {sub.response?.data?.id && (
+                                <span className="ml-2 text-xs">
+                                  (ID: {sub.response.data.id}) 
+                                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0 ml-1" onClick={() => copyToClipboard(sub.response.data.id)}>
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                    
+                    {latestBatchResults.results.errors && latestBatchResults.results.errors.length > 0 && (
+                      <>
+                        <h4 className="text-md font-medium mt-2 mb-1">Errors:</h4>
+                        <ul className="list-disc pl-5">
+                          {latestBatchResults.results.errors.map((error: any, index: number) => (
+                            <li key={index}>{error.email}: {error.error}</li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -511,13 +621,84 @@ const AdminEmailMigration = () => {
         <TabsContent value="recent">
           <Card>
             <CardHeader>
-              <CardTitle>Recent Migrations</CardTitle>
-              <CardDescription>
-                List of recently migrated subscribers.
-              </CardDescription>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Recent Migrations</CardTitle>
+                  <CardDescription>
+                    List of recently migrated subscribers.
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => recentMigrationsQuery.refetch()}
+                  disabled={recentMigrationsQuery.isFetching}
+                >
+                  {recentMigrationsQuery.isFetching ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <p>This feature is under development.</p>
+              {recentMigrationsQuery.isLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : recentMigrationsQuery.isError ? (
+                <div className="text-destructive">
+                  Error loading recent migrations: {(recentMigrationsQuery.error as Error).message}
+                </div>
+              ) : recentMigrationsQuery.data.length === 0 ? (
+                <p>No recent migrations found.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Migrated At</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentMigrationsQuery.data.map((migration) => (
+                      <TableRow key={migration.email}>
+                        <TableCell className="font-medium">
+                          {migration.email}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 ml-1"
+                            onClick={() => copyToClipboard(migration.email)}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </TableCell>
+                        <TableCell>{[migration.first_name, migration.last_name].filter(Boolean).join(' ') || 'N/A'}</TableCell>
+                        <TableCell>
+                          {migration.migrated_at ? new Date(migration.migrated_at).toLocaleString() : 'N/A'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {migration.subscriber_id && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7"
+                              onClick={() => copyToClipboard(migration.subscriber_id || '')}
+                            >
+                              <Copy className="h-3 w-3 mr-1" />
+                              Copy ID
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

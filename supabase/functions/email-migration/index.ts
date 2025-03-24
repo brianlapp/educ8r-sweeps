@@ -1079,6 +1079,39 @@ serve(async (req) => {
         );
       }
 
+      case 'recent-migrations': {
+        // Get recent migrations
+        if (req.method !== 'GET') {
+          return new Response(
+            JSON.stringify({ error: "Method not allowed" }),
+            { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Get the most recent successful migrations (limit to 10)
+        const { data: recentMigrations, error: migrationsError } = await supabaseAdmin
+          .from('email_migration')
+          .select('email, first_name, last_name, migrated_at, error')
+          .eq('status', 'migrated')
+          .order('migrated_at', { ascending: false })
+          .limit(10);
+
+        if (migrationsError) {
+          console.error("Error fetching recent migrations:", migrationsError);
+          return new Response(
+            JSON.stringify({ error: "Failed to fetch recent migrations", details: migrationsError }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            migrations: recentMigrations
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       default:
         return new Response(
           JSON.stringify({ error: "Invalid action" }),
@@ -1093,3 +1126,4 @@ serve(async (req) => {
     );
   }
 });
+
