@@ -60,6 +60,9 @@ const AdminEmailMigration = () => {
   const [maxBatchSize, setMaxBatchSize] = useState(100);
   const [lastAutomatedRun, setLastAutomatedRun] = useState<string | null>(null);
   const [runningAutoBatch, setRunningAutoBatch] = useState(false);
+  const [verifyEmail, setVerifyEmail] = useState('');
+  const [verificationResult, setVerificationResult] = useState<any>(null);
+  const [verifying, setVerifying] = useState(false);
 
   const { data: migrationStats, refetch: refetchStats, isLoading: statsLoading } = useQuery<MigrationStats>({
     queryKey: ['email-migration-stats'],
@@ -356,6 +359,49 @@ const AdminEmailMigration = () => {
     return date.toLocaleString();
   };
 
+  const verifySubscriberInBeehiivMutation = useMutation({
+    mutationFn: async () => {
+      setVerifying(true);
+      setVerificationResult(null);
+      
+      try {
+        // First, encode the email for URL use
+        const encodedEmail = encodeURIComponent(verifyEmail);
+        
+        const { data, error } = await supabase.functions.invoke('check-beehiiv-subscriber', {
+          method: 'POST',
+          body: { 
+            publicationId,
+            email: verifyEmail 
+          }
+        });
+        
+        if (error) {
+          throw new Error(`Failed to verify subscriber: ${error.message}`);
+        }
+        
+        return data;
+      } catch (error) {
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      setVerificationResult(data);
+      if (data.exists) {
+        toast.success(`Subscriber ${verifyEmail} exists in BeehiiV!`);
+      } else {
+        toast.info(`Subscriber ${verifyEmail} was not found in BeehiiV.`);
+      }
+    },
+    onError: (error) => {
+      toast.error(`Error verifying subscriber: ${error.message}`);
+      setVerificationResult({ error: error.message });
+    },
+    onSettled: () => {
+      setVerifying(false);
+    }
+  });
+
   return (
     <div className="container mx-auto py-6">
       <BackToAdminButton />
@@ -371,6 +417,7 @@ const AdminEmailMigration = () => {
           <TabsTrigger value="migrate">Migrate Batch</TabsTrigger>
           <TabsTrigger value="automation">Automation</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="verify">Verify Subscriber</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-6">
@@ -787,9 +834,38 @@ const AdminEmailMigration = () => {
             </div>
           </Card>
         </TabsContent>
-      </Tabs>
-    </div>
-  );
-};
 
-export default AdminEmailMigration;
+        <TabsContent value="verify" className="space-y-6">
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Verify BeehiiV Subscriber</h3>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="verify-email" className="block text-sm font-medium mb-2">
+                  Email to Verify
+                </label>
+                <input
+                  id="verify-email"
+                  type="email"
+                  value={verifyEmail}
+                  onChange={(e) => setVerifyEmail(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                  placeholder="Enter email to check in BeehiiV"
+                />
+              </div>
+              
+              <Button 
+                onClick={() => verifySubscriberInBeehiivMutation.mutate()}
+                disabled={!verifyEmail || verifying}
+              >
+                {verifying ? 'Checking...' : 'Check Subscriber Status'}
+              </Button>
+              
+              {verificationResult && (
+                <div className="mt-4 p-4 bg-slate-50 rounded-lg">
+                  <h4 className="font-medium mb-2">Verification Result</h4>
+                  
+                  {verificationResult.error ? (
+                    <div className="text-red-600">
+                      <p>Error: {verificationResult.error}</p>
+                    </div>
+                  ) : (
