@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { AdminPageHeader } from '../components/admin/AdminPageHeader';
 import { BackToAdminButton } from '../components/admin/BackToAdminButton';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { AlertCircle, PlayCircle, StopCircle, Clipboard, Check, RefreshCw } from 'lucide-react';
+import { AlertCircle, PlayCircle, StopCircle, Clipboard, Check, RefreshCw, Filter } from 'lucide-react';
 import { Switch } from '../components/ui/switch';
 
 interface MigrationStats {
@@ -27,6 +27,7 @@ interface MigrationStats {
     in_progress: number;
     migrated: number;
     failed: number;
+    already_exists: number;
   };
   latest_batches: Array<{
     migration_batch: string;
@@ -50,7 +51,7 @@ interface SuccessfulSubscriber {
   status?: string;
   created?: number;
   subscriber_id?: string;
-  migrated_at?: string; // Add this property to fix the type error
+  migrated_at?: string;
 }
 
 const AdminEmailMigration = () => {
@@ -76,6 +77,8 @@ const AdminEmailMigration = () => {
   const [recentMigrations, setRecentMigrations] = useState<SuccessfulSubscriber[]>([]);
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
   const [loadingRecent, setLoadingRecent] = useState(false);
+  const [checkingExisting, setCheckingExisting] = useState(false);
+  const [checkExistingBatchSize, setCheckExistingBatchSize] = useState(100);
 
   const { data: migrationStats, refetch: refetchStats, isLoading: statsLoading } = useQuery<MigrationStats>({
     queryKey: ['email-migration-stats'],
@@ -222,6 +225,37 @@ const AdminEmailMigration = () => {
     },
     onSettled: () => {
       setRunningAutoBatch(false);
+    }
+  });
+
+  const checkExistingSubscribersMutation = useMutation({
+    mutationFn: async () => {
+      setCheckingExisting(true);
+      
+      const { data, error } = await supabase.functions.invoke('email-migration', {
+        method: 'POST',
+        body: { 
+          action: 'check-existing',
+          batchSize: checkExistingBatchSize,
+          publicationId
+        }
+      });
+      
+      if (error) {
+        throw new Error(`Failed to check existing subscribers: ${error.message}`);
+      }
+      
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(`Checked ${data.results.checked} subscribers, found ${data.results.already_exists} already in BeehiiV`);
+      refetchStats();
+    },
+    onError: (error) => {
+      toast.error(`Error checking subscribers: ${error.message}`);
+    },
+    onSettled: () => {
+      setCheckingExisting(false);
     }
   });
 
@@ -414,7 +448,6 @@ const AdminEmailMigration = () => {
     }
   });
 
-  // Fix: Change from useQuery to a regular function that uses the fetchRecentMigrations function
   const fetchRecentMigrations = async () => {
     setLoadingRecent(true);
     try {
@@ -478,6 +511,7 @@ const AdminEmailMigration = () => {
         <TabsList>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="import">Import Subscribers</TabsTrigger>
+          <TabsTrigger value="pre-check">Pre-Check Existing</TabsTrigger>
           <TabsTrigger value="migrate">Migrate Batch</TabsTrigger>
           <TabsTrigger value="recent">Recent Migrations</TabsTrigger>
           <TabsTrigger value="automation">Automation</TabsTrigger>
@@ -494,7 +528,7 @@ const AdminEmailMigration = () => {
               <div>No migration data available</div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
                   <div className="bg-slate-100 p-4 rounded-lg">
                     <div className="text-sm text-slate-500">Total Subscribers</div>
                     <div className="text-2xl font-bold">{migrationStats.stats.total_subscribers}</div>
@@ -514,6 +548,10 @@ const AdminEmailMigration = () => {
                         ? '0%' 
                         : `${Math.round((migrationStats.stats.migrated_subscribers / migrationStats.stats.total_subscribers) * 100)}%`}
                     </div>
+                  </div>
+                  <div className="bg-slate-100 p-4 rounded-lg">
+                    <div className="text-sm text-slate-500">Already in BeehiiV</div>
+                    <div className="text-2xl font-bold text-blue-600">{migrationStats.counts.already_exists || 0}</div>
                   </div>
                 </div>
 
@@ -691,6 +729,69 @@ const AdminEmailMigration = () => {
               >
                 {uploading ? 'Uploading...' : 'Upload & Import'}
               </Button>
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="pre-check" className="space-y-6">
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Pre-Check Existing Subscribers in BeehiiV</h3>
+            <div className="space-y-4">
+              <p className="text-sm text-slate-600">
+                This process will check if subscribers already exist in BeehiiV before attempting to migrate them.
+                Subscribers found to already exist will be marked as "already_exists" in the database.
+              </p>
+              
+              <div>
+                <label htmlFor="check-batch-size" className="block text-sm font-medium mb-2">
+                  Batch Size
+                </label>
+                <input
+                  id="check-batch-size"
+                  type="number"
+                  min="10"
+                  max="1000"
+                  value={checkExistingBatchSize}
+                  onChange={(e) => setCheckExistingBatchSize(parseInt(e.target.value) || 100)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                  disabled={checkingExisting}
+                />
+              </div>
+              
+              <Button 
+                onClick={() => checkExistingSubscribersMutation.mutate()}
+                disabled={checkingExisting || statsLoading || (migrationStats?.counts.pending === 0)}
+              >
+                <Filter className="mr-2 h-4 w-4" />
+                {checkingExisting ? 'Checking...' : 'Check Batch'}
+              </Button>
+              
+              <div className="text-sm text-slate-500 mt-2">
+                {statsLoading ? 'Loading...' : (
+                  migrationStats?.counts.pending === 0 
+                    ? 'No subscribers pending check' 
+                    : `${migrationStats?.counts.pending} subscribers pending check`
+                )}
+              </div>
+              
+              {checkExistingSubscribersMutation.data && (
+                <div className="mt-4 p-4 bg-slate-50 rounded-lg">
+                  <h4 className="font-medium mb-2">Pre-Check Results</h4>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="font-medium">Checked:</span> {checkExistingSubscribersMutation.data.results.checked} subscribers
+                    </div>
+                    <div>
+                      <span className="font-medium">Already in BeehiiV:</span> {checkExistingSubscribersMutation.data.results.already_exists} subscribers
+                    </div>
+                    {checkExistingSubscribersMutation.data.results.errors > 0 && (
+                      <div>
+                        <span className="font-medium text-red-600">Errors:</span> {checkExistingSubscribersMutation.data.results.errors} errors
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
         </TabsContent>

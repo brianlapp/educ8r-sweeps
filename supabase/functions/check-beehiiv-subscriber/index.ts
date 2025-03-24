@@ -1,7 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
-// CORS headers for cross-origin requests
+// Enhanced CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
@@ -9,6 +9,8 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log("Check BeehiiV subscriber function called with method:", req.method);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders, status: 204 });
@@ -29,23 +31,21 @@ serve(async (req) => {
     const requestData = await req.json();
     const { email, publicationId } = requestData;
     
-    if (!email || !publicationId) {
+    if (!email) {
       return new Response(
-        JSON.stringify({ error: "Missing required parameters: email and publicationId are required" }),
+        JSON.stringify({ error: "Missing required parameter: email" }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Encode email for URL use
-    const encodedEmail = encodeURIComponent(email);
+    // Use the publication ID from the request, with a fallback to prevent breaking changes
+    const pubId = publicationId || 'pub_7588ba6b-a268-4571-9135-47a68568ee64';
     
-    // Log the API request we're making
-    console.log(`Checking BeehiiV subscriber: ${email} in publication: ${publicationId}`);
-    console.log(`Using API endpoint: https://api.beehiiv.com/v2/publications/${publicationId}/subscriptions?email=${encodedEmail}`);
-    
-    // Make request to BeehiiV API to get subscriber details
-    const apiResponse = await fetch(
-      `https://api.beehiiv.com/v2/publications/${publicationId}/subscriptions?email=${encodedEmail}`,
+    console.log(`Checking if subscriber ${email} exists in BeehiiV for publication ${pubId}`);
+
+    // Call BeehiiV API to check if the subscriber exists
+    const response = await fetch(
+      `https://api.beehiiv.com/v2/publications/${pubId}/subscriptions?email=${encodeURIComponent(email)}`,
       {
         method: 'GET',
         headers: {
@@ -55,63 +55,40 @@ serve(async (req) => {
       }
     );
 
-    // Get response as text first for proper logging
-    const responseText = await apiResponse.text();
-    console.log(`BeehiiV API response status: ${apiResponse.status}`);
-    console.log(`BeehiiV API response headers:`, JSON.stringify(Object.fromEntries([...apiResponse.headers]), null, 2));
-    console.log(`BeehiiV API response body: ${responseText}`);
-
-    // Try to parse the response
-    let responseData;
-    try {
-      responseData = JSON.parse(responseText);
-    } catch (e) {
-      console.error("Failed to parse BeehiiV API response:", e);
+    if (!response.ok) {
+      console.error(`BeehiiV API error: ${response.status}`);
+      const errorText = await response.text();
       return new Response(
         JSON.stringify({ 
-          exists: false, 
-          error: "Failed to parse BeehiiV API response", 
-          rawResponse: responseText 
+          error: `BeehiiV API error: ${response.status}`, 
+          details: errorText 
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const data = await response.json();
+    console.log(`BeehiiV API response for ${email}:`, JSON.stringify(data, null, 2));
 
     // Check if the subscriber exists
-    if (apiResponse.ok && responseData.data && responseData.data.length > 0) {
-      // Found subscriber
-      return new Response(
-        JSON.stringify({ 
-          exists: true, 
-          data: responseData.data[0],
-          message: "Subscriber found in BeehiiV"
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } else if (apiResponse.ok && (!responseData.data || responseData.data.length === 0)) {
-      // No subscriber found
-      return new Response(
-        JSON.stringify({ 
-          exists: false, 
-          message: "No subscriber found with this email in BeehiiV"
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } else {
-      // API error
-      return new Response(
-        JSON.stringify({ 
-          exists: false, 
-          error: responseData.error || "Unknown API error", 
-          details: responseData
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-  } catch (error) {
-    console.error("Unexpected error:", error);
+    const exists = data.data && data.data.length > 0;
+    
+    const result = {
+      exists,
+      email,
+      data: exists ? data.data[0] : null
+    };
+    
+    console.log(`Subscriber ${email} ${exists ? 'exists' : 'does not exist'} in BeehiiV`);
+
     return new Response(
-      JSON.stringify({ error: "Internal server error", details: error.message }),
+      JSON.stringify(result),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error("Error checking BeehiiV subscriber:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

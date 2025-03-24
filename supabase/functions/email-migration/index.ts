@@ -206,6 +206,128 @@ serve(async (req) => {
         );
       }
 
+      case 'check-existing': {
+        // Check if subscribers already exist in BeehiiV
+        if (req.method !== 'POST') {
+          return new Response(
+            JSON.stringify({ error: "Method not allowed" }),
+            { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const batchSize = requestData.batchSize || 100;
+        const publicationId = requestData.publicationId || 'pub_7588ba6b-a268-4571-9135-47a68568ee64';
+        
+        console.log(`Checking ${batchSize} subscribers against BeehiiV for publication ${publicationId}`);
+
+        // Get subscribers to check
+        const { data: subscribersToCheck, error: fetchError } = await supabaseAdmin
+          .from('email_migration')
+          .select('*')
+          .eq('status', 'pending')
+          .limit(batchSize);
+
+        if (fetchError) {
+          console.error("Error fetching subscribers to check:", fetchError);
+          return new Response(
+            JSON.stringify({ error: "Failed to fetch subscribers", details: fetchError }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        if (!subscribersToCheck || subscribersToCheck.length === 0) {
+          return new Response(
+            JSON.stringify({ success: true, message: "No pending subscribers to check" }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log(`Found ${subscribersToCheck.length} subscribers to check`);
+
+        // Check each subscriber
+        const results = {
+          checked: 0,
+          already_exists: 0,
+          errors: 0,
+          error_details: [] as Array<{ email: string, error: string }>
+        };
+
+        for (const subscriber of subscribersToCheck) {
+          try {
+            console.log(`Checking subscriber: ${subscriber.email}`);
+            
+            // Call BeehiiV API to check if the subscriber exists
+            const response = await fetch(
+              `https://api.beehiiv.com/v2/publications/${publicationId}/subscriptions?email=${encodeURIComponent(subscriber.email)}`,
+              {
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${BEEHIIV_API_KEY}`,
+                  'Content-Type': 'application/json',
+                }
+              }
+            );
+
+            if (!response.ok) {
+              console.error(`BeehiiV API error for ${subscriber.email}: ${response.status}`);
+              const errorText = await response.text();
+              
+              results.errors++;
+              results.error_details.push({
+                email: subscriber.email,
+                error: `API Error: ${response.status} - ${errorText}`
+              });
+              
+              continue;
+            }
+
+            const data = await response.json();
+            const exists = data.data && data.data.length > 0;
+            
+            if (exists) {
+              // Subscriber already exists, update status
+              const { error: updateError } = await supabaseAdmin
+                .from('email_migration')
+                .update({ 
+                  status: 'already_exists',
+                  migrated_at: new Date().toISOString(),
+                  error: null
+                })
+                .eq('id', subscriber.id);
+
+              if (updateError) {
+                console.error(`Error updating status for ${subscriber.email}:`, updateError);
+              } else {
+                console.log(`Updated status to 'already_exists' for ${subscriber.email}`);
+                results.already_exists++;
+              }
+            }
+            
+            results.checked++;
+          } catch (error) {
+            console.error(`Exception processing ${subscriber.email}:`, error);
+            
+            results.errors++;
+            results.error_details.push({
+              email: subscriber.email,
+              error: `Exception: ${error.message}`
+            });
+          }
+
+          // Add a small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: `Checked ${results.checked} subscribers, found ${results.already_exists} already in BeehiiV`,
+            results
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       case 'migrate-batch': {
         // Migrate a batch of subscribers to BeehiiV
         if (req.method !== 'POST') {
@@ -224,7 +346,7 @@ serve(async (req) => {
         
         console.log(`Processing migration batch ${batchId} with size ${batchSize} for publication ${publicationId}`);
 
-        // Get subscribers to migrate
+        // Get subscribers to migrate - MODIFIED to filter out 'already_exists' status
         const { data: subscribersToMigrate, error: fetchError } = await supabaseAdmin
           .from('email_migration')
           .select('*')
@@ -546,7 +668,7 @@ serve(async (req) => {
           );
         }
 
-        // Get counts by status
+        // Get counts by status - MODIFIED to include already_exists status
         const { data: statusCounts, error: countError } = await supabaseAdmin
           .from('email_migration')
           .select('status, count')
@@ -556,12 +678,13 @@ serve(async (req) => {
           console.error("Error fetching status counts:", countError);
         }
 
-        // Format the status counts into a more usable structure
+        // Format the status counts into a more usable structure - MODIFIED to include already_exists
         const counts = {
           pending: 0,
           in_progress: 0,
           migrated: 0,
-          failed: 0
+          failed: 0,
+          already_exists: 0
         };
 
         if (statusCounts) {

@@ -1,3 +1,4 @@
+
 import * as React from "react"
 
 import type {
@@ -5,8 +6,9 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
+// Increase the toast timeout to 5 seconds (5000ms) for better visibility of migration status messages
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_REMOVE_DELAY = 5000
 
 type ToasterToast = ToastProps & {
   id: string
