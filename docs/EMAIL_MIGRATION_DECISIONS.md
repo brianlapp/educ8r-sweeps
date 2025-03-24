@@ -25,6 +25,17 @@
 - Allows for better monitoring and issue resolution
 - Maintains normal operation of sweepstakes during migration
 
+### Decision: Implement Automated Natural Migration Pattern
+**Context:** Batch migrations might appear artificial and set off alarms.
+
+**Decision:** Add randomized timing and batch sizes within configurable time windows.
+
+**Reasoning:**
+- Creates a more natural, organic-looking subscription pattern
+- Varies batch sizes to mimic real user behavior
+- Restricts migrations to business hours for realistic patterns
+- Provides flexibility in controlling migration speed while appearing natural
+
 ### Decision: Prevent Duplicate Welcome Emails
 **Context:** Subscribers being migrated have already received welcome emails via OnGage.
 
