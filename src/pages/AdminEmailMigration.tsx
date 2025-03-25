@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '../integrations/supabase/client';
@@ -7,11 +6,12 @@ import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { toast } from '../components/ui/use-toast';
+import { toast } from '../hooks/use-toast';
 import { AdminPageHeader } from '../components/admin/AdminPageHeader';
 import { BackToAdminButton } from '../components/admin/BackToAdminButton';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { AlertCircle, PlayCircle, Clipboard, Check, RefreshCw, Trash2, FileText, Download } from 'lucide-react';
+import { EmailMigrationStatusCard } from '../components/admin/EmailMigrationStatusCard';
 
 interface MigrationStats {
   stats: {
@@ -77,7 +77,6 @@ const AdminEmailMigration = () => {
     toast.error(`${message}: ${error.message}`);
   };
 
-  // Fetch migration stats - using POST method for the API call
   const { data: migrationStats, refetch: refetchStats, isLoading: statsLoading } = useQuery({
     queryKey: ['email-migration-stats'],
     queryFn: async () => {
@@ -102,7 +101,6 @@ const AdminEmailMigration = () => {
     }
   });
 
-  // Reset in_progress subscribers back to pending
   const resetInProgressMutation = useMutation({
     mutationFn: async () => {
       setResettingInProgress(true);
@@ -132,12 +130,10 @@ const AdminEmailMigration = () => {
     }
   });
 
-  // Migrate a batch of subscribers
   const migrateBatchMutation = useMutation({
     mutationFn: async () => {
       setProcessingBatch(true);
       
-      // First make sure there are no in_progress subscriptions
       if (migrationStats?.counts.in_progress > 0) {
         await resetInProgressMutation.mutateAsync();
       }
@@ -162,10 +158,8 @@ const AdminEmailMigration = () => {
       toast.success(`Processed batch: ${data.results.success} migrated, ${data.results.duplicates} duplicates, ${data.results.failed} failed`);
       setMigrationSummary(data);
       
-      // Update file stats
       updateFileStats(data);
       
-      // Refresh stats after successful batch
       setTimeout(() => {
         refetchStats();
       }, 500);
@@ -178,7 +172,6 @@ const AdminEmailMigration = () => {
     }
   });
 
-  // Update file stats based on batch processing results
   const updateFileStats = (data: any) => {
     const fileName = data.fileName || currentFileName || 'unknown_file';
     const newStats: FileProcessingStats = {
@@ -193,10 +186,8 @@ const AdminEmailMigration = () => {
     };
 
     setFileStats(prev => {
-      // Check if this file is already in the stats
       const existingIndex = prev.findIndex(stat => stat.fileName === fileName);
       if (existingIndex >= 0) {
-        // Update existing stats
         const updatedStats = [...prev];
         updatedStats[existingIndex] = {
           ...updatedStats[existingIndex],
@@ -207,13 +198,11 @@ const AdminEmailMigration = () => {
         };
         return updatedStats;
       } else {
-        // Add new file stats
         return [...prev, newStats];
       }
     });
   };
 
-  // Clear subscribers from the queue
   const clearQueueMutation = useMutation({
     mutationFn: async (status: string) => {
       setClearingQueue(true);
@@ -244,7 +233,6 @@ const AdminEmailMigration = () => {
     }
   });
 
-  // Reset failed subscribers to pending
   const resetFailedMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke('email-migration', {
@@ -380,12 +368,10 @@ const AdminEmailMigration = () => {
       console.log(`Parsed ${subscribers.length} subscribers from CSV file`);
       setUploadProgress(100);
       
-      // First, automatically reset any in_progress subscribers to prevent issues
       if (migrationStats?.counts.in_progress > 0) {
         await resetInProgressMutation.mutateAsync();
       }
       
-      // Then import the new subscribers
       const { data, error } = await supabase.functions.invoke('email-migration', {
         method: 'POST',
         body: {
@@ -402,7 +388,6 @@ const AdminEmailMigration = () => {
       
       console.log("Import API success response:", data);
       
-      // Add this file to the file stats
       setFileStats(prev => [...prev, {
         fileName: file.name,
         totalRows: subscribers.length,
@@ -416,7 +401,7 @@ const AdminEmailMigration = () => {
       
       toast.success(`Imported ${data.message || `${subscribers.length} subscribers`}`);
       setFile(null);
-      refetchStats(); // Refresh stats after successful import
+      refetchStats();
     } catch (error: any) {
       console.error("Error during file upload:", error);
       setFileError(error.message);
@@ -517,6 +502,8 @@ const AdminEmailMigration = () => {
         </TabsList>
 
         <TabsContent value="workflow" className="space-y-6">
+          <EmailMigrationStatusCard />
+          
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Step 1: Upload Subscribers</h3>
             
@@ -1058,3 +1045,4 @@ const AdminEmailMigration = () => {
 };
 
 export default AdminEmailMigration;
+
