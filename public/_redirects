@@ -12,5 +12,9 @@
 /rules                      /index.html                 200
 /terms                      /index.html                 200
 
+# Special handling for the root path to ensure it always works
+/                           /index.html                 200
+
 # For normal browsers, use the SPA (this is a catch-all rule)
 /*                          /index.html                 200
+
