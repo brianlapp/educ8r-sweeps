@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
-import { RefreshCw, Loader } from 'lucide-react';
+import { RefreshCw, Loader, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface MigrationStats {
   stats: {
@@ -24,6 +25,7 @@ interface MigrationStats {
 export function EmailMigrationStatusCard() {
   const [migrationStats, setMigrationStats] = useState<MigrationStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch migration stats on component mount and every 15 seconds
   useEffect(() => {
@@ -38,20 +40,29 @@ export function EmailMigrationStatusCard() {
 
   const fetchMigrationStats = async () => {
     setIsLoading(true);
+    setError(null);
+    
     try {
+      console.log('Fetching migration stats...');
       const { data, error } = await supabase.functions.invoke('email-migration', {
         method: 'POST',
         body: { action: 'stats' }
       });
 
       if (error) {
-        console.error('Error fetching migration stats:', error);
-        throw error;
+        console.error('Error from Supabase function:', error);
+        throw new Error(`Error from server: ${error.message}`);
       }
       
+      if (!data) {
+        throw new Error('No data returned from server');
+      }
+      
+      console.log('Received migration stats:', data);
       setMigrationStats(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load migration statistics:', err);
+      setError(err.message || 'An unexpected error occurred');
       toast.error(
         "Stats Refresh Failed", 
         "Could not retrieve the latest migration statistics."
@@ -78,14 +89,31 @@ export function EmailMigrationStatusCard() {
           disabled={isLoading}
           className="h-8"
         >
-          {isLoading ? <Loader className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          {isLoading ? <Loader className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
           {isLoading ? "Refreshing..." : "Refresh"}
         </Button>
       </div>
       
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4 mr-2" />
+          <AlertDescription>
+            {error}
+            <Button 
+              variant="link" 
+              className="p-0 h-auto ml-2 text-destructive underline" 
+              onClick={fetchMigrationStats}
+            >
+              Try again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      
       {isLoading && !migrationStats ? (
         <div className="flex justify-center items-center py-8">
           <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground">Loading migration statistics...</span>
         </div>
       ) : migrationStats ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
@@ -139,7 +167,15 @@ export function EmailMigrationStatusCard() {
         </div>
       ) : (
         <div className="py-6 text-center text-slate-500">
-          Failed to load migration statistics. Please try refreshing.
+          <AlertCircle className="mx-auto mb-2 h-6 w-6 text-red-500" />
+          <p>Failed to load migration statistics.</p>
+          <Button 
+            variant="link" 
+            onClick={fetchMigrationStats} 
+            className="text-blue-500"
+          >
+            Try refreshing
+          </Button>
         </div>
       )}
     </Card>
