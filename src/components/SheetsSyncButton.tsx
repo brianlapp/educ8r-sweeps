@@ -10,16 +10,31 @@ export function SheetsSyncButton() {
 
   const handleSync = async () => {
     setIsSyncing(true);
+    
+    // Show loading toast
+    const loadingToastId = toast.info(
+      "Sync in Progress", 
+      "Syncing entries to Google Sheets..."
+    ).id;
+    
     try {
       const { data, error } = await supabase.functions.invoke('manual-sync');
       
-      if (error) throw error;
+      // Dismiss loading toast
+      toast.dismiss(loadingToastId);
+      
+      if (error) {
+        console.error("Error triggering sync:", error);
+        throw error;
+      }
+      
+      console.log("Sync response:", data);
       
       if (data.success) {
-        toast({
-          title: "Sync Successful",
-          description: data.message || "Entries were successfully synced to Google Sheets",
-        });
+        toast.success(
+          "Sync Successful",
+          data.message || "Entries were successfully synced to Google Sheets"
+        );
         
         // If sheet URL is provided, offer to open it
         if (data.sheet_url) {
@@ -28,13 +43,12 @@ export function SheetsSyncButton() {
       } else {
         throw new Error(data.error || "Unknown error occurred during sync");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Sync error:", error);
-      toast({
-        title: "Sync Failed",
-        description: error.message || "There was an error syncing entries to Google Sheets",
-        variant: "destructive"
-      });
+      toast.error(
+        "Sync Failed",
+        error.message || "There was an error syncing entries to Google Sheets"
+      );
     } finally {
       setIsSyncing(false);
     }

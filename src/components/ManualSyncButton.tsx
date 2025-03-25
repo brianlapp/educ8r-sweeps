@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, CheckCircle, AlertCircle, ExternalLink, Clock, Trash } from "lucide-react";
@@ -65,16 +66,24 @@ export const ManualSyncButton = () => {
     setSheetUrl(null);
 
     try {
+      // Show a loading toast that we can update later
+      const loadingToastId = toast.info(
+        "Sync in Progress", 
+        "Starting sync to Google Sheets..."
+      ).id;
+
       const { data, error } = await supabase.functions.invoke('manual-sync');
+
+      // First, dismiss the loading toast
+      toast.dismiss(loadingToastId);
 
       if (error) {
         console.error("Error triggering sync:", error);
         setSyncStatus('error');
-        toast({
-          title: "Sync Failed",
-          description: error.message || "Failed to sync entries to Google Sheets",
-          variant: "destructive",
-        });
+        toast.error(
+          "Sync Failed", 
+          error.message || "Failed to sync entries to Google Sheets"
+        );
         return;
       }
 
@@ -84,11 +93,10 @@ export const ManualSyncButton = () => {
       if (data?.error && data.error.includes("Google Sheets API has not been used")) {
         setSyncStatus('error');
         setSheetsApiError("Google Sheets API is not enabled. Click below to activate it.");
-        toast({
-          title: "Google Sheets API Not Enabled",
-          description: "You need to enable the Google Sheets API in your Google Cloud Console",
-          variant: "destructive",
-        });
+        toast.error(
+          "Google Sheets API Not Enabled",
+          "You need to enable the Google Sheets API in your Google Cloud Console"
+        );
         return;
       }
       
@@ -97,29 +105,27 @@ export const ManualSyncButton = () => {
         if (data.sheet_url) {
           setSheetUrl(data.sheet_url);
         }
-        toast({
-          title: "Sync Complete",
-          description: data.message || "Successfully synced entries to Google Sheets",
-        });
+        toast.success(
+          "Sync Complete",
+          data.message || "Successfully synced entries to Google Sheets"
+        );
         
         // Refresh sync info after successful sync
         fetchLastSyncInfo();
       } else {
         setSyncStatus('error');
-        toast({
-          title: "Sync Failed",
-          description: (data && data.error) || "Failed to sync entries to Google Sheets",
-          variant: "destructive",
-        });
+        toast.error(
+          "Sync Failed",
+          (data && data.error) || "Failed to sync entries to Google Sheets"
+        );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Exception during sync:", error);
       setSyncStatus('error');
-      toast({
-        title: "Sync Failed",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      });
+      toast.error(
+        "Sync Failed",
+        error.message || "An unexpected error occurred"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -129,19 +135,26 @@ export const ManualSyncButton = () => {
     setResetInProgress(true);
 
     try {
+      const loadingToastId = toast.info(
+        "Reset in Progress", 
+        "Resetting sync metadata..."
+      ).id;
+
       // Reset the sync metadata by deleting and recreating it
       const { error } = await supabase
         .from('sheets_sync_metadata')
         .delete()
         .eq('id', 'google_sheets_sync');
 
+      // Dismiss loading toast
+      toast.dismiss(loadingToastId);
+
       if (error) {
         console.error("Error resetting sync metadata:", error);
-        toast({
-          title: "Reset Failed",
-          description: "Failed to reset sync metadata",
-          variant: "destructive",
-        });
+        toast.error(
+          "Reset Failed",
+          "Failed to reset sync metadata: " + error.message
+        );
         return;
       }
 
@@ -158,29 +171,27 @@ export const ManualSyncButton = () => {
 
       if (insertError) {
         console.error("Error creating new sync metadata:", insertError);
-        toast({
-          title: "Reset Failed",
-          description: "Failed to create new sync metadata",
-          variant: "destructive",
-        });
+        toast.error(
+          "Reset Failed",
+          "Failed to create new sync metadata: " + insertError.message
+        );
         return;
       }
 
-      toast({
-        title: "Reset Complete",
-        description: "Sync metadata has been reset. You can now perform a full sync.",
-      });
+      toast.success(
+        "Reset Complete",
+        "Sync metadata has been reset. You can now perform a full sync."
+      );
 
       // Refresh the sync info
       fetchLastSyncInfo();
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Exception during reset:", error);
-      toast({
-        title: "Reset Failed",
-        description: "An unexpected error occurred",
-        variant: "destructive",
-      });
+      toast.error(
+        "Reset Failed",
+        "An unexpected error occurred: " + error.message
+      );
     } finally {
       setResetInProgress(false);
       setShowResetDialog(false);

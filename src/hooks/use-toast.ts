@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 5
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_REMOVE_DELAY = 5000 // Changed from 1000000 to 5000 (5 seconds)
 
 type ToasterToast = ToastProps & {
   id: string
@@ -130,12 +130,61 @@ type Toast = Omit<ToasterToast, "id">
 function toast({ ...props }: Toast) {
   const id = genId()
 
-  const update = (props: ToasterToast) =>
+  // Clear any existing timeout for this toast
+  if (toastTimeouts.has(id)) {
+    clearTimeout(toastTimeouts.get(id))
+    toastTimeouts.delete(id)
+  }
+
+  // Set up auto-dismiss after delay
+  const timeout = setTimeout(() => {
+    dispatch({ type: actionTypes.DISMISS_TOAST, toastId: id })
+    toastTimeouts.delete(id)
+    
+    // Add a second timeout to remove the toast after dismiss animation
+    setTimeout(() => {
+      dispatch({ type: actionTypes.REMOVE_TOAST, toastId: id })
+    }, 300) // Animation duration
+  }, props.duration || TOAST_REMOVE_DELAY)
+  
+  toastTimeouts.set(id, timeout)
+
+  const update = (props: ToasterToast) => {
     dispatch({
       type: actionTypes.UPDATE_TOAST,
       toast: { ...props, id },
     })
-  const dismiss = () => dispatch({ type: actionTypes.DISMISS_TOAST, toastId: id })
+    
+    // Reset the auto-dismiss timeout when toast is updated
+    if (toastTimeouts.has(id)) {
+      clearTimeout(toastTimeouts.get(id))
+      toastTimeouts.delete(id)
+    }
+    
+    const newTimeout = setTimeout(() => {
+      dispatch({ type: actionTypes.DISMISS_TOAST, toastId: id })
+      toastTimeouts.delete(id)
+      
+      setTimeout(() => {
+        dispatch({ type: actionTypes.REMOVE_TOAST, toastId: id })
+      }, 300) // Animation duration
+    }, props.duration || TOAST_REMOVE_DELAY)
+    
+    toastTimeouts.set(id, newTimeout)
+  }
+
+  const dismiss = () => {
+    if (toastTimeouts.has(id)) {
+      clearTimeout(toastTimeouts.get(id))
+      toastTimeouts.delete(id)
+    }
+    dispatch({ type: actionTypes.DISMISS_TOAST, toastId: id })
+    
+    // Add a timeout to remove the toast after dismiss animation
+    setTimeout(() => {
+      dispatch({ type: actionTypes.REMOVE_TOAST, toastId: id })
+    }, 300) // Animation duration
+  }
 
   dispatch({
     type: actionTypes.ADD_TOAST,
@@ -176,20 +225,45 @@ function useToast() {
   }
 }
 
+// Improved helper functions with more consistent behavior
 toast.success = (title: string, description?: string) => {
-  return toast({ title, description, variant: "success" as ToastProps["variant"] })
+  console.log("Success toast:", title, description);
+  return toast({ 
+    title, 
+    description, 
+    variant: "success" as ToastProps["variant"],
+    duration: 5000 // 5 seconds
+  })
 }
 
 toast.error = (title: string, description?: string) => {
-  return toast({ title, description, variant: "destructive" })
+  console.log("Error toast:", title, description);
+  return toast({ 
+    title, 
+    description, 
+    variant: "destructive",
+    duration: 7000 // 7 seconds for errors
+  })
 }
 
 toast.warning = (title: string, description?: string) => {
-  return toast({ title, description, variant: "warning" as ToastProps["variant"] })
+  console.log("Warning toast:", title, description);
+  return toast({ 
+    title, 
+    description, 
+    variant: "warning" as ToastProps["variant"],
+    duration: 5000
+  })
 }
 
 toast.info = (title: string, description?: string) => {
-  return toast({ title, description, variant: "default" })
+  console.log("Info toast:", title, description);
+  return toast({ 
+    title, 
+    description, 
+    variant: "default",
+    duration: 4000
+  })
 }
 
 export { useToast, toast }
