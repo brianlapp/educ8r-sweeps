@@ -588,6 +588,13 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_status_counts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          status: string
+          count: number
+        }[]
+      }
       handle_everflow_webhook: {
         Args: {
           payload: Json

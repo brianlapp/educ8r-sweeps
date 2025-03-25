@@ -372,7 +372,7 @@ serve(async (req) => {
           );
         }
 
-        // Get counts for each status using a raw SQL query instead of the group method
+        // Get counts for each status using the new database function
         const { data: statusCounts, error: countError } = await supabaseAdmin.rpc(
           'get_status_counts'
         );
