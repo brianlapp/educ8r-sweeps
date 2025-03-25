@@ -17,12 +17,16 @@ const showErrorFallback = (rootElement: HTMLElement, error: unknown) => {
   console.error('Fatal error during application initialization:', error);
   
   rootElement.innerHTML = `
-    <div style="padding: 20px; text-align: center; font-family: sans-serif;">
+    <div style="padding: 20px; text-align: center; font-family: sans-serif; color: white; background-color: #111;">
       <h2>Application Error</h2>
       <p>Sorry, something went wrong while loading the application.</p>
-      <p style="color: red; margin-top: 10px;">${errorMessage}</p>
+      <p style="color: #ff6b6b; margin-top: 10px;">${errorMessage}</p>
       <p style="margin-top: 20px;">
-        <a href="/" style="color: blue; text-decoration: underline;">Try returning to the home page</a>
+        <a href="/" style="color: #4da6ff; text-decoration: underline;">Try returning to the home page</a>
+      </p>
+      <p style="margin-top: 10px; font-size: 12px; color: #999;">
+        URL: ${window.location.href}<br>
+        Environment: ${process.env.NODE_ENV}
       </p>
     </div>
   `;
@@ -33,7 +37,30 @@ try {
   
   if (!rootElement) {
     console.error("Root element not found! This could indicate the page wasn't loaded correctly.");
-    throw new Error("Root element not found in DOM");
+    
+    // Create a root element if it doesn't exist
+    const newRoot = document.createElement('div');
+    newRoot.id = 'root';
+    document.body.appendChild(newRoot);
+    
+    const root = createRoot(newRoot);
+    
+    // Add a loading indicator while React initializes
+    newRoot.innerHTML = '<div style="text-align:center;padding:20px;font-family:sans-serif;"><p>Loading application...</p></div>';
+    
+    console.warn('Created new root element as fallback');
+    
+    setTimeout(() => {
+      try {
+        root.render(<App />);
+        console.log('App rendered successfully in fallback root');
+      } catch (renderError) {
+        console.error('Error rendering React application in fallback root:', renderError);
+        showErrorFallback(newRoot, renderError);
+      }
+    }, 0);
+    
+    return; // Exit the main flow
   }
   
   console.log('Root element found, creating React root...');
@@ -72,12 +99,16 @@ try {
     // If we can't even find the root element, add an element to the body
     const fallbackElement = document.createElement('div');
     fallbackElement.innerHTML = `
-      <div style="padding: 20px; text-align: center; font-family: sans-serif;">
+      <div style="padding: 20px; text-align: center; font-family: sans-serif; color: white; background-color: #111;">
         <h2>Critical Application Error</h2>
         <p>The application could not initialize properly.</p>
-        <p style="color: red; margin-top: 10px;">${error instanceof Error ? error.message : 'Unknown error'}</p>
+        <p style="color: #ff6b6b; margin-top: 10px;">${error instanceof Error ? error.message : 'Unknown error'}</p>
         <p style="margin-top: 20px;">
-          <a href="/" style="color: blue; text-decoration: underline;">Try refreshing the page</a>
+          <a href="/" style="color: #4da6ff; text-decoration: underline;">Try refreshing the page</a>
+        </p>
+        <p style="font-size: 12px; margin-top: 20px; color: #999;">
+          URL: ${window.location.href}<br>
+          Environment: ${process.env.NODE_ENV || 'unknown'}
         </p>
       </div>
     `;
