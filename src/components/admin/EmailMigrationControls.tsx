@@ -28,6 +28,47 @@ export function EmailMigrationControls({ onRefresh }: { onRefresh: () => void })
   const [viewLogsDialogOpen, setViewLogsDialogOpen] = useState(false);
   const [logs, setLogs] = useState<any[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [functionVersion, setFunctionVersion] = useState<string | null>(null);
+  const [isCheckingVersion, setIsCheckingVersion] = useState(false);
+
+  // New function to check the deployed function version
+  const checkFunctionVersion = async () => {
+    setIsCheckingVersion(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('email-migration', {
+        method: 'POST',
+        body: { action: 'version-check' }
+      });
+
+      if (error) {
+        console.error('Version Check Error:', error);
+        throw error;
+      }
+      
+      console.log('Version Check Response:', data);
+      setFunctionVersion(data.version);
+      
+      toast({
+        title: "Function Version",
+        description: `Running version: ${data.version}, Format: ${data.customFieldsFormat}`,
+      });
+    } catch (error: any) {
+      console.error('Version Check Error:', error);
+      toast({
+        title: "Version Check Failed",
+        description: error.message || "Could not verify function version",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCheckingVersion(false);
+    }
+  };
+
+  // Call once on component mount
+  useEffect(() => {
+    checkFunctionVersion();
+  }, []);
 
   const resetInProgressSubscribers = async () => {
     setIsResetting(true);
@@ -175,7 +216,14 @@ export function EmailMigrationControls({ onRefresh }: { onRefresh: () => void })
 
   return (
     <Card className="p-4 bg-white shadow-sm">
-      <h3 className="text-lg font-semibold mb-4">Troubleshooting Tools</h3>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">Troubleshooting Tools</h3>
+        {functionVersion && (
+          <Badge variant="outline" className="ml-2">
+            Version: {functionVersion}
+          </Badge>
+        )}
+      </div>
       
       <div className="space-y-4">
         <Alert className="bg-amber-50 border-amber-200">
@@ -216,6 +264,16 @@ export function EmailMigrationControls({ onRefresh }: { onRefresh: () => void })
           >
             <FileText className="h-4 w-4 mr-2" />
             View Migration Logs
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            className="border-green-500 text-green-700 hover:bg-green-50"
+            onClick={checkFunctionVersion}
+            disabled={isCheckingVersion}
+          >
+            {isCheckingVersion ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+            Verify Function Version
           </Button>
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

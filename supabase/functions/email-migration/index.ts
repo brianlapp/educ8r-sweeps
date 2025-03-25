@@ -3,6 +3,9 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { cors } from '../_shared/cors.ts';
 
+// Add a version identifier to verify deployment
+const MIGRATION_FUNCTION_VERSION = "1.1.0-array-format-fix";
+
 // Initialize Supabase client
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
@@ -128,7 +131,7 @@ serve(async (req) => {
 
   try {
     const { action, ...params } = await req.json();
-    await logDebug('request', { action, params });
+    await logDebug('request', { action, params, functionVersion: MIGRATION_FUNCTION_VERSION });
 
     if (action === 'import') {
       try {
@@ -184,7 +187,7 @@ serve(async (req) => {
     if (action === 'migrate-batch') {
       try {
         const { batchSize, publicationId, fileName } = params;
-        await logDebug('migrate-batch-params', { batchSize, publicationId, fileName });
+        await logDebug('migrate-batch-params', { batchSize, publicationId, fileName, functionVersion: MIGRATION_FUNCTION_VERSION });
 
         if (!batchSize || typeof batchSize !== 'number' || batchSize <= 0) {
           return new Response(
@@ -252,7 +255,8 @@ serve(async (req) => {
           duplicates: 0,
           failed: 0,
           errors: [] as any[],
-          total: pendingSubscribers.length
+          total: pendingSubscribers.length,
+          functionVersion: MIGRATION_FUNCTION_VERSION // Include version in results
         };
 
         const apiKey = Deno.env.get('BEEHIIV_API_KEY');
@@ -271,7 +275,7 @@ serve(async (req) => {
           try {
             await logDebug('processing-subscriber', { email: subscriber.email, id: subscriber.id });
             
-            // Log API request details for debugging
+            // Log API request details for debugging - USING CORRECT ARRAY FORMAT
             const requestBody = {
               email: subscriber.email,
               double_opt_in: false,
@@ -292,7 +296,9 @@ serve(async (req) => {
               url: apiUrl, 
               body: requestBody,
               email: subscriber.email,
-              subscriberId: subscriber.id
+              subscriberId: subscriber.id,
+              functionVersion: MIGRATION_FUNCTION_VERSION,
+              format: "ARRAY" // Explicitly log the format being used
             });
             
             // Make the API request
@@ -574,7 +580,11 @@ serve(async (req) => {
         await logDebug(`Successfully reset ${count} in_progress subscribers back to pending.`);
 
         return new Response(
-          JSON.stringify({ message: `Successfully reset ${count} in_progress subscribers back to pending.`, count }),
+          JSON.stringify({ 
+            message: `Successfully reset ${count} in_progress subscribers back to pending.`, 
+            count,
+            functionVersion: MIGRATION_FUNCTION_VERSION 
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
@@ -607,7 +617,11 @@ serve(async (req) => {
         await logDebug(`Successfully reset ${count} failed migrations to pending.`);
 
         return new Response(
-          JSON.stringify({ message: `Successfully reset ${count} failed migrations to pending.`, count }),
+          JSON.stringify({ 
+            message: `Successfully reset ${count} failed migrations to pending.`, 
+            count,
+            functionVersion: MIGRATION_FUNCTION_VERSION 
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
@@ -716,7 +730,8 @@ serve(async (req) => {
           },
           counts,
           latest_batches: batchesData || [],
-          automation
+          automation,
+          functionVersion: MIGRATION_FUNCTION_VERSION
         };
 
         await logDebug('stats-response', response);
@@ -765,7 +780,8 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ 
             found: !!data,
-            subscriber: data 
+            subscriber: data,
+            functionVersion: MIGRATION_FUNCTION_VERSION
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -778,14 +794,33 @@ serve(async (req) => {
       }
     }
 
+    if (action === 'version-check') {
+      // Return the version information for verification
+      return new Response(
+        JSON.stringify({ 
+          version: MIGRATION_FUNCTION_VERSION,
+          customFieldsFormat: "array",
+          deployedAt: new Date().toISOString()
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ error: 'Invalid action' }),
+      JSON.stringify({ 
+        error: 'Invalid action',
+        functionVersion: MIGRATION_FUNCTION_VERSION
+      }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err) {
     await logDebug('unhandled-exception', err, true);
     return new Response(
-      JSON.stringify({ error: 'An unexpected error occurred', details: err.message }),
+      JSON.stringify({ 
+        error: 'An unexpected error occurred', 
+        details: err.message,
+        functionVersion: MIGRATION_FUNCTION_VERSION
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
