@@ -1,12 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import { RefreshCw, Play, Settings } from 'lucide-react';
+import { RefreshCw, Play, Settings, Clock, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Dialog,
@@ -17,15 +17,22 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
 
 export function EmailMigrationBatchControl({ onMigrationComplete }: { onMigrationComplete: () => void }) {
   const [isMigrating, setIsMigrating] = useState(false);
+  const [isRunningAutomation, setIsRunningAutomation] = useState(false);
   const [batchSize, setBatchSize] = useState(10);
   const [publicationId, setPublicationId] = useState('');
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [migrationResults, setMigrationResults] = useState<any>(null);
+  const [automationEnabled, setAutomationEnabled] = useState(false);
+  const [migrationProgress, setMigrationProgress] = useState(0);
+  const [continuousMode, setContinuousMode] = useState(false);
+  const [continuousBatchesRun, setContinuousBatchesRun] = useState(0);
 
-  const runMigrationBatch = async () => {
+  const runMigrationBatch = async (autoMode = false) => {
     if (!publicationId) {
       toast({
         title: "Publication ID Required",
@@ -36,17 +43,22 @@ export function EmailMigrationBatchControl({ onMigrationComplete }: { onMigratio
       return;
     }
     
-    setIsMigrating(true);
+    if (autoMode) {
+      setIsRunningAutomation(true);
+    } else {
+      setIsMigrating(true);
+    }
+    
     setMigrationResults(null);
     
     try {
       const { data, error } = await supabase.functions.invoke('email-migration', {
         method: 'POST',
         body: { 
-          action: 'migrate-batch', 
+          action: autoMode ? 'run-automation' : 'migrate-batch', 
           batchSize, 
           publicationId,
-          fileName: `manual-batch-${new Date().toISOString()}`
+          fileName: `${autoMode ? 'auto' : 'manual'}-batch-${new Date().toISOString()}`
         }
       });
 
@@ -69,6 +81,32 @@ export function EmailMigrationBatchControl({ onMigrationComplete }: { onMigratio
       
       // Refresh stats
       if (onMigrationComplete) onMigrationComplete();
+      
+      // Check if we should continue with another batch
+      if (continuousMode && !autoMode && data.results?.total > 0) {
+        // Only continue if there were subscribers to process and no rate limiting occurred
+        const noRateLimiting = !data.results?.errors?.some((e: any) => e.error?.includes('Rate limited'));
+        
+        if (noRateLimiting) {
+          setContinuousBatchesRun(prev => prev + 1);
+          // Add a short delay between batches
+          setTimeout(() => {
+            runMigrationBatch(false);
+          }, 2000);
+          return;
+        } else {
+          toast({
+            title: "Continuous Mode Paused",
+            description: "Rate limiting detected. Pausing continuous migration to avoid API limits.",
+            variant: "warning"
+          });
+        }
+      }
+      
+      // Reset continuous batches counter when stopped
+      if (!continuousMode || data.results?.total === 0) {
+        setContinuousBatchesRun(0);
+      }
     } catch (error: any) {
       console.error('Migration Error:', error);
       toast({
@@ -76,8 +114,13 @@ export function EmailMigrationBatchControl({ onMigrationComplete }: { onMigratio
         description: error.message || "Failed to process migration batch.",
         variant: "destructive"
       });
+      setContinuousBatchesRun(0);
     } finally {
-      setIsMigrating(false);
+      if (autoMode) {
+        setIsRunningAutomation(false);
+      } else {
+        setIsMigrating(false);
+      }
     }
   };
   
@@ -103,13 +146,71 @@ export function EmailMigrationBatchControl({ onMigrationComplete }: { onMigratio
     setSettingsDialogOpen(false);
   };
   
+  const toggleAutomation = async (enabled: boolean) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('email-migration', {
+        method: 'POST',
+        body: { 
+          action: 'toggle-automation', 
+          enabled
+        }
+      });
+
+      if (error) {
+        console.error('Automation Toggle Error:', error);
+        throw error;
+      }
+      
+      setAutomationEnabled(enabled);
+      
+      toast({
+        title: enabled ? "Automation Enabled" : "Automation Disabled",
+        description: enabled 
+          ? "Email migration automation is now running." 
+          : "Email migration automation has been stopped.",
+        variant: "default"
+      });
+      
+      // Refresh stats
+      if (onMigrationComplete) onMigrationComplete();
+    } catch (error: any) {
+      console.error('Automation Toggle Error:', error);
+      toast({
+        title: "Automation Toggle Failed",
+        description: error.message || "Failed to toggle automation.",
+        variant: "destructive"
+      });
+    }
+  };
+  
   // Load settings from storage on first render
-  React.useEffect(() => {
+  useEffect(() => {
     const savedPublicationId = localStorage.getItem('beehiivPublicationId');
     if (savedPublicationId) {
       setPublicationId(savedPublicationId);
     }
-  }, []);
+    
+    // Progress simulation for ongoing operations
+    if (isMigrating || isRunningAutomation) {
+      const interval = setInterval(() => {
+        setMigrationProgress(prev => {
+          if (prev >= 95) return prev;
+          return prev + Math.random() * 5;
+        });
+      }, 500);
+      
+      return () => clearInterval(interval);
+    } else {
+      setMigrationProgress(0);
+    }
+  }, [isMigrating, isRunningAutomation]);
+  
+  // Reset progress when starting a new migration
+  useEffect(() => {
+    if (isMigrating || isRunningAutomation) {
+      setMigrationProgress(0);
+    }
+  }, [isMigrating, isRunningAutomation]);
 
   return (
     <Card className="p-4 bg-white shadow-sm">
@@ -129,6 +230,11 @@ export function EmailMigrationBatchControl({ onMigrationComplete }: { onMigratio
         <Alert className="bg-blue-50 border-blue-200">
           <AlertDescription className="text-blue-800">
             Run a migration batch to process pending subscribers. Start with small batch sizes (5-10) to test.
+            {continuousMode && (
+              <span className="block mt-1 font-medium">
+                Continuous mode is enabled! Migration will run in batches until all subscribers are processed.
+              </span>
+            )}
           </AlertDescription>
         </Alert>
         
@@ -146,15 +252,26 @@ export function EmailMigrationBatchControl({ onMigrationComplete }: { onMigratio
             />
           </div>
           
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="continuousMode"
+              checked={continuousMode}
+              onCheckedChange={setContinuousMode}
+            />
+            <Label htmlFor="continuousMode">Continuous Mode</Label>
+          </div>
+          
           <Button
             variant="default" 
-            onClick={runMigrationBatch}
-            disabled={isMigrating || !publicationId}
+            onClick={() => runMigrationBatch(false)}
+            disabled={isMigrating || !publicationId || isRunningAutomation}
           >
             {isMigrating ? (
               <>
                 <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                Migrating...
+                {continuousMode 
+                  ? `Migrating... (Batch ${continuousBatchesRun + 1})` 
+                  : 'Migrating...'}
               </>
             ) : (
               <>
@@ -163,7 +280,34 @@ export function EmailMigrationBatchControl({ onMigrationComplete }: { onMigratio
               </>
             )}
           </Button>
+          
+          <Button
+            variant="outline" 
+            onClick={() => runMigrationBatch(true)}
+            disabled={isMigrating || !publicationId || isRunningAutomation}
+          >
+            {isRunningAutomation ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Running Automation...
+              </>
+            ) : (
+              <>
+                <Clock className="h-4 w-4 mr-2" />
+                Run Automation Once
+              </>
+            )}
+          </Button>
         </div>
+        
+        {(isMigrating || isRunningAutomation) && (
+          <div className="mt-4">
+            <div className="text-sm text-gray-600 mb-1">
+              {isRunningAutomation ? 'Running automated migration...' : 'Processing subscribers...'}
+            </div>
+            <Progress value={migrationProgress} className="h-2" />
+          </div>
+        )}
         
         {migrationResults && (
           <div className="mt-4 p-4 border rounded-md bg-gray-50">
@@ -199,6 +343,15 @@ export function EmailMigrationBatchControl({ onMigrationComplete }: { onMigratio
                 </div>
               </div>
             )}
+            
+            {continuousMode && migrationResults.total > 0 && !isMigrating && (
+              <div className="mt-2 text-center">
+                <p className="text-sm text-blue-600">
+                  Continuous mode completed {continuousBatchesRun} batches.
+                  {migrationResults.total === 0 ? ' No more subscribers to process.' : ''}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -224,6 +377,26 @@ export function EmailMigrationBatchControl({ onMigrationComplete }: { onMigratio
               />
               <p className="text-xs text-gray-500">
                 Found in your BeehiiV dashboard under Publication Settings.
+              </p>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t">
+              <h4 className="text-sm font-medium mb-2">Automation Settings</h4>
+              
+              <div className="flex items-center space-x-2 mb-4">
+                <Switch
+                  id="automationToggle"
+                  checked={automationEnabled}
+                  onCheckedChange={toggleAutomation}
+                />
+                <Label htmlFor="automationToggle">
+                  Enable Automated Migration
+                </Label>
+              </div>
+              
+              <p className="text-xs text-gray-500">
+                When enabled, the system will automatically process subscribers in batches, 
+                respecting rate limits and operational hours.
               </p>
             </div>
           </div>
