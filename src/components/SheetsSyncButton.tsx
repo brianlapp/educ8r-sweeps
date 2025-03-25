@@ -20,8 +20,8 @@ export function SheetsSyncButton() {
     try {
       const { data, error } = await supabase.functions.invoke('manual-sync');
       
-      // Dismiss loading toast
-      toast.dismiss(loadingToastId);
+      // Dismiss loading toast - use optional chaining to prevent errors
+      toast.dismiss?.(loadingToastId);
       
       if (error) {
         console.error("Error triggering sync:", error);

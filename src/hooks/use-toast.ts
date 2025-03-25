@@ -127,6 +127,12 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">
 
+// Create a dismiss function to use both on the hook and the toast object
+const dismissToast = (toastId?: string) => dispatch({ 
+  type: actionTypes.DISMISS_TOAST, 
+  toastId 
+})
+
 function toast({ ...props }: Toast) {
   const id = genId()
 
@@ -221,7 +227,7 @@ function useToast() {
   return {
     ...state,
     toast,
-    dismiss: (toastId?: string) => dispatch({ type: actionTypes.DISMISS_TOAST, toastId }),
+    dismiss: dismissToast,
   }
 }
 
@@ -265,5 +271,8 @@ toast.info = (title: string, description?: string) => {
     duration: 4000
   })
 }
+
+// Add dismiss method to toast object directly
+toast.dismiss = dismissToast;
 
 export { useToast, toast }

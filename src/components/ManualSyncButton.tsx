@@ -75,7 +75,7 @@ export const ManualSyncButton = () => {
       const { data, error } = await supabase.functions.invoke('manual-sync');
 
       // First, dismiss the loading toast
-      toast.dismiss(loadingToastId);
+      toast.dismiss?.(loadingToastId);
 
       if (error) {
         console.error("Error triggering sync:", error);
@@ -147,7 +147,7 @@ export const ManualSyncButton = () => {
         .eq('id', 'google_sheets_sync');
 
       // Dismiss loading toast
-      toast.dismiss(loadingToastId);
+      toast.dismiss?.(loadingToastId);
 
       if (error) {
         console.error("Error resetting sync metadata:", error);
