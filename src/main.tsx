@@ -60,36 +60,36 @@ try {
       }
     }, 0);
     
-    return; // Exit the main flow
-  }
-  
-  console.log('Root element found, creating React root...');
-  const root = createRoot(rootElement);
-  
-  // Add a loading indicator while React initializes
-  rootElement.innerHTML = '<div style="text-align:center;padding:20px;font-family:sans-serif;"><p>Loading application...</p></div>';
-  
-  console.log('Rendering App component...');
-  
-  // Small delay to ensure the DOM is fully available
-  setTimeout(() => {
-    try {
-      root.render(<App />);
-      console.log('App rendered successfully');
-      
-      // Log performance in development mode only
-      if (process.env.NODE_ENV === 'development') {
-        console.log('App initialized in development mode');
+    // Instead of using return statement outside a function, we'll use an else block
+  } else {
+    console.log('Root element found, creating React root...');
+    const root = createRoot(rootElement);
+    
+    // Add a loading indicator while React initializes
+    rootElement.innerHTML = '<div style="text-align:center;padding:20px;font-family:sans-serif;"><p>Loading application...</p></div>';
+    
+    console.log('Rendering App component...');
+    
+    // Small delay to ensure the DOM is fully available
+    setTimeout(() => {
+      try {
+        root.render(<App />);
+        console.log('App rendered successfully');
+        
+        // Log performance in development mode only
+        if (process.env.NODE_ENV === 'development') {
+          console.log('App initialized in development mode');
+        }
+      } catch (renderError) {
+        console.error('Error rendering React application:', renderError);
+        showErrorFallback(rootElement, renderError);
       }
-    } catch (renderError) {
-      console.error('Error rendering React application:', renderError);
-      showErrorFallback(rootElement, renderError);
+    }, 0);
+    
+    // Add a visible message if the page is a statically generated one
+    if (document.head.innerHTML.includes('Static page generated for campaign')) {
+      console.log('This is a statically generated page!');
     }
-  }, 0);
-  
-  // Add a visible message if the page is a statically generated one
-  if (document.head.innerHTML.includes('Static page generated for campaign')) {
-    console.log('This is a statically generated page!');
   }
 } catch (error) {
   const rootElement = document.getElementById("root");
