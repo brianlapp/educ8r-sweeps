@@ -64,12 +64,37 @@ const logDebug = async (context: string, data: any, isError = false) => {
 const handleApiResponse = async (response: Response, email: string, context: string) => {
   const responseStatus = response.status;
   let responseData = null;
+  let responseText = null;
   
   try {
-    responseData = await response.json();
+    // First try to get the raw text to have a fallback
+    responseText = await response.clone().text();
+    
+    // Then try to parse as JSON
+    try {
+      responseData = await response.json();
+    } catch (jsonError) {
+      await logDebug(`${context}-parse-error`, { 
+        email, 
+        status: responseStatus, 
+        error: jsonError.message,
+        responseText 
+      }, true);
+      
+      // Return the text response if JSON parsing fails
+      responseData = { message: responseText };
+    }
   } catch (e) {
-    await logDebug(`${context}-parse-error`, { email, status: responseStatus, error: e.message }, true);
-    return { success: false, status: responseStatus, error: "Failed to parse API response" };
+    await logDebug(`${context}-response-error`, { 
+      email, 
+      status: responseStatus, 
+      error: e.message 
+    }, true);
+    return { 
+      success: false, 
+      status: responseStatus, 
+      error: "Failed to process API response" 
+    };
   }
 
   // Log full response details including all headers
@@ -77,13 +102,15 @@ const handleApiResponse = async (response: Response, email: string, context: str
     email, 
     status: responseStatus, 
     body: responseData,
+    responseText: responseText,
     headers: Object.fromEntries(response.headers.entries())
   });
   
   return { 
     success: responseStatus >= 200 && responseStatus < 300,
     status: responseStatus,
-    data: responseData
+    data: responseData,
+    text: responseText
   };
 };
 
@@ -264,14 +291,27 @@ serve(async (req) => {
             
             // Make the API request
             const startTime = Date.now();
-            const response = await fetch(apiUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-              },
-              body: JSON.stringify(requestBody),
-            });
+            let response;
+            try {
+              response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${apiKey}`,
+                },
+                body: JSON.stringify(requestBody),
+              });
+            } catch (fetchError) {
+              // Log fetch error details
+              await logDebug('fetch-error', { 
+                email: subscriber.email, 
+                error: fetchError.message,
+                stack: fetchError.stack
+              }, true);
+              
+              throw new Error(`Network error: ${fetchError.message}`);
+            }
+            
             const responseTime = Date.now() - startTime;
             
             await logDebug('api-response-time', { email: subscriber.email, ms: responseTime });
@@ -361,12 +401,22 @@ serve(async (req) => {
             } else {
               // Failed migration for other reasons
               migrationResults.failed++;
-              const errorMsg = apiResponse.data?.message || `HTTP ${response.status}: Unknown error`;
+              
+              // Get detailed error information
+              let errorMsg;
+              if (apiResponse.data && apiResponse.data.message) {
+                errorMsg = apiResponse.data.message;
+              } else if (apiResponse.text) {
+                errorMsg = `HTTP ${response.status}: ${apiResponse.text.substring(0, 100)}`;
+              } else {
+                errorMsg = `HTTP ${response.status}: Unknown error`;
+              }
               
               await logDebug('migration-failed', { 
                 email: subscriber.email, 
                 status: response.status,
-                error: errorMsg
+                error: errorMsg,
+                response: apiResponse
               }, true);
               
               migrationResults.errors.push({ 
@@ -395,6 +445,7 @@ serve(async (req) => {
             await delay(300);
           } catch (apiError) {
             migrationResults.failed++;
+            // Enhanced error message
             const errorMsg = apiError.message || 'API request failed';
             
             await logDebug('api-error', { 

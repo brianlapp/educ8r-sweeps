@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
+import { RefreshCw, AlertTriangle, CheckCircle, FileText } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
   Dialog,
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export function EmailMigrationControls({ onRefresh }: { onRefresh: () => void }) {
   const [isResetting, setIsResetting] = useState(false);
@@ -24,6 +25,9 @@ export function EmailMigrationControls({ onRefresh }: { onRefresh: () => void })
   const [email, setEmail] = useState('');
   const [subscriberStatus, setSubscriberStatus] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [viewLogsDialogOpen, setViewLogsDialogOpen] = useState(false);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
   const resetInProgressSubscribers = async () => {
     setIsResetting(true);
@@ -143,6 +147,32 @@ export function EmailMigrationControls({ onRefresh }: { onRefresh: () => void })
     }
   };
 
+  const fetchRecentLogs = async () => {
+    setIsLoadingLogs(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from('email_migration_logs')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(30);
+        
+      if (error) throw error;
+      
+      setLogs(data || []);
+    } catch (error: any) {
+      console.error('Error fetching logs:', error);
+      toast({
+        title: "Failed to Fetch Logs",
+        description: error.message || "Could not retrieve email migration logs.",
+        variant: "destructive"
+      });
+      setLogs([]);
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  };
+
   return (
     <Card className="p-4 bg-white shadow-sm">
       <h3 className="text-lg font-semibold mb-4">Troubleshooting Tools</h3>
@@ -174,6 +204,18 @@ export function EmailMigrationControls({ onRefresh }: { onRefresh: () => void })
           >
             {isResetting ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <AlertTriangle className="h-4 w-4 mr-2" />}
             Reset "Failed" Subscribers
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            className="border-blue-500 text-blue-700 hover:bg-blue-50"
+            onClick={() => {
+              setViewLogsDialogOpen(true);
+              fetchRecentLogs();
+            }}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            View Migration Logs
           </Button>
           
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -272,6 +314,102 @@ export function EmailMigrationControls({ onRefresh }: { onRefresh: () => void })
               
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Close
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Logs Dialog */}
+          <Dialog open={viewLogsDialogOpen} onOpenChange={setViewLogsDialogOpen}>
+            <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-hidden flex flex-col">
+              <DialogHeader>
+                <DialogTitle>Migration Logs</DialogTitle>
+                <DialogDescription>
+                  Recent logs from email migration operations
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="flex-grow overflow-hidden flex flex-col">
+                <Tabs defaultValue="all" className="w-full">
+                  <TabsList>
+                    <TabsTrigger value="all">All Logs</TabsTrigger>
+                    <TabsTrigger value="errors">Errors Only</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="all" className="mt-2 overflow-auto max-h-[50vh]">
+                    {isLoadingLogs ? (
+                      <div className="flex justify-center p-4">
+                        <RefreshCw className="h-6 w-6 text-blue-500 animate-spin" />
+                      </div>
+                    ) : logs.length > 0 ? (
+                      <div className="space-y-2">
+                        {logs.map(log => (
+                          <div 
+                            key={log.id} 
+                            className={`p-2 text-xs border rounded ${
+                              log.is_error ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
+                            }`}
+                          >
+                            <div className="flex justify-between mb-1">
+                              <span className="font-semibold">{log.context}</span>
+                              <span className="text-gray-500">{new Date(log.timestamp).toLocaleString()}</span>
+                            </div>
+                            <pre className="whitespace-pre-wrap overflow-x-auto">
+                              {JSON.stringify(log.data, null, 2)}
+                            </pre>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-500">
+                        No logs found
+                      </div>
+                    )}
+                  </TabsContent>
+                  
+                  <TabsContent value="errors" className="mt-2 overflow-auto max-h-[50vh]">
+                    {isLoadingLogs ? (
+                      <div className="flex justify-center p-4">
+                        <RefreshCw className="h-6 w-6 text-blue-500 animate-spin" />
+                      </div>
+                    ) : logs.filter(log => log.is_error).length > 0 ? (
+                      <div className="space-y-2">
+                        {logs.filter(log => log.is_error).map(log => (
+                          <div 
+                            key={log.id} 
+                            className="p-2 text-xs border rounded bg-red-50 border-red-200"
+                          >
+                            <div className="flex justify-between mb-1">
+                              <span className="font-semibold">{log.context}</span>
+                              <span className="text-gray-500">{new Date(log.timestamp).toLocaleString()}</span>
+                            </div>
+                            <pre className="whitespace-pre-wrap overflow-x-auto">
+                              {JSON.stringify(log.data, null, 2)}
+                            </pre>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-500">
+                        No error logs found
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </div>
+              
+              <DialogFooter className="pt-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={fetchRecentLogs} 
+                  disabled={isLoadingLogs}
+                >
+                  {isLoadingLogs ? <RefreshCw className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+                  Refresh
+                </Button>
+                <Button variant="outline" onClick={() => setViewLogsDialogOpen(false)}>
                   Close
                 </Button>
               </DialogFooter>
