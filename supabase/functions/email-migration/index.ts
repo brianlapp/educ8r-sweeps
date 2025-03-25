@@ -1,4 +1,3 @@
-
 import { serve } from 'std/server';
 import { createClient } from '@supabase/supabase-js';
 import { cors } from '../_shared/cors.ts';
