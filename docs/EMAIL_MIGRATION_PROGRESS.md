@@ -1,18 +1,24 @@
 
 # Email Migration Progress Tracker
 
-## Status: Implementation Phase - Debugging
+## Status: Implementation Phase - Debugging & Fixing
 
 ## Current Issues
+- ✅ Fixed: Incorrect custom fields format causing HTTP 400 errors
 - In-progress subscribers stuck at 750
 - No new migrations occurring despite automated processes
 - Potential BeehiiV API security block or rate limiting
 
+## Latest Fixes (Current Date)
+- Fixed BeehiiV API integration by using correct custom fields format (array instead of object)
+- Added comprehensive documentation to prevent regression
+- Enhanced error logging for better troubleshooting
+
 ## Next Steps
-1. **Debug migration issues**:
-   - Enhanced logging added to track API calls and responses
-   - Analyze logs for rate limiting headers or security blocks
-   - Reset stuck subscribers to retry migration 
+1. **Test migration with fixed API format**:
+   - Run small test batch (5-10 subscribers)
+   - Verify successful API responses
+   - Monitor for any new error patterns
 
 2. **Optimize migration process**:
    - Implement parallel processing within safe rate limits
@@ -34,12 +40,18 @@
 ## Migration Batches
 | Batch ID | Date | Count | Status | Notes |
 |----------|------|-------|--------|-------|
+| c93d433b-294f-40e3-a9ed-94636cdc5dac | Current | 100 | Failed | All HTTP 400 errors due to incorrect custom fields format |
+| 5b97d197-7b3b-4f3b-8842-4e929386822e | Current | 5 | Failed | HTTP 400 errors due to incorrect custom fields format |
 | f5c19ce5-9a23-4744-9d8d-19b3cd4743bf | 2025-03-25 | 250 | Complete | Most recent batch |
 | batch-2025-03-25-9205 | 2025-03-25 | 179 | Complete | |
 | batch-2025-03-25-4846 | 2025-03-25 | 163 | Complete | |
 | batch-2025-03-24-9524 | 2025-03-24 | 162 | Complete | |
 | batch-2025-03-24-7799 | 2025-03-24 | 3 | Complete | |
 | batch-2025-03-24-1310 | 2025-03-24 | Unknown | Complete | Last recorded batch |
+
+## Critical API Requirements
+- ✅ **BeehiiV API custom fields must be in array format**: `[{"name": "first_name", "value": "John"}]`
+- ❌ **Not as object format**: `{"first_name": "John"}` (causes HTTP 400 errors)
 
 ## Optimization Plan
 
@@ -51,6 +63,7 @@
 - ✅ Response headers analysis
 
 ### Phase 2: Error Handling and Recovery
+- ✅ Fixed critical API format issue
 - 🔄 Automatic retry for transient failures
 - 🔄 Exponential backoff for rate limiting
 - 🔄 Status rollback for interrupted operations
@@ -75,6 +88,11 @@
 - Respecting "Retry-After" headers
 
 ## Issues & Resolutions
+- **Issue**: HTTP 400 errors in all migrations
+  - **Cause**: Incorrect format for custom_fields (object instead of array)
+  - **Resolution**: Updated API request format to use array structure
+  - **Prevention**: Added explicit documentation and comments
+
 - **Issue**: In-progress subscribers stuck at 750
   - **Action**: Enhanced logging to identify cause
   - **Action**: Manual reset function implemented
@@ -86,3 +104,4 @@
 - [ ] All subscribers properly tagged in BeehiiV
 - [ ] Migration table archived
 - [ ] Migration functions disabled
+

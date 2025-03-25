@@ -276,10 +276,16 @@ serve(async (req) => {
               email: subscriber.email,
               double_opt_in: false,
               send_welcome_email: false,
-              custom_fields: {
-                first_name: subscriber.first_name || '',
-                last_name: subscriber.last_name || ''
-              }
+              custom_fields: [
+                {
+                  name: "first_name",
+                  value: subscriber.first_name || ''
+                },
+                {
+                  name: "last_name",
+                  value: subscriber.last_name || ''
+                }
+              ]
             };
             
             await logDebug('api-request', { 

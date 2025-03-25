@@ -62,3 +62,38 @@
 2. Never expose sensitive information in logs or UI.
 3. Respect user privacy by handling PII appropriately.
 4. Follow BeehiiV's terms of service for API usage.
+
+## BeehiiV API Integration 
+
+### IMPORTANT: Custom Fields Format
+
+**CRITICAL REQUIREMENT**: BeehiiV API requires custom fields to be sent as an ARRAY, not as an OBJECT. This has been a recurring issue that causes migrations to fail with HTTP 400 errors.
+
+```javascript
+// CORRECT FORMAT - DO NOT CHANGE
+{
+  "email": "user@example.com",
+  "custom_fields": [
+    {
+      "name": "first_name",
+      "value": "John"
+    },
+    {
+      "name": "last_name",
+      "value": "Doe"
+    }
+  ]
+}
+
+// INCORRECT FORMAT - WILL CAUSE HTTP 400 ERRORS
+{
+  "email": "user@example.com",
+  "custom_fields": {
+    "first_name": "John", 
+    "last_name": "Doe"
+  }
+}
+```
+
+Always maintain this array-based format when interacting with the BeehiiV API. Any code changes must preserve this format to avoid breaking the migration functionality.
+
