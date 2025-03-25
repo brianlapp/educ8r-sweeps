@@ -11,7 +11,14 @@ const NotFound = () => {
   useEffect(() => {
     console.error(
       "404 Error: User attempted to access non-existent route:",
-      location.pathname
+      location.pathname,
+      {
+        fullUrl: window.location.href,
+        search: location.search,
+        hash: location.hash,
+        state: location.state,
+        navigator: navigator.userAgent
+      }
     );
   }, [location.pathname]);
 
@@ -34,6 +41,9 @@ const NotFound = () => {
           <br />
           <span className="text-sm text-gray-500 mt-1 block">
             URL: {location.pathname}
+          </span>
+          <span className="text-sm text-gray-500 mt-1 block">
+            Full URL: {window.location.href}
           </span>
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">

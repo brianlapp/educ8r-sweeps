@@ -5,16 +5,13 @@
 /:slug/index.html           /:slug/index.html           200
 /:slug                      /:slug/index.html           200! User-Agent=*bot* User-Agent=*crawler* User-Agent=*spider* User-Agent=*preview*
 
-# Explicitly add common routes
+# Explicitly add common routes with highest priority
+/                           /index.html                 200!
 /admin/*                    /index.html                 200
 /admin/email-migration      /index.html                 200
 /thank-you                  /index.html                 200
 /rules                      /index.html                 200
 /terms                      /index.html                 200
 
-# Special handling for the root path to ensure it always works
-/                           /index.html                 200
-
 # For normal browsers, use the SPA (this is a catch-all rule)
 /*                          /index.html                 200
-

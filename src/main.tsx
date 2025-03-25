@@ -3,9 +3,10 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
-// Add error handling and debugging
+// Add enhanced error handling and debugging
 console.log('Application starting...', {
   url: window.location.href,
+  pathname: window.location.pathname,
   environment: process.env.NODE_ENV,
   buildTime: import.meta.env.BUILDTIME || 'development',
   isStaticPage: document.head.innerHTML.includes('Static page generated for campaign')
@@ -59,8 +60,6 @@ try {
         showErrorFallback(newRoot, renderError);
       }
     }, 0);
-    
-    // Instead of using return statement outside a function, we'll use an else block
   } else {
     console.log('Root element found, creating React root...');
     const root = createRoot(rootElement);
