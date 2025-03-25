@@ -26,6 +26,7 @@ export function EmailMigrationStatusCard() {
   const [migrationStats, setMigrationStats] = useState<MigrationStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Fetch migration stats on component mount and every 15 seconds
   useEffect(() => {
@@ -36,7 +37,7 @@ export function EmailMigrationStatusCard() {
     
     // Clean up interval on unmount
     return () => clearInterval(interval);
-  }, []);
+  }, [retryCount]);
 
   const fetchMigrationStats = async () => {
     setIsLoading(true);
@@ -59,14 +60,21 @@ export function EmailMigrationStatusCard() {
       }
       
       console.log('Received migration stats:', data);
+      
+      // Validate the data structure
+      if (!data.stats || !data.counts) {
+        throw new Error('Invalid data structure received from server');
+      }
+      
       setMigrationStats(data);
     } catch (err: any) {
       console.error('Failed to load migration statistics:', err);
       setError(err.message || 'An unexpected error occurred');
-      toast.error(
-        "Stats Refresh Failed", 
-        "Could not retrieve the latest migration statistics."
-      );
+      toast({
+        title: "Stats Refresh Failed", 
+        description: "Could not retrieve the latest migration statistics.",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -85,7 +93,10 @@ export function EmailMigrationStatusCard() {
         <Button 
           variant="outline" 
           size="sm" 
-          onClick={fetchMigrationStats} 
+          onClick={() => {
+            setRetryCount(prev => prev + 1);
+            fetchMigrationStats();
+          }} 
           disabled={isLoading}
           className="h-8"
         >
@@ -102,7 +113,10 @@ export function EmailMigrationStatusCard() {
             <Button 
               variant="link" 
               className="p-0 h-auto ml-2 text-destructive underline" 
-              onClick={fetchMigrationStats}
+              onClick={() => {
+                setRetryCount(prev => prev + 1);
+                fetchMigrationStats();
+              }}
             >
               Try again
             </Button>
@@ -171,7 +185,10 @@ export function EmailMigrationStatusCard() {
           <p>Failed to load migration statistics.</p>
           <Button 
             variant="link" 
-            onClick={fetchMigrationStats} 
+            onClick={() => {
+              setRetryCount(prev => prev + 1);
+              fetchMigrationStats();
+            }} 
             className="text-blue-500"
           >
             Try refreshing
