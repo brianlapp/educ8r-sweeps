@@ -889,4 +889,71 @@ serve(async (req) => {
           .select('*')
           .eq('is_error', true)
           .ilike('context', '%rate-limited%')
-          .order('timestamp
+          .order('timestamp', { ascending: false })
+          .limit(5);
+          
+        if (!logsError && logs && logs.length > 0) {
+          potentialIssues.push(`Found ${logs.length} recent rate limiting errors from BeehiiV API`);
+          recommendations.push("Wait for rate limits to reset before retrying, or reduce batch sizes");
+        }
+        
+        // Check if subscribers might already exist in BeehiiV
+        const { data: existingLogs, error: existingLogsError } = await supabaseAdmin
+          .from('email_migration_logs')
+          .select('*')
+          .eq('is_error', false)
+          .ilike('context', '%duplicate-subscriber%')
+          .order('timestamp', { ascending: false })
+          .limit(5);
+          
+        if (!existingLogsError && existingLogs && existingLogs.length > 0) {
+          potentialIssues.push(`Found recent duplicate subscriber responses from BeehiiV API`);
+          recommendations.push("Subscribers may already exist in BeehiiV. Consider marking them as 'already_exists'");
+        }
+          
+        // Prepare the analysis object
+        const analysis = {
+          stuckSubscriberCount: stuckSubscribers.length,
+          batchCount: Object.keys(batchGroups).length,
+          batchSizes: Object.entries(batchGroups).map(([batchId, subscribers]) => ({
+            batchId,
+            count: subscribers.length
+          })),
+          oldestBatch,
+          potentialIssues,
+          recommendations,
+          sampleEmails: stuckSubscribers.slice(0, 5).map(s => s.email),
+          problematicEmails: potentialInvalidEmails.slice(0, 5).map(s => s.email)
+        };
+        
+        return new Response(
+          JSON.stringify({ 
+            count: stuckSubscribers.length,
+            message: `Found ${stuckSubscribers.length} stuck subscribers across ${Object.keys(batchGroups).length} batches`,
+            analysis,
+            functionVersion: MIGRATION_FUNCTION_VERSION 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (err) {
+        await logDebug('analyze-stuck-subscribers-exception', err, true);
+        return new Response(
+          JSON.stringify({ error: 'An unexpected error occurred', details: err.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // If action is not recognized
+    return new Response(
+      JSON.stringify({ error: `Unsupported action: ${action}` }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (err) {
+    console.error('Unexpected error:', err);
+    return new Response(
+      JSON.stringify({ error: 'An unexpected error occurred', details: err.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
