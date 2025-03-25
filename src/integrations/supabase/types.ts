@@ -588,6 +588,15 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_migration_batches: {
+        Args: {
+          limit_count?: number
+        }
+        Returns: {
+          migration_batch: string
+          count: number
+        }[]
+      }
       get_status_counts: {
         Args: Record<PropertyKey, never>
         Returns: {

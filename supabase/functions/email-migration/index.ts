@@ -1,3 +1,4 @@
+
 import { serve } from 'std/server';
 import { createClient } from '@supabase/supabase-js';
 import { cors } from '../_shared/cors.ts';
@@ -403,14 +404,11 @@ serve(async (req) => {
           });
         }
 
-        // Get latest batches
-        const { data: batchesData, error: batchesError } = await supabaseAdmin
-          .from('email_migration')
-          .select('migration_batch, count(*)')
-          .not('migration_batch', 'is', null)
-          .group('migration_batch')
-          .order('migration_batch', { ascending: false })
-          .limit(5);
+        // Get latest batches using the new database function instead of the group() method
+        const { data: batchesData, error: batchesError } = await supabaseAdmin.rpc(
+          'get_migration_batches',
+          { limit_count: 5 }
+        );
 
         if (batchesError) {
           console.error("Error fetching latest batches:", batchesError);
