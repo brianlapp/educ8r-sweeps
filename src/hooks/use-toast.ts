@@ -176,7 +176,6 @@ function useToast() {
   }
 }
 
-// Update the type definition for variant to include "success" and "warning"
 toast.success = (title: string, description?: string) => {
   return toast({ title, description, variant: "success" as ToastProps["variant"] })
 }

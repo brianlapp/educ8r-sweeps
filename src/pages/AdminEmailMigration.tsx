@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '../integrations/supabase/client';
@@ -10,7 +11,7 @@ import { toast } from '../components/ui/use-toast';
 import { AdminPageHeader } from '../components/admin/AdminPageHeader';
 import { BackToAdminButton } from '../components/admin/BackToAdminButton';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { AlertCircle, PlayCircle, Clipboard, Check, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertCircle, PlayCircle, Clipboard, Check, RefreshCw, Trash2, FileText, Download } from 'lucide-react';
 
 interface MigrationStats {
   stats: {
@@ -43,6 +44,17 @@ interface SuccessfulSubscriber {
   migrated_at?: string;
 }
 
+interface FileProcessingStats {
+  fileName: string;
+  totalRows: number;
+  processed: number;
+  migrated: number;
+  duplicates: number;
+  failed: number;
+  inProgress: number;
+  uploadDate: Date;
+}
+
 const AdminEmailMigration = () => {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -56,19 +68,22 @@ const AdminEmailMigration = () => {
   const [loadingRecent, setLoadingRecent] = useState(false);
   const [migrationSummary, setMigrationSummary] = useState<any>(null);
   const [clearingQueue, setClearingQueue] = useState(false);
+  const [fileStats, setFileStats] = useState<FileProcessingStats[]>([]);
+  const [currentFileName, setCurrentFileName] = useState<string>('');
+  const [resettingInProgress, setResettingInProgress] = useState(false);
 
   const handleError = (error: any, message: string) => {
     console.error(message, error);
     toast.error(`${message}: ${error.message}`);
   };
 
-  // Fetch migration stats - FIXED to use POST method for the API call
+  // Fetch migration stats - using POST method for the API call
   const { data: migrationStats, refetch: refetchStats, isLoading: statsLoading } = useQuery({
     queryKey: ['email-migration-stats'],
     queryFn: async () => {
       try {
         const { data, error } = await supabase.functions.invoke('email-migration', {
-          method: 'POST', // Changed from GET to POST
+          method: 'POST',
           body: { action: 'stats' }
         });
 
@@ -87,17 +102,53 @@ const AdminEmailMigration = () => {
     }
   });
 
+  // Reset in_progress subscribers back to pending
+  const resetInProgressMutation = useMutation({
+    mutationFn: async () => {
+      setResettingInProgress(true);
+      
+      const { data, error } = await supabase.functions.invoke('email-migration', {
+        method: 'POST',
+        body: { 
+          action: 'reset-in-progress'
+        }
+      });
+      
+      if (error) {
+        throw new Error(`Failed to reset in_progress subscribers: ${error.message}`);
+      }
+      
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(`Reset ${data.count} in_progress subscribers back to pending`);
+      refetchStats();
+    },
+    onError: (error: any) => {
+      toast.error(`Error resetting in_progress subscribers: ${error.message}`);
+    },
+    onSettled: () => {
+      setResettingInProgress(false);
+    }
+  });
+
   // Migrate a batch of subscribers
   const migrateBatchMutation = useMutation({
     mutationFn: async () => {
       setProcessingBatch(true);
+      
+      // First make sure there are no in_progress subscriptions
+      if (migrationStats?.counts.in_progress > 0) {
+        await resetInProgressMutation.mutateAsync();
+      }
       
       const { data, error } = await supabase.functions.invoke('email-migration', {
         method: 'POST',
         body: { 
           action: 'migrate-batch',
           batchSize,
-          publicationId
+          publicationId,
+          fileName: currentFileName || file?.name || 'unknown_file'
         }
       });
       
@@ -110,8 +161,13 @@ const AdminEmailMigration = () => {
     onSuccess: (data) => {
       toast.success(`Processed batch: ${data.results.success} migrated, ${data.results.duplicates} duplicates, ${data.results.failed} failed`);
       setMigrationSummary(data);
+      
+      // Update file stats
+      updateFileStats(data);
+      
+      // Refresh stats after successful batch
       setTimeout(() => {
-        refetchStats(); // Refresh stats after successful batch with a slight delay
+        refetchStats();
       }, 500);
     },
     onError: (error: any) => {
@@ -121,6 +177,41 @@ const AdminEmailMigration = () => {
       setProcessingBatch(false);
     }
   });
+
+  // Update file stats based on batch processing results
+  const updateFileStats = (data: any) => {
+    const fileName = data.fileName || currentFileName || 'unknown_file';
+    const newStats: FileProcessingStats = {
+      fileName,
+      totalRows: data.results.total,
+      processed: data.results.success + data.results.duplicates + data.results.failed,
+      migrated: data.results.success,
+      duplicates: data.results.duplicates,
+      failed: data.results.failed,
+      inProgress: 0,
+      uploadDate: new Date()
+    };
+
+    setFileStats(prev => {
+      // Check if this file is already in the stats
+      const existingIndex = prev.findIndex(stat => stat.fileName === fileName);
+      if (existingIndex >= 0) {
+        // Update existing stats
+        const updatedStats = [...prev];
+        updatedStats[existingIndex] = {
+          ...updatedStats[existingIndex],
+          processed: updatedStats[existingIndex].processed + newStats.processed,
+          migrated: updatedStats[existingIndex].migrated + newStats.migrated,
+          duplicates: updatedStats[existingIndex].duplicates + newStats.duplicates,
+          failed: updatedStats[existingIndex].failed + newStats.failed
+        };
+        return updatedStats;
+      } else {
+        // Add new file stats
+        return [...prev, newStats];
+      }
+    });
+  };
 
   // Clear subscribers from the queue
   const clearQueueMutation = useMutation({
@@ -195,6 +286,8 @@ const AdminEmailMigration = () => {
         setFileError('File is too large (max 20MB)');
         return;
       }
+      
+      setCurrentFileName(selectedFile.name);
     }
   };
 
@@ -287,15 +380,18 @@ const AdminEmailMigration = () => {
       console.log(`Parsed ${subscribers.length} subscribers from CSV file`);
       setUploadProgress(100);
       
-      // First, let's automatically clear any in_progress subscribers to avoid confusion
-      await clearQueueMutation.mutateAsync('in_progress');
+      // First, automatically reset any in_progress subscribers to prevent issues
+      if (migrationStats?.counts.in_progress > 0) {
+        await resetInProgressMutation.mutateAsync();
+      }
       
       // Then import the new subscribers
       const { data, error } = await supabase.functions.invoke('email-migration', {
         method: 'POST',
         body: {
           action: 'import',
-          subscribers
+          subscribers,
+          fileName: file.name
         }
       });
       
@@ -305,6 +401,18 @@ const AdminEmailMigration = () => {
       }
       
       console.log("Import API success response:", data);
+      
+      // Add this file to the file stats
+      setFileStats(prev => [...prev, {
+        fileName: file.name,
+        totalRows: subscribers.length,
+        processed: 0,
+        migrated: 0,
+        duplicates: data.duplicates || 0,
+        failed: 0,
+        inProgress: subscribers.length - (data.duplicates || 0),
+        uploadDate: new Date()
+      }]);
       
       toast.success(`Imported ${data.message || `${subscribers.length} subscribers`}`);
       setFile(null);
@@ -381,6 +489,16 @@ const AdminEmailMigration = () => {
       });
   };
 
+  const exportFileStats = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fileStats, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `email-migration-file-stats-${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
   return (
     <div className="container mx-auto py-6">
       <BackToAdminButton />
@@ -393,6 +511,7 @@ const AdminEmailMigration = () => {
         <TabsList>
           <TabsTrigger value="workflow">Migration Workflow</TabsTrigger>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="files">File Tracking</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
@@ -471,11 +590,11 @@ const AdminEmailMigration = () => {
                         <Button 
                           variant="link" 
                           size="sm"
-                          className="text-xs p-0 h-auto ml-2"
-                          onClick={() => clearQueueMutation.mutate('in_progress')}
-                          disabled={clearingQueue}
+                          className="text-xs p-0 h-auto ml-2 text-orange-500"
+                          onClick={() => resetInProgressMutation.mutate()}
+                          disabled={resettingInProgress}
                         >
-                          Clear
+                          Reset to Pending
                         </Button>
                       </p>
                     )}
@@ -539,6 +658,9 @@ const AdminEmailMigration = () => {
                   <div className="text-sm space-y-1">
                     <p>
                       <span className="font-medium">Batch ID:</span> {migrationSummary.batchId}
+                    </p>
+                    <p>
+                      <span className="font-medium">File Name:</span> {migrationSummary.fileName || 'Unknown'}
                     </p>
                     <p>
                       <span className="font-medium">Processed:</span> {migrationSummary.results.total} subscribers
@@ -692,7 +814,20 @@ const AdminEmailMigration = () => {
                         </TableRow>
                         <TableRow>
                           <TableCell>In Progress</TableCell>
-                          <TableCell>{migrationStats.counts.in_progress}</TableCell>
+                          <TableCell>
+                            {migrationStats.counts.in_progress} 
+                            {migrationStats.counts.in_progress > 0 && (
+                              <Button 
+                                variant="link" 
+                                size="sm"
+                                className="text-xs p-0 h-auto ml-2 text-orange-500"
+                                onClick={() => resetInProgressMutation.mutate()}
+                                disabled={resettingInProgress}
+                              >
+                                Reset
+                              </Button>
+                            )}
+                          </TableCell>
                         </TableRow>
                         <TableRow>
                           <TableCell>Migrated</TableCell>
@@ -739,6 +874,63 @@ const AdminEmailMigration = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="files" className="space-y-6">
+          <Card className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">File Processing Stats</h3>
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportFileStats}
+                  disabled={fileStats.length === 0}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export Stats
+                </Button>
+              </div>
+            </div>
+            
+            {fileStats.length === 0 ? (
+              <div className="py-8 text-center text-slate-500">No file processing data available yet</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>File Name</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Processed</TableHead>
+                    <TableHead>Migrated</TableHead>
+                    <TableHead>Duplicates</TableHead>
+                    <TableHead>Failed</TableHead>
+                    <TableHead>In Progress</TableHead>
+                    <TableHead>Upload Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {fileStats.map((file, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center">
+                          <FileText className="h-4 w-4 mr-2 text-blue-500" />
+                          {file.fileName}
+                        </div>
+                      </TableCell>
+                      <TableCell>{file.totalRows}</TableCell>
+                      <TableCell>{file.processed}</TableCell>
+                      <TableCell className="text-green-600">{file.migrated}</TableCell>
+                      <TableCell className="text-blue-600">{file.duplicates}</TableCell>
+                      <TableCell className="text-red-600">{file.failed}</TableCell>
+                      <TableCell className="text-orange-500">{file.inProgress}</TableCell>
+                      <TableCell>{file.uploadDate.toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </Card>
+        </TabsContent>
+
         <TabsContent value="reports" className="space-y-6">
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Migration Summary</h3>
@@ -766,6 +958,7 @@ const AdminEmailMigration = () => {
                         ? '0%' 
                         : `${Math.round((migrationStats.stats.migrated_subscribers / migrationStats.stats.total_subscribers) * 100)}%`}
                       </p>
+                      <p><span className="font-medium">Total Files Processed:</span> {fileStats.length}</p>
                     </div>
                   </div>
                 </div>
@@ -781,7 +974,12 @@ const AdminEmailMigration = () => {
                   <Button 
                     variant="outline" 
                     onClick={() => {
-                      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(migrationStats, null, 2));
+                      const reportData = {
+                        stats: migrationStats,
+                        fileStats: fileStats,
+                        timestamp: new Date().toISOString()
+                      };
+                      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(reportData, null, 2));
                       const downloadAnchorNode = document.createElement('a');
                       downloadAnchorNode.setAttribute("href", dataStr);
                       downloadAnchorNode.setAttribute("download", `beehiiv-migration-report-${new Date().toISOString().split('T')[0]}.json`);
@@ -834,11 +1032,11 @@ const AdminEmailMigration = () => {
                   
                   <Button 
                     variant="outline" 
-                    onClick={() => clearQueueMutation.mutate('in_progress')}
-                    disabled={clearingQueue || !migrationStats || migrationStats.counts.in_progress === 0}
+                    onClick={() => resetInProgressMutation.mutate()}
+                    disabled={resettingInProgress || !migrationStats || migrationStats.counts.in_progress === 0}
                   >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Clear In Progress ({migrationStats?.counts.in_progress || 0})
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Reset In Progress ({migrationStats?.counts.in_progress || 0})
                   </Button>
                   
                   <Button 
@@ -860,4 +1058,3 @@ const AdminEmailMigration = () => {
 };
 
 export default AdminEmailMigration;
-

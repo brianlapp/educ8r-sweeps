@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -110,6 +111,7 @@ serve(async (req) => {
         }
 
         const subscribers: Subscriber[] = requestData.subscribers;
+        const fileName = requestData.fileName || 'unknown_file';
         
         if (!Array.isArray(subscribers)) {
           console.error("Invalid subscribers data format, received:", typeof subscribers);
@@ -152,16 +154,20 @@ serve(async (req) => {
           }
         }
 
-        console.log(`Processing import of ${subscribers.length} subscribers`);
+        console.log(`Processing import of ${subscribers.length} subscribers from file: ${fileName}`);
 
-        // Clear any 'in_progress' subscribers first
-        const { error: clearError } = await supabaseAdmin
+        // IMPORTANT: Reset any in_progress subscribers first to avoid stuck subscribers
+        console.log("Resetting any in_progress subscribers to pending state before import");
+        const { error: resetError } = await supabaseAdmin
           .from('email_migration')
-          .update({ status: 'pending' })
+          .update({ 
+            status: 'pending',
+            error: 'Reset automatically before new import'
+          })
           .eq('status', 'in_progress');
 
-        if (clearError) {
-          console.error("Error clearing in_progress subscribers:", clearError);
+        if (resetError) {
+          console.error("Error resetting in_progress subscribers:", resetError);
         } else {
           console.log("Cleared any subscribers that were stuck in 'in_progress' state");
         }
@@ -212,8 +218,67 @@ serve(async (req) => {
             success: true, 
             message: `Imported ${insertedData.inserted} subscribers successfully`,
             duplicates: insertedData.duplicates,
-            total: insertedData.total
+            total: insertedData.total,
+            fileName
           }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'reset-in-progress': {
+        // Reset in_progress subscriptions back to pending state
+        if (req.method !== 'POST') {
+          return new Response(
+            JSON.stringify({ error: "Method not allowed" }),
+            { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Get count of in_progress subscribers first
+        const { data: countData, error: countError } = await supabaseAdmin
+          .from('email_migration')
+          .select('count(*)', { count: 'exact' })
+          .eq('status', 'in_progress');
+
+        if (countError) {
+          console.error("Error counting in_progress subscribers:", countError);
+          return new Response(
+            JSON.stringify({ error: "Failed to count in_progress subscribers", details: countError }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const count = countData[0]?.count || 0;
+
+        if (count === 0) {
+          return new Response(
+            JSON.stringify({ message: "No in_progress subscribers to reset", count: 0 }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Reset in_progress subscribers to pending
+        const { error: updateError } = await supabaseAdmin
+          .from('email_migration')
+          .update({ 
+            status: 'pending',
+            error: null,
+            migration_batch: null
+          })
+          .eq('status', 'in_progress');
+
+        if (updateError) {
+          console.error("Error resetting in_progress subscribers:", updateError);
+          return new Response(
+            JSON.stringify({ error: "Failed to reset in_progress subscribers", details: updateError }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log(`Reset ${count} in_progress subscribers to pending state`);
+
+        return new Response(
+          JSON.stringify({ message: `Reset ${count} in_progress subscribers to pending`, count }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -363,11 +428,12 @@ serve(async (req) => {
 
         const batchSize = requestData.batchSize || 500; // Default to 500 which is what BeehiiV API can handle reliably
         const batchId = `batch-${new Date().toISOString().split('T')[0]}-${Math.floor(Math.random() * 10000)}`;
+        const fileName = requestData.fileName || 'unknown_file';
         
         // Use the publication ID from the request, with a fallback to prevent breaking changes
-        const publicationId = requestData.publicationId || 'pub_4b47c3db-87fa-4253-956a-21c7afeb3e29';
+        const publicationId = requestData.publicationId || 'pub_7588ba6b-a268-4571-9135-47a68568ee64';
         
-        console.log(`Processing migration batch ${batchId} with size ${batchSize} for publication ${publicationId}`);
+        console.log(`Processing migration batch ${batchId} with size ${batchSize} for publication ${publicationId}, file: ${fileName}`);
 
         // Get subscribers to migrate - MODIFIED to filter out 'already_exists' status
         const { data: subscribersToMigrate, error: fetchError } = await supabaseAdmin
@@ -386,7 +452,18 @@ serve(async (req) => {
 
         if (!subscribersToMigrate || subscribersToMigrate.length === 0) {
           return new Response(
-            JSON.stringify({ success: true, message: "No subscribers to migrate" }),
+            JSON.stringify({ 
+              success: true, 
+              message: "No subscribers to migrate",
+              fileName,
+              results: {
+                total: 0,
+                success: 0,
+                duplicates: 0,
+                failed: 0,
+                errors: []
+              }
+            }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -456,6 +533,11 @@ serve(async (req) => {
                 {
                   name: 'migration_date',
                   value: new Date().toISOString()
+                },
+                // NEW: Add file name for tracking source
+                {
+                  name: 'source_file',
+                  value: fileName
                 }
               ]
             };
@@ -667,6 +749,8 @@ serve(async (req) => {
         console.log(`=== Batch ${batchId} Migration Details ===`);
         console.log(`Total successful migrations: ${results.success}`);
         console.log(`Total duplicates found: ${results.duplicates}`);
+        console.log(`Total failed migrations: ${results.failed}`);
+        console.log(`File name: ${fileName}`);
         console.log(`Details of successful subscribers:`, JSON.stringify(results.successful_subscribers.slice(0, 5), null, 2));
         if (results.successful_subscribers.length > 5) {
           console.log(`... and ${results.successful_subscribers.length - 5} more`);
@@ -677,6 +761,7 @@ serve(async (req) => {
             success: true, 
             batchId,
             publicationId,
+            fileName,
             results: {
               total: subscribersToMigrate.length,
               success: results.success,
@@ -693,13 +778,8 @@ serve(async (req) => {
 
       case 'stats': {
         // Get migration statistics
-        if (req.method !== 'GET') {
-          return new Response(
-            JSON.stringify({ error: "Method not allowed" }),
-            { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
+        console.log("Fetching migration statistics");
+        
         // Get the migration stats
         const { data: statsData, error: statsError } = await supabaseAdmin
           .from('email_migration_stats')
@@ -781,6 +861,32 @@ serve(async (req) => {
           }
         } else if (automationData) {
           automation = automationData;
+        }
+
+        // Check if total counts match and fix if necessary
+        const totalInStatuses = counts.pending + counts.in_progress + counts.migrated + counts.failed + counts.already_exists;
+        if (totalInStatuses !== statsData.total_subscribers) {
+          console.log(`⚠️ Fixing mismatched total subscribers: ${statsData.total_subscribers} vs ${totalInStatuses}`);
+          
+          // Update the stats table to match the actual count
+          const { error: updateStatsError } = await supabaseAdmin
+            .from('email_migration_stats')
+            .update({ 
+              total_subscribers: totalInStatuses,
+              migrated_subscribers: counts.migrated + counts.already_exists,
+              failed_subscribers: counts.failed
+            })
+            .eq('id', statsData.id);
+            
+          if (updateStatsError) {
+            console.error("Error updating stats to fix count mismatch:", updateStatsError);
+          } else {
+            console.log("✅ Fixed migration stats counts");
+            // Update local statsData to return corrected values
+            statsData.total_subscribers = totalInStatuses;
+            statsData.migrated_subscribers = counts.migrated + counts.already_exists;
+            statsData.failed_subscribers = counts.failed;
+          }
         }
 
         return new Response(
@@ -976,6 +1082,25 @@ serve(async (req) => {
         const batchId = `auto-${new Date().toISOString().split('T')[0]}-${Math.floor(Math.random() * 10000)}`;
         const publicationId = requestData.publicationId || automationData.publication_id || 'pub_7588ba6b-a268-4571-9135-47a68568ee64';
 
+        // First check if there are any in_progress subscribers and reset them
+        const { data: inProgressData } = await supabaseAdmin
+          .from('email_migration')
+          .select('count(*)', { count: 'exact' })
+          .eq('status', 'in_progress');
+          
+        if (inProgressData && inProgressData.length > 0 && inProgressData[0].count > 0) {
+          console.log(`Resetting ${inProgressData[0].count} in_progress subscribers before automated batch`);
+          
+          await supabaseAdmin
+            .from('email_migration')
+            .update({ 
+              status: 'pending',
+              error: 'Reset automatically before automated batch',
+              migration_batch: null
+            })
+            .eq('status', 'in_progress');
+        }
+
         // Get subscribers to migrate
         const { data: subscribersToMigrate, error: fetchError } = await supabaseAdmin
           .from('email_migration')
@@ -1019,6 +1144,7 @@ serve(async (req) => {
         const results = {
           success: 0,
           failed: 0,
+          duplicates: 0,
           errors: [] as Array<{ email: string, error: string }>
         };
 
@@ -1072,6 +1198,36 @@ serve(async (req) => {
 
             const responseText = await subscribeResponse.text();
             console.log(`BeehiiV API response for ${subscriber.email}: ${subscribeResponse.status} - ${responseText}`);
+
+            // Check if this is a duplicate
+            let isDuplicate = false;
+            try {
+              const responseData = JSON.parse(responseText);
+              if (responseData.error && responseData.error.includes("already exists")) {
+                isDuplicate = true;
+              }
+            } catch (e) {
+              // Ignore parsing errors
+            }
+            
+            if (isDuplicate) {
+              // Update subscriber status to 'already_exists'
+              const { error: updateError } = await supabaseAdmin
+                .from('email_migration')
+                .update({ 
+                  status: 'already_exists',
+                  migrated_at: new Date().toISOString(),
+                  error: null
+                })
+                .eq('id', subscriber.id);
+
+              if (updateError) {
+                console.error(`Error updating duplicate status for ${subscriber.email}:`, updateError);
+              }
+
+              results.duplicates++;
+              continue;
+            }
 
             if (subscribeResponse.ok) {
               // Update subscriber status to 'migrated'
@@ -1182,6 +1338,7 @@ serve(async (req) => {
               total: subscribersToMigrate.length,
               success: results.success,
               failed: results.failed,
+              duplicates: results.duplicates,
               errors: results.errors
             }
           }),
