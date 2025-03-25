@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { cors } from '../_shared/cors.ts';
@@ -29,6 +28,67 @@ const isValidEmail = (email: string) => {
   return emailRegex.test(email);
 };
 
+// New function to log detailed debugging information
+const logDebug = (context: string, data: any, isError = false) => {
+  const timestamp = new Date().toISOString();
+  const logPrefix = `[EMAIL-MIGRATION][${timestamp}][${context}]`;
+  
+  if (isError) {
+    console.error(`${logPrefix} ERROR:`, data);
+  } else {
+    console.log(`${logPrefix}:`, typeof data === 'object' ? JSON.stringify(data) : data);
+  }
+  
+  // Try to log to the database for persistent debugging
+  try {
+    supabaseAdmin
+      .from('email_migration_logs')
+      .insert({
+        context,
+        timestamp: new Date().toISOString(),
+        data: typeof data === 'object' ? data : { message: data },
+        is_error: isError
+      })
+      .then(result => {
+        if (result.error) {
+          console.error(`${logPrefix} Failed to log to database:`, result.error);
+        }
+      });
+  } catch (err) {
+    // Fail silently to not disrupt the main process
+    console.error(`${logPrefix} Exception during database logging:`, err);
+  }
+};
+
+// New function to handle API responses with detailed logging
+const handleApiResponse = async (response: Response, email: string, context: string) => {
+  const responseStatus = response.status;
+  let responseData = null;
+  
+  try {
+    responseData = await response.json();
+  } catch (e) {
+    logDebug(`${context}-parse-error`, { email, status: responseStatus, error: e.message }, true);
+    return { success: false, status: responseStatus, error: "Failed to parse API response" };
+  }
+
+  logDebug(`${context}-response`, { 
+    email, 
+    status: responseStatus, 
+    body: responseData,
+    headers: Object.fromEntries(response.headers.entries())
+  });
+  
+  return { 
+    success: responseStatus >= 200 && responseStatus < 300,
+    status: responseStatus,
+    data: responseData
+  };
+};
+
+// New function to add delay for rate limiting
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
@@ -40,6 +100,7 @@ serve(async (req) => {
 
   try {
     const { action, ...params } = await req.json();
+    logDebug('request', { action, params });
 
     if (action === 'import') {
       try {
@@ -63,28 +124,28 @@ serve(async (req) => {
           );
         }
 
-        console.log(`Importing ${validSubscribers.length} subscribers...`);
+        logDebug('import-start', { fileName, count: validSubscribers.length });
 
         const { data, error } = await supabaseAdmin.rpc('import_subscribers', {
           subscribers_data: JSON.stringify(validSubscribers),
         });
 
         if (error) {
-          console.error("Database import error:", error);
+          logDebug('import-error', error, true);
           return new Response(
             JSON.stringify({ error: "Failed to import subscribers", details: error.message }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        console.log("Import process completed:", data);
+        logDebug('import-complete', data);
 
         return new Response(
           JSON.stringify({ message: `Successfully queued ${validSubscribers.length} subscribers for migration.`, ...data }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
-        console.error('Unexpected error during import:', err);
+        logDebug('import-exception', err, true);
         return new Response(
           JSON.stringify({ error: 'An unexpected error occurred during import', details: err.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -95,6 +156,7 @@ serve(async (req) => {
     if (action === 'migrate-batch') {
       try {
         const { batchSize, publicationId, fileName } = params;
+        logDebug('migrate-batch-params', { batchSize, publicationId, fileName });
 
         if (!batchSize || typeof batchSize !== 'number' || batchSize <= 0) {
           return new Response(
@@ -110,7 +172,7 @@ serve(async (req) => {
           );
         }
 
-        console.log(`Attempting to migrate a batch of ${batchSize} subscribers...`);
+        logDebug('migrate-batch-start', `Attempting to migrate a batch of ${batchSize} subscribers...`);
 
         // Fetch subscribers with 'pending' status
         const { data: pendingSubscribers, error: selectError } = await supabaseAdmin
@@ -120,7 +182,7 @@ serve(async (req) => {
           .limit(batchSize);
 
         if (selectError) {
-          console.error("Error fetching pending subscribers:", selectError);
+          logDebug('fetch-pending-error', selectError, true);
           return new Response(
             JSON.stringify({ error: "Failed to fetch pending subscribers", details: selectError.message }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -128,13 +190,14 @@ serve(async (req) => {
         }
 
         if (!pendingSubscribers || pendingSubscribers.length === 0) {
+          logDebug('no-pending-subscribers', 'No pending subscribers to migrate');
           return new Response(
             JSON.stringify({ message: 'No pending subscribers to migrate' }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        console.log(`Fetched ${pendingSubscribers.length} pending subscribers for migration.`);
+        logDebug('pending-subscribers-fetched', { count: pendingSubscribers.length });
 
         // Update status to 'in_progress'
         const subscriberIds = pendingSubscribers.map(subscriber => subscriber.id);
@@ -146,14 +209,14 @@ serve(async (req) => {
           .in('id', subscriberIds);
 
         if (updateError) {
-          console.error("Error updating subscriber status to in_progress:", updateError);
+          logDebug('update-status-error', updateError, true);
           return new Response(
             JSON.stringify({ error: "Failed to update subscriber status", details: updateError.message }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        console.log(`Updated status to 'in_progress' for ${subscriberIds.length} subscribers.`);
+        logDebug('batch-updated', { batchId, count: subscriberIds.length });
 
         // Call the external API to migrate subscribers
         const migrationResults = {
@@ -164,73 +227,250 @@ serve(async (req) => {
           total: pendingSubscribers.length
         };
 
-        for (const subscriber of pendingSubscribers) {
-          try {
-            const apiUrl = 'https://api.beehiiv.com/v2/publications/' + publicationId + '/subscriptions';
-            const apiKey = Deno.env.get('BEEHIIV_API_KEY');
+        const apiKey = Deno.env.get('BEEHIIV_API_KEY');
+        if (!apiKey) {
+          logDebug('api-key-missing', 'BEEHIIV_API_KEY environment variable is not set', true);
+          return new Response(
+            JSON.stringify({ error: 'API key not configured on server' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
 
+        // Process each subscriber
+        for (const subscriber of pendingSubscribers) {
+          const apiUrl = 'https://api.beehiiv.com/v2/publications/' + publicationId + '/subscriptions';
+          
+          try {
+            logDebug('processing-subscriber', { email: subscriber.email, id: subscriber.id });
+            
+            // Log API request details for debugging
+            const requestBody = {
+              email: subscriber.email,
+              double_opt_in: false,
+              send_welcome_email: false,
+              custom_fields: {
+                first_name: subscriber.first_name || '',
+                last_name: subscriber.last_name || ''
+              }
+            };
+            
+            logDebug('api-request', { 
+              url: apiUrl, 
+              body: requestBody,
+              email: subscriber.email,
+              subscriberId: subscriber.id
+            });
+            
+            // Make the API request
+            const startTime = Date.now();
             const response = await fetch(apiUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`,
               },
-              body: JSON.stringify({
-                email: subscriber.email,
-                double_opt_in: false,
-                send_welcome_email: false,
-                custom_fields: {
-                  first_name: subscriber.first_name || '',
-                  last_name: subscriber.last_name || ''
-                }
-              }),
+              body: JSON.stringify(requestBody),
             });
-
-            const data = await response.json();
-
+            const responseTime = Date.now() - startTime;
+            
+            logDebug('api-response-time', { email: subscriber.email, ms: responseTime });
+            
+            // Process the API response
+            const apiResponse = await handleApiResponse(response, subscriber.email, 'beehiiv-api');
+            
+            // Handle the response based on status code
             if (response.status === 201) {
               // Successful migration
               migrationResults.success++;
+              logDebug('migration-success', { email: subscriber.email, subscriberId: apiResponse.data?.data?.id });
 
               // Update subscriber status to 'migrated'
-              await supabaseAdmin
+              const updateResult = await supabaseAdmin
                 .from('email_migration')
-                .update({ status: 'migrated', subscriber_id: data.data.id, migrated_at: new Date().toISOString() })
+                .update({ 
+                  status: 'migrated', 
+                  subscriber_id: apiResponse.data?.data?.id, 
+                  migrated_at: new Date().toISOString(),
+                  error_message: null
+                })
                 .eq('id', subscriber.id);
+                
+              if (updateResult.error) {
+                logDebug('update-success-status-error', { 
+                  email: subscriber.email, 
+                  error: updateResult.error 
+                }, true);
+              }
             } else if (response.status === 409) {
               // Duplicate subscriber
               migrationResults.duplicates++;
+              logDebug('duplicate-subscriber', { email: subscriber.email });
 
               // Update subscriber status to 'already_exists'
-              await supabaseAdmin
+              const updateResult = await supabaseAdmin
                 .from('email_migration')
-                .update({ status: 'already_exists' })
+                .update({ 
+                  status: 'already_exists',
+                  error_message: apiResponse.data?.message || 'Subscriber already exists'
+                })
                 .eq('id', subscriber.id);
-            } else {
-              // Failed migration
+                
+              if (updateResult.error) {
+                logDebug('update-duplicate-status-error', { 
+                  email: subscriber.email, 
+                  error: updateResult.error 
+                }, true);
+              }
+            } else if (response.status === 429) {
+              // Rate limited - handle specially
               migrationResults.failed++;
-              migrationResults.errors.push({ email: subscriber.email, error: data.message || 'Unknown error' });
+              const retryAfter = response.headers.get('Retry-After') || '60';
+              const errorMsg = `Rate limited by BeehiiV API. Retry after ${retryAfter} seconds`;
+              
+              logDebug('rate-limited', { 
+                email: subscriber.email, 
+                retryAfter,
+                headers: Object.fromEntries(response.headers.entries())
+              }, true);
+              
+              migrationResults.errors.push({ 
+                email: subscriber.email, 
+                error: errorMsg 
+              });
+
+              // Update subscriber status back to 'pending' to retry later
+              const updateResult = await supabaseAdmin
+                .from('email_migration')
+                .update({ 
+                  status: 'pending', 
+                  migration_batch: null,
+                  error_message: errorMsg
+                })
+                .eq('id', subscriber.id);
+                
+              if (updateResult.error) {
+                logDebug('update-rate-limited-status-error', { 
+                  email: subscriber.email, 
+                  error: updateResult.error 
+                }, true);
+              }
+              
+              // Add a delay before the next request
+              await delay(parseInt(retryAfter, 10) * 1000);
+            } else {
+              // Failed migration for other reasons
+              migrationResults.failed++;
+              const errorMsg = apiResponse.data?.message || `HTTP ${response.status}: Unknown error`;
+              
+              logDebug('migration-failed', { 
+                email: subscriber.email, 
+                status: response.status,
+                error: errorMsg
+              }, true);
+              
+              migrationResults.errors.push({ 
+                email: subscriber.email, 
+                error: errorMsg 
+              });
 
               // Update subscriber status to 'failed'
-              await supabaseAdmin
+              const updateResult = await supabaseAdmin
                 .from('email_migration')
-                .update({ status: 'failed', error_message: data.message || 'Unknown error' })
+                .update({ 
+                  status: 'failed', 
+                  error_message: errorMsg
+                })
                 .eq('id', subscriber.id);
+                
+              if (updateResult.error) {
+                logDebug('update-failed-status-error', { 
+                  email: subscriber.email, 
+                  error: updateResult.error 
+                }, true);
+              }
             }
+            
+            // Add a small delay between requests to avoid overwhelming the API
+            await delay(300);
           } catch (apiError) {
-            console.error(`API error migrating subscriber ${subscriber.email}:`, apiError);
             migrationResults.failed++;
-            migrationResults.errors.push({ email: subscriber.email, error: apiError.message || 'API request failed' });
+            const errorMsg = apiError.message || 'API request failed';
+            
+            logDebug('api-error', { 
+              email: subscriber.email, 
+              error: errorMsg,
+              stack: apiError.stack
+            }, true);
+            
+            migrationResults.errors.push({ 
+              email: subscriber.email, 
+              error: errorMsg 
+            });
 
             // Update subscriber status to 'failed'
-            await supabaseAdmin
+            const updateResult = await supabaseAdmin
               .from('email_migration')
-              .update({ status: 'failed', error_message: apiError.message || 'API request failed' })
+              .update({ 
+                status: 'failed', 
+                error_message: errorMsg
+              })
               .eq('id', subscriber.id);
+              
+            if (updateResult.error) {
+              logDebug('update-exception-status-error', { 
+                email: subscriber.email, 
+                error: updateResult.error 
+              }, true);
+            }
+            
+            // Add a delay to recover from potential errors
+            await delay(500);
           }
         }
 
-        console.log(`Migration batch completed. Results:`, migrationResults);
+        logDebug('migration-batch-complete', migrationResults);
+
+        // Update the stats table with the latest information
+        try {
+          // Get the current counts
+          const { data: currentCounts } = await supabaseAdmin.rpc('get_status_counts');
+          const counts = {
+            migrated: 0,
+            failed: 0,
+            total: 0
+          };
+          
+          if (currentCounts && Array.isArray(currentCounts)) {
+            currentCounts.forEach((item: any) => {
+              if (item && item.status) {
+                if (item.status === 'migrated') {
+                  counts.migrated = item.count;
+                } else if (item.status === 'failed') {
+                  counts.failed = item.count;
+                }
+                counts.total += item.count;
+              }
+            });
+          }
+          
+          // Update the stats table
+          const { error: statsError } = await supabaseAdmin
+            .from('email_migration_stats')
+            .update({
+              migrated_subscribers: counts.migrated,
+              failed_subscribers: counts.failed,
+              total_subscribers: counts.total,
+              last_batch_id: batchId,
+              last_batch_date: new Date().toISOString()
+            })
+            .eq('id', '7250c6e9-77ab-41c5-a88c-98c764c4f432'); // Use the existing stats ID from logs
+            
+          if (statsError) {
+            logDebug('update-stats-error', statsError, true);
+          }
+        } catch (statsErr) {
+          logDebug('stats-update-exception', statsErr, true);
+        }
 
         return new Response(
           JSON.stringify({ 
@@ -242,7 +482,7 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
-        console.error('Unexpected error during migration:', err);
+        logDebug('migrate-batch-exception', err, true);
         return new Response(
           JSON.stringify({ error: 'An unexpected error occurred during migration', details: err.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -268,21 +508,21 @@ serve(async (req) => {
           .eq('status', status);
 
         if (deleteError) {
-          console.error(`Error clearing ${status} queue:`, deleteError);
+          logDebug(`Error clearing ${status} queue:`, deleteError);
           return new Response(
             JSON.stringify({ error: `Failed to clear ${status} queue`, details: deleteError.message }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        console.log(`Successfully cleared ${status} queue.`);
+        logDebug(`Successfully cleared ${status} queue.`);
 
         return new Response(
           JSON.stringify({ message: `Successfully cleared ${status} queue.` }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
-        console.error('Unexpected error during queue clearing:', err);
+        logDebug('Unexpected error during queue clearing:', err);
         return new Response(
           JSON.stringify({ error: 'An unexpected error occurred during queue clearing', details: err.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -299,21 +539,21 @@ serve(async (req) => {
           .eq('status', 'failed');
 
         if (updateError) {
-          console.error("Error resetting failed migrations:", updateError);
+          logDebug("Error resetting failed migrations:", updateError);
           return new Response(
             JSON.stringify({ error: "Failed to reset failed migrations", details: updateError.message }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        console.log("Successfully reset failed migrations to pending.");
+        logDebug("Successfully reset failed migrations to pending.");
 
         return new Response(
           JSON.stringify({ message: "Successfully reset failed migrations to pending." }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
-        console.error('Unexpected error during reset failed migrations:', err);
+        logDebug('Unexpected error during reset failed migrations:', err);
         return new Response(
           JSON.stringify({ error: 'An unexpected error occurred during reset failed migrations', details: err.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -331,7 +571,7 @@ serve(async (req) => {
           .select('id');
 
         if (updateError) {
-          console.error("Error resetting in_progress subscribers:", updateError);
+          logDebug("Error resetting in_progress subscribers:", updateError);
           return new Response(
             JSON.stringify({ error: "Failed to reset in_progress subscribers", details: updateError.message }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -339,14 +579,14 @@ serve(async (req) => {
         }
 
         const count = data ? data.length : 0;
-        console.log(`Successfully reset ${count} in_progress subscribers back to pending.`);
+        logDebug(`Successfully reset ${count} in_progress subscribers back to pending.`);
 
         return new Response(
           JSON.stringify({ message: `Successfully reset ${count} in_progress subscribers back to pending.`, count }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
-        console.error('Unexpected error during reset in_progress:', err);
+        logDebug('Unexpected error during reset in_progress:', err);
         return new Response(
           JSON.stringify({ error: 'An unexpected error occurred during reset in_progress', details: err.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -356,7 +596,7 @@ serve(async (req) => {
 
     if (action === 'stats') {
       try {
-        console.log('Getting migration statistics...');
+        logDebug('getting-stats', 'Fetching migration statistics');
         
         // Get overall stats
         const { data: statsData, error: statsError } = await supabaseAdmin
@@ -366,7 +606,7 @@ serve(async (req) => {
           .maybeSingle();
         
         if (statsError) {
-          console.error("Error fetching migration stats:", statsError);
+          logDebug('stats-fetch-error', statsError, true);
           return new Response(
             JSON.stringify({ error: "Failed to fetch migration statistics", details: statsError.message }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -379,7 +619,7 @@ serve(async (req) => {
         );
 
         if (countError) {
-          console.error("Error fetching status counts:", countError);
+          logDebug('status-counts-error', countError, true);
           return new Response(
             JSON.stringify({ error: "Failed to fetch status counts", details: countError.message }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -404,14 +644,14 @@ serve(async (req) => {
           });
         }
 
-        // Get latest batches using the new database function instead of the group() method
+        // Get latest batches
         const { data: batchesData, error: batchesError } = await supabaseAdmin.rpc(
           'get_migration_batches',
           { limit_count: 5 }
         );
 
         if (batchesError) {
-          console.error("Error fetching latest batches:", batchesError);
+          logDebug('batches-fetch-error', batchesError, true);
           // Continue with the data we have
         }
 
@@ -454,14 +694,14 @@ serve(async (req) => {
           automation
         };
 
-        console.log('Returning migration stats:', response);
+        logDebug('stats-response', response);
         
         return new Response(
           JSON.stringify(response),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
-        console.error('Unexpected error:', err);
+        logDebug('stats-exception', err, true);
         return new Response(
           JSON.stringify({ error: 'An unexpected error occurred', details: err.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -474,7 +714,7 @@ serve(async (req) => {
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err) {
-    console.error('Unexpected error:', err);
+    logDebug('unhandled-exception', err, true);
     return new Response(
       JSON.stringify({ error: 'An unexpected error occurred', details: err.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

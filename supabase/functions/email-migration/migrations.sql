@@ -65,3 +65,18 @@ BEGIN
   END;
 END;
 $$;
+
+-- Add a new email_migration_logs table for detailed debugging
+CREATE TABLE IF NOT EXISTS public.email_migration_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  timestamp TIMESTAMPTZ NOT NULL DEFAULT now(),
+  context TEXT NOT NULL,
+  data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  is_error BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Create an index for faster queries on context and timestamp
+CREATE INDEX IF NOT EXISTS email_migration_logs_context_idx ON public.email_migration_logs (context);
+CREATE INDEX IF NOT EXISTS email_migration_logs_timestamp_idx ON public.email_migration_logs (timestamp);
+CREATE INDEX IF NOT EXISTS email_migration_logs_is_error_idx ON public.email_migration_logs (is_error);
