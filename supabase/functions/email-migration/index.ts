@@ -797,11 +797,15 @@ serve(async (req) => {
         // Get counts by status - MODIFIED to include already_exists status
         const { data: statusCounts, error: countError } = await supabaseAdmin
           .from('email_migration')
-          .select('status, count')
+          .select('status, count(*)', { count: 'exact', head: false })
           .group('status');
 
         if (countError) {
           console.error("Error fetching status counts:", countError);
+          return new Response(
+            JSON.stringify({ error: "Failed to fetch status counts", details: countError }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
 
         // Format the status counts into a more usable structure - MODIFIED to include already_exists
@@ -815,7 +819,9 @@ serve(async (req) => {
 
         if (statusCounts) {
           statusCounts.forEach(item => {
-            counts[item.status as keyof typeof counts] = item.count;
+            if (item.status && typeof item.count === 'number') {
+              counts[item.status as keyof typeof counts] = item.count;
+            }
           });
         }
 
@@ -838,7 +844,7 @@ serve(async (req) => {
           .select('*')
           .single();
 
-        let automation: AutomationSettings = {
+        let automation = {
           enabled: false,
           daily_total_target: 1000,
           start_hour: 9,
