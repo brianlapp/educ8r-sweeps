@@ -748,44 +748,36 @@ serve(async (req) => {
       }
     }
 
-    // Add an action to check specific subscriber status
-    if (action === 'check-subscriber') {
+    // Add a new action to get subscribers stuck in the "in_progress" state
+    if (action === 'get-stuck-subscribers') {
       try {
-        const { email } = params;
-        
-        if (!email) {
-          return new Response(
-            JSON.stringify({ error: 'Email parameter is required' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        await logDebug('check-subscriber', { email });
-        
+        // Get all subscribers in the "in_progress" state
         const { data, error } = await supabaseAdmin
           .from('email_migration')
           .select('*')
-          .eq('email', email)
-          .maybeSingle();
-          
+          .eq('status', 'in_progress')
+          .order('updated_at', { ascending: false });
+        
         if (error) {
-          await logDebug('check-subscriber-error', error, true);
+          await logDebug('get-stuck-subscribers-error', error, true);
           return new Response(
-            JSON.stringify({ error: "Failed to check subscriber", details: error.message }),
+            JSON.stringify({ error: "Failed to get stuck subscribers", details: error.message }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
         
+        await logDebug('get-stuck-subscribers-success', { count: data.length });
+        
         return new Response(
           JSON.stringify({ 
-            found: !!data,
-            subscriber: data,
-            functionVersion: MIGRATION_FUNCTION_VERSION
+            count: data.length,
+            subscribers: data,
+            functionVersion: MIGRATION_FUNCTION_VERSION 
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
-        await logDebug('check-subscriber-exception', err, true);
+        await logDebug('get-stuck-subscribers-exception', err, true);
         return new Response(
           JSON.stringify({ error: 'An unexpected error occurred', details: err.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -793,34 +785,108 @@ serve(async (req) => {
       }
     }
 
-    if (action === 'version-check') {
-      // Return the version information for verification
-      return new Response(
-        JSON.stringify({ 
-          version: MIGRATION_FUNCTION_VERSION,
-          customFieldsFormat: "array",
-          deployedAt: new Date().toISOString()
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    return new Response(
-      JSON.stringify({ 
-        error: 'Invalid action',
-        functionVersion: MIGRATION_FUNCTION_VERSION
-      }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch (err) {
-    await logDebug('unhandled-exception', err, true);
-    return new Response(
-      JSON.stringify({ 
-        error: 'An unexpected error occurred', 
-        details: err.message,
-        functionVersion: MIGRATION_FUNCTION_VERSION
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-});
+    // Add a new action to analyze subscribers stuck in the "in_progress" state
+    if (action === 'analyze-stuck-subscribers') {
+      try {
+        // Get all subscribers in the "in_progress" state
+        const { data: stuckSubscribers, error: stuckError } = await supabaseAdmin
+          .from('email_migration')
+          .select('*')
+          .eq('status', 'in_progress')
+          .order('updated_at', { ascending: false });
+        
+        if (stuckError) {
+          await logDebug('analyze-stuck-subscribers-error', stuckError, true);
+          return new Response(
+            JSON.stringify({ error: "Failed to get stuck subscribers for analysis", details: stuckError.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // If we don't have any stuck subscribers, return an empty analysis
+        if (!stuckSubscribers || stuckSubscribers.length === 0) {
+          return new Response(
+            JSON.stringify({ 
+              count: 0,
+              message: "No stuck subscribers found for analysis",
+              analysis: {},
+              functionVersion: MIGRATION_FUNCTION_VERSION 
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Group subscribers by batch
+        const batchGroups: { [key: string]: any[] } = {};
+        for (const subscriber of stuckSubscribers) {
+          const batchId = subscriber.migration_batch || 'no_batch';
+          if (!batchGroups[batchId]) {
+            batchGroups[batchId] = [];
+          }
+          batchGroups[batchId].push(subscriber);
+        }
+        
+        // Find the oldest batch
+        let oldestBatch = null;
+        let oldestTimestamp = null;
+        
+        for (const subscriber of stuckSubscribers) {
+          const updatedAt = new Date(subscriber.updated_at).getTime();
+          if (oldestTimestamp === null || updatedAt < oldestTimestamp) {
+            oldestTimestamp = updatedAt;
+            oldestBatch = {
+              id: subscriber.migration_batch,
+              updated_at: subscriber.updated_at
+            };
+          }
+        }
+        
+        // Check if we have emails with special characters or formatting issues
+        const potentialInvalidEmails = stuckSubscribers.filter(sub => {
+          // Check for unusual patterns in email
+          const email = sub.email || '';
+          return email.includes('..') || 
+                 email.includes(',,') || 
+                 email.includes('@@') ||
+                 email.startsWith('.') ||
+                 email.endsWith('.') ||
+                 /[^\x00-\x7F]/.test(email); // Contains non-ASCII characters
+        });
+        
+        // Prepare the analysis results
+        const potentialIssues = [];
+        const recommendations = [];
+        
+        // Check for API key issues
+        const apiKey = Deno.env.get('BEEHIIV_API_KEY');
+        if (!apiKey) {
+          potentialIssues.push("BeehiiV API key not configured");
+          recommendations.push("Configure the BEEHIIV_API_KEY environment variable in Supabase");
+        }
+        
+        // Check for batch age
+        if (oldestTimestamp) {
+          const hoursSinceBatch = (Date.now() - oldestTimestamp) / (1000 * 60 * 60);
+          if (hoursSinceBatch > 24) {
+            potentialIssues.push(`Batch ${oldestBatch?.id} has been stuck for ${Math.round(hoursSinceBatch)} hours`);
+            recommendations.push("Reset in-progress subscribers and restart migration");
+          }
+        }
+        
+        // Check for email issues
+        if (potentialInvalidEmails.length > 0) {
+          potentialIssues.push(`${potentialInvalidEmails.length} subscribers may have invalid email formats`);
+          if (potentialInvalidEmails.length <= 5) {
+            const examples = potentialInvalidEmails.map(s => s.email).join(", ");
+            potentialIssues.push(`Examples of potentially problematic emails: ${examples}`);
+          }
+          recommendations.push("Manually check and fix these email addresses or reset them to failed status");
+        }
+        
+        // Check for rate limiting issues
+        const { data: logs, error: logsError } = await supabaseAdmin
+          .from('email_migration_logs')
+          .select('*')
+          .eq('is_error', true)
+          .ilike('context', '%rate-limited%')
+          .order('timestamp
