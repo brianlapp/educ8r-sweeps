@@ -12,6 +12,8 @@ export interface BeehiivSubscriberData {
   utm_medium: string;
   utm_campaign: string;
   reactivate: boolean;
+  send_welcome_email: boolean;
+  double_opt_in: boolean;
   custom_fields: Array<{
     name: string;
     value: string;
@@ -147,6 +149,8 @@ export function createBeehiivSubscriberData(
     utm_medium: campaignSlug || 'unknown',
     utm_campaign: 'comprendi',
     reactivate: true,
+    send_welcome_email: false,  // Set to false to prevent welcome emails
+    double_opt_in: false,       // Set to false to skip double opt-in
     custom_fields: [
       {
         name: 'First Name',
