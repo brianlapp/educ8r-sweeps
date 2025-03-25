@@ -161,36 +161,42 @@ export type Database = {
           created_at: string | null
           email: string
           error: string | null
+          error_message: string | null
           first_name: string | null
           id: string
           last_name: string | null
           migrated_at: string | null
           migration_batch: string | null
           status: string
+          subscriber_id: string | null
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
           email: string
           error?: string | null
+          error_message?: string | null
           first_name?: string | null
           id?: string
           last_name?: string | null
           migrated_at?: string | null
           migration_batch?: string | null
           status?: string
+          subscriber_id?: string | null
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
           email?: string
           error?: string | null
+          error_message?: string | null
           first_name?: string | null
           id?: string
           last_name?: string | null
           migrated_at?: string | null
           migration_batch?: string | null
           status?: string
+          subscriber_id?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -234,6 +240,33 @@ export type Database = {
           publication_id?: string | null
           start_hour?: number
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      email_migration_logs: {
+        Row: {
+          context: string
+          created_at: string
+          data: Json
+          id: string
+          is_error: boolean
+          timestamp: string
+        }
+        Insert: {
+          context: string
+          created_at?: string
+          data?: Json
+          id?: string
+          is_error?: boolean
+          timestamp?: string
+        }
+        Update: {
+          context?: string
+          created_at?: string
+          data?: Json
+          id?: string
+          is_error?: boolean
+          timestamp?: string
         }
         Relationships: []
       }
