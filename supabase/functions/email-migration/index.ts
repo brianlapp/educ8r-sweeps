@@ -1,9 +1,8 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { cors } from '../_shared/cors.ts';
 
-const MIGRATION_FUNCTION_VERSION = "1.1.0-array-format-fix";
+const MIGRATION_FUNCTION_VERSION = "1.2.0-http-repository";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
@@ -131,8 +130,18 @@ const listRepositoryFiles = async () => {
 
 const readRepositoryFile = async (fileName: string) => {
   try {
-    const filePath = `./public/emails/${fileName}`;
-    const fileContent = await Deno.readTextFile(filePath);
+    const baseUrl = Deno.env.get('BASE_URL') || 'https://reading-rewards.educ8r.com';
+    const fileUrl = `${baseUrl}/emails/${fileName}`;
+    
+    console.log(`Fetching repository file via HTTP: ${fileUrl}`);
+    
+    const response = await fetch(fileUrl);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+    }
+    
+    const fileContent = await response.text();
     
     if (fileName.endsWith('.json')) {
       const data = JSON.parse(fileContent);
@@ -158,7 +167,7 @@ const readRepositoryFile = async (fileName: string) => {
       for (let i = 1; i < rows.length; i++) {
         if (!rows[i].trim()) continue;
         
-        const values = rows[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+        const values = rows[i].split(',').map(v => v.trim().replace(/^"|"$/g, '));
         
         const subscriber: Record<string, string> = {};
         headers.forEach((header, index) => {
@@ -269,6 +278,9 @@ serve(async (req) => {
     const { action, params, fileName } = await req.json();
     await logDebug('request', { action, params, functionVersion: MIGRATION_FUNCTION_VERSION });
 
+    const url = new URL(req.url);
+    Deno.env.set('BASE_URL', `${url.protocol}//${url.host}`);
+    
     if (action === 'import') {
       try {
         const { subscribers, fileName } = params;
@@ -1064,7 +1076,7 @@ serve(async (req) => {
           );
         }
         
-        await logDebug('import-repository-file', { fileName });
+        await logDebug('import-repository-file', { fileName, baseUrl: Deno.env.get('BASE_URL') });
         
         const result = await importRepositoryFile(fileName);
         
