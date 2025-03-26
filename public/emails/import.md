@@ -1,1 +1,39 @@
 
+# Email Migration Repository
+
+This folder contains chunked email subscriber data files for importing into the system. 
+Files in this repository will be automatically detected by the email migration system and can be imported directly from the admin interface.
+
+## File Format
+
+Files can be in either CSV or JSON format, and should follow these guidelines:
+
+- **CSV Files**: Should include headers with at least an 'email' column. 'first_name' and 'last_name' columns are also recognized.
+- **JSON Files**: Should contain an array of objects with at least an 'email' property. 'first_name' and 'last_name' properties are also recognized.
+
+## Chunking
+
+Files are automatically processed in smaller batches (50 subscribers per chunk) for reliability and to respect API rate limits.
+
+## Naming Convention
+
+It's recommended to name files with a descriptive format such as:
+- `chunk_aa.csv` - First chunk
+- `chunk_ab.csv` - Second chunk
+- etc.
+
+## Importing
+
+To import these files:
+1. Go to the Email Migration admin page
+2. Use the "Repository Import" tab
+3. Select a file from the dropdown list
+4. Click "Import" to start the process
+
+## Monitoring
+
+You can monitor the import progress in the status panel. The migration system will automatically:
+- Process files in smaller chunks
+- Handle rate limiting
+- Retry failed imports
+- Track duplicate subscribers
