@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -644,145 +643,6 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
           <TabsTrigger value="file">File Upload</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="file" className="space-y-4">
-          <Alert className="bg-blue-50 border-blue-200">
-            <AlertDescription className="text-blue-800">
-              Upload a CSV or JSON file containing subscribers to import from OnGage. 
-              Large files will be automatically processed in smaller chunks for reliability.
-              The import process uses smaller batch sizes (50 subscribers per chunk) for improved reliability.
-            </AlertDescription>
-          </Alert>
-          
-          <div className="flex flex-col space-y-4">
-            {importResults ? (
-              <div className="space-y-4">
-                <div className={`p-4 rounded-lg ${importResults.success ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
-                  <div className="flex items-start">
-                    {importResults.success ? 
-                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 mr-2" /> : 
-                      <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 mr-2" />
-                    }
-                    <div>
-                      <h4 className="font-medium">
-                        {importResults.success ? 'Import Completed' : 'Import Partially Completed'}
-                      </h4>
-                      <div className="mt-2 space-y-1 text-sm">
-                        <p>Total processed: <span className="font-medium">{importResults.totalProcessed}</span></p>
-                        <p>Successfully imported: <span className="font-medium text-green-600">{importResults.inserted}</span></p>
-                        <p>Duplicates skipped: <span className="font-medium text-amber-600">{importResults.duplicates}</span></p>
-                        <p>Errors: <span className="font-medium text-red-600">{importResults.errors}</span></p>
-                      </div>
-                      <div className="mt-3 text-xs text-gray-500">
-                        Please check the status panel to confirm the subscribers appear in the "Pending" count.
-                        If they don't appear within a few seconds, try refreshing the stats or checking diagnostics for details.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex space-x-2">
-                  <Button variant="outline" size="sm" onClick={resetImport}>
-                    Import Another File
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={refreshData}>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Refresh Stats
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileSelect}
-                  accept=".csv,.json"
-                  className="hidden"
-                  disabled={isProcessing}
-                />
-                
-                {!file ? (
-                  <div className="space-y-2">
-                    <div className="mx-auto w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center">
-                      <FileUp className="h-6 w-6 text-blue-500" />
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      Click to select a CSV or JSON file
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isProcessing}
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Choose File
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-center space-x-2">
-                      <div className="p-2 bg-blue-50 rounded">
-                        <FileUp className="h-5 w-5 text-blue-500" />
-                      </div>
-                      <div className="text-sm font-medium truncate max-w-xs">
-                        {file.name}
-                      </div>
-                    </div>
-                    
-                    <div className="flex space-x-2 justify-center">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={resetImport}
-                        disabled={isProcessing}
-                      >
-                        Remove
-                      </Button>
-                      <Button 
-                        variant="default" 
-                        size="sm"
-                        onClick={processFile}
-                        disabled={isProcessing}
-                      >
-                        {isProcessing ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Processing...
-                          </>
-                        ) : (
-                          'Import Subscribers'
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            
-            {parseError && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
-                <div className="flex items-start">
-                  <AlertCircle className="h-4 w-4 mt-0.5 mr-2 text-red-500" />
-                  <div>{parseError}</div>
-                </div>
-              </div>
-            )}
-            
-            {isProcessing && (
-              <div className="space-y-2">
-                <div className="text-sm text-center">
-                  {progress < 40 ? 'Processing file...' : 
-                   progress < 90 ? 'Importing subscribers in chunks...' : 
-                   'Finalizing import...'}
-                </div>
-                <Progress value={progress} className="h-2" />
-                <div className="text-xs text-center text-gray-500">
-                  Large files are processed in smaller batches (50 records per batch) for reliability
-                </div>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-        
         <TabsContent value="repository" className="space-y-4">
           <Alert className="bg-green-50 border-green-200">
             <AlertDescription className="text-green-800">
@@ -930,27 +790,29 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
             )}
           </div>
         </TabsContent>
-      </Tabs>
-      
-      {diagnosticMode && (
-        <div className="space-y-2 mt-4">
-          <div className="flex justify-between items-center">
-            <h4 className="font-medium text-sm">Diagnostic Information</h4>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setDiagnosticInfo('')}
-            >
-              Clear Log
-            </Button>
-          </div>
-          <Textarea 
-            value={diagnosticInfo} 
-            readOnly 
-            className="h-64 font-mono text-xs"
-          />
-        </div>
-      )}
-    </Card>
-  );
-}
+        
+        <TabsContent value="file" className="space-y-4">
+          <Alert className="bg-blue-50 border-blue-200">
+            <AlertDescription className="text-blue-800">
+              Upload a CSV or JSON file containing subscribers to import from OnGage. 
+              Large files will be automatically processed in smaller chunks for reliability.
+              The import process uses smaller batch sizes (50 subscribers per chunk) for improved reliability.
+            </AlertDescription>
+          </Alert>
+          
+          <div className="flex flex-col space-y-4">
+            {importResults ? (
+              <div className="space-y-4">
+                <div className={`p-4 rounded-lg ${importResults.success ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+                  <div className="flex items-start">
+                    {importResults.success ? 
+                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 mr-2" /> : 
+                      <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 mr-2" />
+                    }
+                    <div>
+                      <h4 className="font-medium">
+                        {importResults.success ? 'Import Completed' : 'Import Partially Completed'}
+                      </h4>
+                      <div className="mt-2 space-y-1 text-sm">
+                        <p>Total processed: <span className="font-medium">{importResults.totalProcessed}</span></p>
+                        <p>Successfully imported: <span className="font-medium text-green-600">{importResults.inserted}</span></p>

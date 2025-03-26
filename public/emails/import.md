@@ -46,11 +46,3 @@ If your files aren't appearing in the repository dropdown:
 4. Try clicking the "Refresh Data" button on the import page
 5. Enable the diagnostic panel to see detailed logs
 6. Check if you can access the file directly at `/emails/your_file.csv`
-
-## Monitoring
-
-You can monitor the import progress in the status panel. The migration system will automatically:
-- Process files in smaller chunks
-- Handle rate limiting
-- Retry failed imports
-- Track duplicate subscribers
