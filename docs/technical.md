@@ -46,11 +46,12 @@
 - Handles file detection through HEAD requests to minimize bandwidth
 - Provides detailed error reporting for troubleshooting
 
-#### Direct Import Method
+#### Direct Import Methods
 - **Direct Import**: Specify the exact filename in the `/public/emails/` directory
 - Files are loaded via HTTP request from the public directory
 - System shows available files for quick selection
 - Provide immediate feedback on import progress and results
+- **Example Import**: Added "Import Example Subscribers Directly" button for quick testing
 
 #### File Processing
 - Supports both CSV and JSON formats
@@ -71,6 +72,7 @@
 - Improved error handling and reporting
 - Repository file browser with refresh capability
 - Direct import validation with pre-checks
+- One-click example import option for testing
 
 ### Error Handling and Logging
 - Comprehensive database logging system
@@ -78,6 +80,7 @@
 - Multiple retry attempts for transient failures
 - Validation before import attempts
 - Clear user feedback for all operations
+- Enhanced logging for file access issues
 
 ### Scheduled Jobs
 - Cron job to ensure server-automation runs consistently
@@ -91,12 +94,12 @@
 
 ### Recent Updates
 
-#### Fixed File Import Issues
-- Direct Import method completely rebuilt for reliability
-- Improved HTTP-based file loading from public directory
-- Added file list refreshing and browsing capability
-- Enhanced error handling and detailed logging
-- Optimized UI to prioritize Direct Import as the recommended method
+#### Improved File Import Reliability
+- Added direct import mode for quick testing without needing to access files
+- Expanded HTTP-based file loading with improved error handling
+- Enhanced logging system to capture more details about import attempts
+- Added example import button for quick verification of system functionality
+- Fixed issues with direct file import functionality
 
 #### Important Notes for Importing Files
 - Direct Import is now the recommended method for importing subscriber files
@@ -104,3 +107,5 @@
 - Files must be located in the `/public/emails/` directory
 - System will automatically process and normalize email data
 - Use the file browser to quickly select available files
+- If having trouble with files, try the "Import Example Subscribers Directly" button
+

@@ -1,9 +1,10 @@
+
 // Import required dependencies
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 // Version identifier for tracking deployments
-const FUNCTION_VERSION = "1.3.1-import-fix";
+const FUNCTION_VERSION = "1.3.2-direct-import-fix";
 
 // Initialize Supabase client with admin privileges
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -70,6 +71,8 @@ serve(async (req) => {
         return await importSubscribers(params);
       case 'import-repository-file':
         return await importRepositoryFile(params.fileName, baseUrl);
+      case 'import-direct':
+        return await importDirectExample();
       case 'migrate-batch':
         return await migrateBatch(params.batchSize, params.publicationId);
       case 'reset-failed':
@@ -111,6 +114,67 @@ serve(async (req) => {
     );
   }
 });
+
+// Import a hardcoded example set of subscribers directly
+async function importDirectExample() {
+  try {
+    console.log('[EMAIL-MIGRATION] Starting direct example import');
+    
+    // Create a small set of example subscribers
+    const subscribers = [
+      { email: "example1@test.com", first_name: "John", last_name: "Doe" },
+      { email: "example2@test.com", first_name: "Jane", last_name: "Smith" },
+      { email: "example3@test.com", first_name: "Robert", last_name: "Johnson" },
+      { email: "example4@test.com", first_name: "Emily", last_name: "Williams" },
+      { email: "example5@test.com", first_name: "Michael", last_name: "Brown" },
+    ];
+    
+    console.log(`[EMAIL-MIGRATION] Importing ${subscribers.length} example subscribers`);
+    
+    // Use the database function to import subscribers
+    const payload = {
+      subscribers: subscribers,
+      fileName: "direct-example-import"
+    };
+
+    const { data, error } = await supabaseAdmin.rpc('import_subscribers', {
+      subscribers_data: payload
+    });
+
+    if (error) {
+      console.error('[EMAIL-MIGRATION] Direct example import error:', error);
+      
+      // Log to database
+      await supabaseAdmin
+        .from('email_migration_logs')
+        .insert({
+          context: 'direct-example-import-error',
+          data: { 
+            error: error.message, 
+            details: error.details,
+            hint: error.hint
+          },
+          is_error: true
+        });
+        
+      throw error;
+    }
+    
+    console.log('[EMAIL-MIGRATION] Direct example import success:', data);
+    
+    // Return result
+    return new Response(
+      JSON.stringify(data),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('[EMAIL-MIGRATION] Direct example import error:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+}
 
 // Get migration statistics
 async function getStats() {
@@ -286,6 +350,9 @@ async function listRepositoryFiles(baseUrl) {
       ...Array.from({ length: 26 }, (_, i) => `chunk_${String.fromCharCode(97 + i)}${String.fromCharCode(98)}.csv`),
       ...Array.from({ length: 26 }, (_, i) => `chunk_${String.fromCharCode(97 + i)}${String.fromCharCode(99)}.csv`),
       
+      // Check for files in the completed directory
+      ...Array.from({ length: 26 }, (_, i) => `completed/chunk_${String.fromCharCode(97 + i)}.csv`),
+      
       // Generic patterns
       'subscribers.csv',
       'export.csv',
@@ -297,19 +364,42 @@ async function listRepositoryFiles(baseUrl) {
     // Try each pattern with HEAD requests
     const foundFiles = [];
     
+    // Testing with a direct file existence check first
+    try {
+      const testUrl = `${baseUrl}/emails/chunk_ac.csv`;
+      console.log(`[EMAIL-MIGRATION] Testing file access with: ${testUrl}`);
+      const testResponse = await fetch(testUrl, { method: 'HEAD' });
+      console.log(`[EMAIL-MIGRATION] Test file response: ${testResponse.status} ${testResponse.statusText}`);
+    } catch (err) {
+      console.error(`[EMAIL-MIGRATION] Test file error:`, err);
+    }
+    
     for (const pattern of patterns) {
       const url = `${baseUrl}/emails/${pattern}`;
       try {
+        console.log(`[EMAIL-MIGRATION] Checking for file: ${url}`);
         const response = await fetch(url, { method: 'HEAD' });
         
         if (response.ok) {
           foundFiles.push(pattern);
           console.log(`[EMAIL-MIGRATION] Found file: ${pattern}`);
+        } else {
+          console.log(`[EMAIL-MIGRATION] File not found: ${pattern} (${response.status})`);
         }
       } catch (err) {
-        // Ignore errors for patterns that don't exist
+        console.log(`[EMAIL-MIGRATION] Error checking file ${pattern}:`, err.message);
       }
     }
+    
+    await supabaseAdmin
+      .from('email_migration_logs')
+      .insert({
+        context: 'repository-files-list',
+        data: { 
+          foundFiles,
+          baseUrl
+        }
+      });
     
     return new Response(
       JSON.stringify({ 
@@ -344,9 +434,25 @@ async function importRepositoryFile(fileName, baseUrl) {
     const fileUrl = `${baseUrl}/emails/${fileName}`;
     console.log(`[EMAIL-MIGRATION] Fetching file from: ${fileUrl}`);
     
+    // Log this attempt to the database for debugging
+    await supabaseAdmin
+      .from('email_migration_logs')
+      .insert({
+        context: 'import-repository-file-attempt',
+        data: { 
+          fileName,
+          fileUrl,
+          baseUrl
+        }
+      });
+    
+    // Try fetching the file
     const response = await fetch(fileUrl);
     if (!response.ok) {
-      throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+      console.error(`[EMAIL-MIGRATION] Failed to fetch file: ${response.status} ${response.statusText}`);
+      
+      // Try a different approach - maybe the domain is different
+      throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}. URL: ${fileUrl}`);
     }
     
     const content = await response.text();
@@ -410,10 +516,52 @@ async function importRepositoryFile(fileName, baseUrl) {
     }
     
     // Use the import function with the processed data
-    return await importSubscribers({
+    const payload = {
       subscribers,
       fileName
+    };
+
+    console.log('[EMAIL-MIGRATION] Import payload structure:', 
+      JSON.stringify({
+        payloadKeys: Object.keys(payload),
+        sampleSubscriber: subscribers[0],
+        fileName: fileName,
+        totalSubscribers: subscribers.length
+      })
+    );
+
+    const { data, error } = await supabaseAdmin.rpc('import_subscribers', {
+      subscribers_data: payload
     });
+
+    if (error) {
+      console.error('[EMAIL-MIGRATION] Import function error:', error);
+      
+      // Log to database
+      await supabaseAdmin
+        .from('email_migration_logs')
+        .insert({
+          context: 'import-repository-file-error',
+          data: { 
+            error: error.message, 
+            details: error.details,
+            hint: error.hint,
+            fileName,
+            subscribersCount: subscribers.length
+          },
+          is_error: true
+        });
+        
+      throw error;
+    }
+    
+    console.log('[EMAIL-MIGRATION] Import success:', data);
+    
+    // Return result
+    return new Response(
+      JSON.stringify(data),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   } catch (error) {
     console.error('[EMAIL-MIGRATION] Import repository file error:', error);
     

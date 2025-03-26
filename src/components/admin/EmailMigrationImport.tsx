@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { AlertTriangle, CheckCircle, Upload, FolderOpen, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Upload, FolderOpen, RefreshCw, FileText } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: () => void }) => {
@@ -28,6 +28,7 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
   const listRepositoryFiles = async () => {
     setLoadingFiles(true);
     try {
+      console.log('Listing repository files...');
       const { data, error } = await supabase.functions.invoke('email-migration', {
         method: 'POST',
         body: { action: 'repository-files' }
@@ -41,7 +42,7 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
       }
     } catch (err: any) {
       console.error('Error listing repository files:', err);
-      toast.error('Failed to load file list', err.message);
+      toast.error(`Failed to load file list: ${err.message}`);
     } finally {
       setLoadingFiles(false);
     }
@@ -140,6 +141,8 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
         }
       });
       
+      console.log('[DIRECT IMPORT] Response:', data, error);
+      
       if (error) {
         console.error(`[DIRECT IMPORT] API error:`, error);
         throw error;
@@ -153,6 +156,49 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
       if (onImportComplete) onImportComplete();
     } catch (err: any) {
       console.error('[DIRECT IMPORT] Error:', err);
+      toast.error(`Import failed: ${err.message}`);
+    } finally {
+      setDirectImportLoading(false);
+      setTimeout(() => {
+        setCurrentOperation('');
+        setImportProgress(0);
+      }, 3000);
+    }
+  };
+
+  // Direct load from hardcoded example
+  const importExampleFile = async () => {
+    setDirectImportLoading(true);
+    setImportProgress(10);
+    setCurrentOperation('Loading example subscribers...');
+    
+    try {
+      console.log('Importing example subscribers directly');
+      
+      // This is a direct approach for importing a specific file
+      const { data, error } = await supabase.functions.invoke('email-migration', {
+        method: 'POST',
+        body: { 
+          action: 'import-direct',
+          fileName: 'hardcoded-example'
+        }
+      });
+      
+      console.log('[DIRECT EXAMPLE] Response:', data, error);
+      
+      if (error) {
+        console.error('Direct import error:', error);
+        throw error;
+      }
+      
+      setImportProgress(100);
+      setCurrentOperation('Import complete!');
+      
+      toast.success(`Example import successful: ${data.inserted} records imported, ${data.duplicates} duplicates, ${data.errors} errors`);
+      
+      if (onImportComplete) onImportComplete();
+    } catch (err: any) {
+      console.error('Example import error:', err);
       toast.error(`Import failed: ${err.message}`);
     } finally {
       setDirectImportLoading(false);
@@ -194,7 +240,7 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
                   />
                   <Button 
                     onClick={handleDirectFileImport} 
-                    disabled={directImportLoading}
+                    disabled={directImportLoading || !directFileName}
                     className="whitespace-nowrap bg-green-600 hover:bg-green-700"
                   >
                     <FolderOpen className="h-4 w-4 mr-2" />
@@ -212,6 +258,16 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
                 <RefreshCw className={`h-4 w-4 ${loadingFiles ? 'animate-spin' : ''}`} />
               </Button>
             </div>
+            
+            <Button 
+              onClick={importExampleFile}
+              disabled={directImportLoading}
+              variant="outline"
+              className="w-full"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Import Example Subscribers Directly
+            </Button>
             
             {repositoryFiles.length > 0 && (
               <div className="bg-slate-50 p-3 rounded border border-slate-200">
@@ -250,6 +306,7 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
                 <li>Files must be located in the <code>/public/emails/</code> directory</li>
                 <li>System will automatically process and normalize email data</li>
                 <li>Click one of the available files above to select it quickly</li>
+                <li>Try the "Import Example Subscribers Directly" button for a quick test</li>
               </ul>
             </div>
           </div>
