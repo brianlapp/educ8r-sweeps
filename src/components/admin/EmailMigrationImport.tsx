@@ -4,9 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { RefreshCw, Upload, FileUp, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { RefreshCw, Upload, FileUp, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { Textarea } from '@/components/ui/textarea';
 
 export function EmailMigrationImport({ onImportComplete }: { onImportComplete: () => void }) {
   const [isUploading, setIsUploading] = useState(false);
@@ -15,6 +16,8 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
   const [progress, setProgress] = useState(0);
   const [parseError, setParseError] = useState<string | null>(null);
   const [importResults, setImportResults] = useState<any>(null);
+  const [diagnosticMode, setDiagnosticMode] = useState(false);
+  const [diagnosticInfo, setDiagnosticInfo] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const readFileAsText = (file: File): Promise<string> => {
@@ -35,6 +38,7 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     setParseError(null);
     setImportResults(null);
+    setDiagnosticInfo('');
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
       // Check if it's a CSV or JSON file
@@ -51,55 +55,63 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
   };
 
   const processCSV = (csvText: string): Array<any> => {
-    // Simple CSV parser for comma-separated values
-    // This handles quoted values, commas within quoted values, and escaped quotes
-    const rows = csvText.split(/\r?\n/);
-    const headers = rows[0].split(',').map(header => 
-      header.trim().replace(/^"|"$/g, '')
-    );
-    
-    const data: Array<any> = [];
-    
-    for (let i = 1; i < rows.length; i++) {
-      if (!rows[i].trim()) continue; // Skip empty rows
+    try {
+      // Simple CSV parser for comma-separated values
+      // This handles quoted values, commas within quoted values, and escaped quotes
+      const rows = csvText.split(/\r?\n/);
+      const headers = rows[0].split(',').map(header => 
+        header.trim().replace(/^"|"$/g, '')
+      );
       
-      // Split by commas but respect quoted values
-      const values: string[] = [];
-      let currentValue = '';
-      let inQuotes = false;
+      const data: Array<any> = [];
       
-      for (let j = 0; j < rows[i].length; j++) {
-        const char = rows[i][j];
+      for (let i = 1; i < rows.length; i++) {
+        if (!rows[i].trim()) continue; // Skip empty rows
         
-        if (char === '"') {
-          // Handle quotes (toggle inQuotes flag)
-          inQuotes = !inQuotes;
-          currentValue += char;
-        } else if (char === ',' && !inQuotes) {
-          // Handle commas (only split if not inside quotes)
-          values.push(currentValue.trim().replace(/^"|"$/g, ''));
-          currentValue = '';
-        } else {
-          // Add character to current value
-          currentValue += char;
+        // Split by commas but respect quoted values
+        const values: string[] = [];
+        let currentValue = '';
+        let inQuotes = false;
+        
+        for (let j = 0; j < rows[i].length; j++) {
+          const char = rows[i][j];
+          
+          if (char === '"') {
+            // Handle quotes (toggle inQuotes flag)
+            inQuotes = !inQuotes;
+            currentValue += char;
+          } else if (char === ',' && !inQuotes) {
+            // Handle commas (only split if not inside quotes)
+            values.push(currentValue.trim().replace(/^"|"$/g, ''));
+            currentValue = '';
+          } else {
+            // Add character to current value
+            currentValue += char;
+          }
         }
+        
+        // Add the last value
+        values.push(currentValue.trim().replace(/^"|"$/g, ''));
+        
+        // Create object from headers and values
+        const obj: Record<string, string> = {};
+        headers.forEach((header, index) => {
+          if (index < values.length) {
+            obj[header] = values[index];
+          }
+        });
+        
+        data.push(obj);
       }
+
+      // Let's add some diagnostic info
+      setDiagnosticInfo(prev => prev + `CSV processing successful. Found ${data.length} records with headers: ${headers.join(', ')}\n`);
       
-      // Add the last value
-      values.push(currentValue.trim().replace(/^"|"$/g, ''));
-      
-      // Create object from headers and values
-      const obj: Record<string, string> = {};
-      headers.forEach((header, index) => {
-        if (index < values.length) {
-          obj[header] = values[index];
-        }
-      });
-      
-      data.push(obj);
+      return data;
+    } catch (error) {
+      setDiagnosticInfo(prev => prev + `CSV processing error: ${(error as Error).message}\n`);
+      throw error;
     }
-    
-    return data;
   };
 
   // New function to chunk subscribers into smaller batches
@@ -113,7 +125,8 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
 
   // New function to handle uploading subscribers in chunks
   const uploadSubscribersInChunks = async (subscribers: any[], fileName: string) => {
-    const CHUNK_SIZE = 250; // Import 250 subscribers at a time (smaller chunks for reliability)
+    // Use smaller chunks for more reliability
+    const CHUNK_SIZE = 50; // Reduced from 250 to 50 for better reliability
     const chunks = chunkArray(subscribers, CHUNK_SIZE);
     
     let totalProcessed = 0;
@@ -122,13 +135,18 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
     let totalErrors = 0;
     let hasFailure = false;
     
-    console.log(`Splitting ${subscribers.length} subscribers into ${chunks.length} chunks of ${CHUNK_SIZE}`);
+    setDiagnosticInfo(prev => prev + `Splitting ${subscribers.length} subscribers into ${chunks.length} chunks of ${CHUNK_SIZE}\n`);
     
     for (let i = 0; i < chunks.length; i++) {
       try {
         setProgress(Math.round((i / chunks.length) * 100));
         
-        console.log(`Processing chunk ${i+1}/${chunks.length} with ${chunks[i].length} subscribers`);
+        setDiagnosticInfo(prev => prev + `Processing chunk ${i+1}/${chunks.length} with ${chunks[i].length} subscribers\n`);
+        
+        // Check the first record for diagnostic info
+        if (i === 0 && chunks[i].length > 0) {
+          setDiagnosticInfo(prev => prev + `Sample record: ${JSON.stringify(chunks[i][0])}\n`);
+        }
         
         const { data, error } = await supabase.functions.invoke('email-migration', {
           method: 'POST',
@@ -140,7 +158,7 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
         });
 
         if (error) {
-          console.error(`Chunk ${i+1} import error:`, error);
+          setDiagnosticInfo(prev => prev + `Chunk ${i+1} ERROR: ${error.message}\n`);
           hasFailure = true;
           toast({
             title: `Chunk ${i+1} Failed`,
@@ -150,7 +168,7 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
           // Continue with next chunk despite error
           totalErrors += chunks[i].length;
         } else {
-          console.log(`Chunk ${i+1} processed:`, data);
+          setDiagnosticInfo(prev => prev + `Chunk ${i+1} processed: ${JSON.stringify(data)}\n`);
           
           // Update totals
           totalProcessed += chunks[i].length;
@@ -160,9 +178,9 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
         }
         
         // Add a short delay between chunks to prevent overwhelming the server
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 500)); // Increased from 200ms to 500ms
       } catch (err) {
-        console.error(`Error processing chunk ${i+1}:`, err);
+        setDiagnosticInfo(prev => prev + `Error processing chunk ${i+1}: ${(err as Error).message}\n`);
         hasFailure = true;
         totalErrors += chunks[i].length;
         toast({
@@ -199,8 +217,10 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
     setIsUploading(true);
     setProgress(10);
     setImportResults(null);
+    setDiagnosticInfo('');
     
     try {
+      setDiagnosticInfo(`Starting import of ${file.name} (${Math.round(file.size / 1024)} KB)\n`);
       const fileContent = await readFileAsText(file);
       setProgress(30);
       
@@ -209,31 +229,42 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
       if (file.name.endsWith('.json')) {
         // Parse JSON
         try {
+          setDiagnosticInfo(prev => prev + `Parsing JSON file...\n`);
           subscribers = JSON.parse(fileContent);
           
           // If data is not an array, check for common parent properties
           if (!Array.isArray(subscribers)) {
+            setDiagnosticInfo(prev => prev + `JSON is not an array, trying to find subscribers property...\n`);
             // Try to find subscribers in common JSON structures
             if (subscribers.subscribers) {
               subscribers = subscribers.subscribers;
+              setDiagnosticInfo(prev => prev + `Found subscribers in 'subscribers' property.\n`);
             } else if (subscribers.data) {
               subscribers = subscribers.data;
+              setDiagnosticInfo(prev => prev + `Found subscribers in 'data' property.\n`);
             } else if (subscribers.results) {
               subscribers = subscribers.results;
+              setDiagnosticInfo(prev => prev + `Found subscribers in 'results' property.\n`);
             } else {
               throw new Error('Could not find subscribers array in JSON');
             }
           }
+          
+          setDiagnosticInfo(prev => prev + `JSON parsed successfully. Found ${subscribers.length} records.\n`);
+          setDiagnosticInfo(prev => prev + `Sample record: ${JSON.stringify(subscribers[0])}\n`);
         } catch (error) {
           setParseError('Invalid JSON format: ' + (error as Error).message);
+          setDiagnosticInfo(prev => prev + `JSON parse error: ${(error as Error).message}\n`);
           throw error;
         }
       } else {
         // Parse CSV
         try {
+          setDiagnosticInfo(prev => prev + `Parsing CSV file...\n`);
           subscribers = processCSV(fileContent);
         } catch (error) {
           setParseError('Invalid CSV format: ' + (error as Error).message);
+          setDiagnosticInfo(prev => prev + `CSV parse error: ${(error as Error).message}\n`);
           throw error;
         }
       }
@@ -241,6 +272,7 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
       // Validate the subscribers array
       if (!Array.isArray(subscribers) || subscribers.length === 0) {
         setParseError('No subscribers found in file');
+        setDiagnosticInfo(prev => prev + `No subscribers found in file or not an array.\n`);
         throw new Error('No subscribers found in file');
       }
       
@@ -256,9 +288,13 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
       
       if (formattedSubscribers.length === 0) {
         setParseError('No valid email addresses found in file');
+        setDiagnosticInfo(prev => prev + `No valid email addresses found after mapping fields.\n`);
         throw new Error('No valid email addresses found in file');
       }
       
+      setDiagnosticInfo(prev => prev + `Formatted ${formattedSubscribers.length} subscribers for import.\n`);
+      setDiagnosticInfo(prev => prev + `First subscriber: ${JSON.stringify(formattedSubscribers[0])}\n`);
+
       console.log(`Importing ${formattedSubscribers.length} subscribers using chunked upload`);
       setProgress(40);
       
@@ -283,21 +319,22 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
       }
       
       // Reset form
-      setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       setFile(null);
       
-      // Force refresh stats immediately
+      // Force refresh stats immediately and multiple times afterward
       if (onImportComplete) {
         onImportComplete();
         
         // Schedule additional refreshes to catch any delayed processing
-        setTimeout(onImportComplete, 2000);
-        setTimeout(onImportComplete, 5000);
+        setTimeout(onImportComplete, 1000);
+        setTimeout(onImportComplete, 3000);
+        setTimeout(onImportComplete, 6000);
       }
       
     } catch (error: any) {
       console.error('Import Error:', error);
+      setDiagnosticInfo(prev => prev + `FATAL ERROR: ${error.message}\n`);
       setImportResults({
         success: false,
         error: error.message || "Failed to import subscribers"
@@ -318,6 +355,7 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
     setFile(null);
     setParseError(null);
     setImportResults(null);
+    setDiagnosticInfo('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -330,13 +368,34 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
 
   return (
     <Card className="p-4 bg-white shadow-sm">
-      <h3 className="text-lg font-semibold mb-4">Import Subscribers</h3>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">Import Subscribers</h3>
+        <div className="flex space-x-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setDiagnosticMode(!diagnosticMode)}
+          >
+            <Info className="h-4 w-4 mr-2" />
+            {diagnosticMode ? 'Hide Diagnostics' : 'Show Diagnostics'}
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={refreshStats}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh Stats
+          </Button>
+        </div>
+      </div>
       
       <div className="space-y-4">
         <Alert className="bg-blue-50 border-blue-200">
           <AlertDescription className="text-blue-800">
             Upload a CSV or JSON file containing subscribers to import from OnGage. 
             Large files will be automatically processed in smaller chunks for reliability.
+            The import process has been updated to use smaller batch sizes (50 subscribers per chunk) for improved reliability.
           </AlertDescription>
         </Alert>
         
@@ -361,7 +420,7 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
                     </div>
                     <div className="mt-3 text-xs text-gray-500">
                       Please check the status panel to confirm the subscribers appear in the "Pending" count.
-                      If they don't appear within a few seconds, try refreshing the stats.
+                      If they don't appear within a few seconds, try refreshing the stats or checking diagnostics for details.
                     </div>
                   </div>
                 </div>
@@ -463,8 +522,19 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
               </div>
               <Progress value={progress} className="h-2" />
               <div className="text-xs text-center text-gray-500">
-                Large files are processed in smaller batches for reliability
+                Large files are processed in smaller batches (50 records per batch) for reliability
               </div>
+            </div>
+          )}
+          
+          {diagnosticMode && (
+            <div className="space-y-2 mt-4">
+              <h4 className="font-medium text-sm">Diagnostic Information</h4>
+              <Textarea 
+                value={diagnosticInfo} 
+                readOnly 
+                className="h-64 font-mono text-xs"
+              />
             </div>
           )}
         </div>
