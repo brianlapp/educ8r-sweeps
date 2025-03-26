@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import ProtectedRoute from '@/components/ProtectedRoute';
@@ -7,11 +6,13 @@ import { EmailMigrationStatusCard } from '@/components/admin/EmailMigrationStatu
 import { EmailMigrationControls } from '@/components/admin/EmailMigrationControls';
 import { EmailMigrationBatchControl } from '@/components/admin/EmailMigrationBatchControl';
 import { EmailMigrationImport } from '@/components/admin/EmailMigrationImport';
+import { EmailMigrationAutomation } from '@/components/admin/EmailMigrationAutomation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { RefreshCw } from 'lucide-react';
 
 export default function AdminEmailMigration() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -22,7 +23,6 @@ export default function AdminEmailMigration() {
     setRefreshKey(prev => prev + 1);
   };
   
-  // Load automation settings
   useEffect(() => {
     const fetchAutomationSettings = async () => {
       try {
@@ -45,7 +45,6 @@ export default function AdminEmailMigration() {
     fetchAutomationSettings();
   }, [refreshKey]);
   
-  // Handle automation toggle
   const toggleAutomation = async (enabled: boolean) => {
     try {
       const { data, error } = await supabase.functions.invoke('email-migration', {
@@ -65,7 +64,6 @@ export default function AdminEmailMigration() {
     }
   };
   
-  // Calculate overall progress percentage
   const calculateProgress = () => {
     if (!migrationStats) return 0;
     
@@ -127,13 +125,14 @@ export default function AdminEmailMigration() {
             </TabsContent>
             
             <TabsContent value="automation" className="space-y-4">
-              <Card className="p-4 bg-white shadow-sm">
-                <h3 className="text-lg font-semibold mb-4">Migration Automation</h3>
+              <EmailMigrationAutomation />
+              
+              <Card className="p-4 bg-white shadow-sm mt-4">
+                <h3 className="text-lg font-semibold mb-4">Client-Side Migration Automation</h3>
                 <div className="space-y-4">
                   <p className="text-sm text-gray-600">
-                    When automation is enabled, the system will continuously process subscribers in batches while 
-                    respecting BeehiiV API rate limits. The migration will intelligently handle rate limiting and 
-                    automatically retry failed operations.
+                    This is the legacy automation that only runs while the browser window is open.
+                    We recommend using the server-side automation above instead.
                   </p>
                   
                   <div className="flex items-center space-x-2">
@@ -142,7 +141,7 @@ export default function AdminEmailMigration() {
                       checked={automationEnabled}
                       onCheckedChange={toggleAutomation}
                     />
-                    <Label htmlFor="automation-toggle">Enable Automation</Label>
+                    <Label htmlFor="automation-toggle">Enable Client-Side Automation</Label>
                   </div>
                   
                   {automationEnabled && migrationStats?.automation && (
@@ -199,16 +198,17 @@ export default function AdminEmailMigration() {
                     <li>Use troubleshooting tools to address any issues</li>
                   </ol>
                   
-                  <h4 className="text-md font-medium mt-4">Enhanced Automation</h4>
+                  <h4 className="text-md font-medium mt-4">Enhanced Server-Side Automation</h4>
                   <p>
-                    The enhanced system now includes intelligent processing with automatic 
-                    rate limit handling, stalled migration detection, and continuous batch processing.
+                    The system now includes server-side processing that runs continuously even 
+                    when your browser is closed. This ensures the migration completes without requiring 
+                    the admin panel to stay open.
                   </p>
                   <ul className="list-disc pl-5 space-y-2">
-                    <li>Prioritizes "in_progress" subscribers to prevent them from getting stuck</li>
-                    <li>Automatically adjusts batch sizes based on API responses</li>
-                    <li>Detects and resets any stalled migrations</li>
-                    <li>Runs continuously until all subscribers are processed</li>
+                    <li>Automatic stalled record detection and recovery</li>
+                    <li>Smart rate limit handling with exponential backoff</li>
+                    <li>Heartbeat monitoring to verify the automation is running</li>
+                    <li>Scheduled processing to respect configured operating hours</li>
                   </ul>
                 </div>
               </div>
