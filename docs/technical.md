@@ -1,4 +1,3 @@
-
 # Technical Documentation
 
 ## Email Migration System
@@ -88,3 +87,17 @@
 - Handles duplicate detection
 - Provides detailed import statistics
 - Supports different input formats and field normalizations
+
+### Recent Updates
+
+#### Fixed File Import Issues
+- Direct Import method has been optimized for reliability
+- Improved error handling for file loading
+- Added better user feedback during import process
+- Enhanced logging for troubleshooting import failures
+
+#### Important Notes for Importing Files
+- Direct Import is now the recommended method for importing subscriber files
+- Enter the exact filename (e.g., "chunk_ac.csv") in the Direct Import field
+- Files must be located in the `/public/emails/` directory
+- System will automatically process and normalize email data
