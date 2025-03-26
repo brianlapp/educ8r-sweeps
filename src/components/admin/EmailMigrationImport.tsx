@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -828,4 +829,428 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
         </div>
       </div>
       
-      {diagnosticMode
+      {diagnosticMode && (
+        <div className="mb-4">
+          <div className="p-2 bg-gray-50 border border-gray-200 rounded-md">
+            <div className="flex justify-between mb-2">
+              <h4 className="text-sm font-medium">Diagnostic Information</h4>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setDiagnosticInfo('')}
+                className="h-6 px-2 text-xs"
+              >
+                Clear
+              </Button>
+            </div>
+            <Textarea
+              value={diagnosticInfo}
+              readOnly
+              className="font-mono text-xs h-40 bg-black text-green-400"
+            />
+          </div>
+        </div>
+      )}
+      
+      <Tabs defaultValue="repository">
+        <TabsList className="mb-4">
+          <TabsTrigger value="repository">Repository Import</TabsTrigger>
+          <TabsTrigger value="file">File Upload</TabsTrigger>
+          <TabsTrigger value="manual">Manual URL</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="repository" className="space-y-4">
+          <Alert className="bg-green-50 border-green-200">
+            <AlertDescription className="text-green-800">
+              Import subscriber files directly from the repository. Files placed in the <code>public/emails/</code> directory 
+              are automatically detected and can be selected from the dropdown below. This method is recommended for large datasets.
+            </AlertDescription>
+          </Alert>
+          
+          <div className="flex flex-col space-y-4">
+            {importResults ? (
+              <div className="space-y-4">
+                <div className={`p-4 rounded-lg ${importResults.success ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+                  <div className="flex items-start">
+                    {importResults.success ? 
+                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 mr-2" /> : 
+                      <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 mr-2" />
+                    }
+                    <div>
+                      <h4 className="font-medium">
+                        {importResults.success ? 'Repository Import Completed' : 'Repository Import Failed'}
+                      </h4>
+                      <div className="mt-2 space-y-1 text-sm">
+                        <p>Total processed: <span className="font-medium">{importResults.totalProcessed}</span></p>
+                        <p>Successfully imported: <span className="font-medium text-green-600">{importResults.inserted}</span></p>
+                        <p>Duplicates skipped: <span className="font-medium text-amber-600">{importResults.duplicates}</span></p>
+                        <p>Errors: <span className="font-medium text-red-600">{importResults.errors}</span></p>
+                      </div>
+                      <div className="mt-3 text-xs text-gray-500">
+                        Please check the status panel to confirm the subscribers appear in the "Pending" count.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex space-x-2">
+                  <Button variant="outline" size="sm" onClick={resetImport}>
+                    Import Another File
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={refreshData}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh Stats
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <div className="mb-4 space-y-2">
+                  <div className="flex items-center mb-4">
+                    <FileText className="h-5 w-5 text-blue-500 mr-2" />
+                    <h4 className="text-md font-medium">Select Repository File</h4>
+                  </div>
+                  
+                  <div className="w-full">
+                    <Select 
+                      value={selectedRepoFile} 
+                      onValueChange={setSelectedRepoFile}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a file" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {isLoadingRepoFiles ? (
+                          <div className="flex items-center justify-center p-2">
+                            <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                            <span>Loading files...</span>
+                          </div>
+                        ) : repositoryFiles.length > 0 ? (
+                          repositoryFiles.map(file => (
+                            <SelectItem key={file} value={file}>
+                              {file}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <div className="p-2 text-sm text-gray-500">
+                            {repoFilesLoadError ? (
+                              <div className="text-red-500">
+                                <AlertCircle className="h-4 w-4 inline mr-1" />
+                                {repoFilesLoadError}
+                              </div>
+                            ) : (
+                              "No files found in repository. Check that files are in public/emails/ directory and click Refresh."
+                            )}
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Files must be placed in the <code>public/emails/</code> directory to appear here
+                    </p>
+                  </div>
+                  
+                  <div className="flex mt-4 space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={refreshData}
+                      disabled={isProcessing}
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingRepoFiles ? 'animate-spin' : ''}`} />
+                      Refresh Files
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      onClick={forceDirectPath}
+                      disabled={isProcessing}
+                      className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                    >
+                      Check Paths
+                    </Button>
+                    
+                    <Button
+                      onClick={processRepositoryFile}
+                      disabled={isProcessing || !selectedRepoFile}
+                      className="flex-1"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Processing Repository File...
+                        </>
+                      ) : (
+                        'Import Selected File'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="mt-4 text-sm text-gray-600">
+                  <p>
+                    <strong>Repository Import</strong> processes files that have been pre-loaded into the repository. 
+                    This method is more reliable for large subscriber lists and doesn't require uploading through the browser.
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {isProcessing && (
+              <div className="space-y-2">
+                <div className="text-sm text-center">
+                  {progress < 40 ? 'Processing repository file...' : 
+                   progress < 90 ? 'Importing subscribers...' : 
+                   'Finalizing import...'}
+                </div>
+                <Progress value={progress} className="h-2" />
+              </div>
+            )}
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="file" className="space-y-4">
+          <Alert className="bg-blue-50 border-blue-200">
+            <AlertDescription className="text-blue-800">
+              Upload a CSV or JSON file containing subscribers to import from OnGage. 
+              Large files will be automatically processed in smaller chunks for reliability.
+              The import process uses smaller batch sizes (50 subscribers per chunk) for improved reliability.
+            </AlertDescription>
+          </Alert>
+          
+          <div className="flex flex-col space-y-4">
+            {importResults ? (
+              <div className="space-y-4">
+                <div className={`p-4 rounded-lg ${importResults.success ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+                  <div className="flex items-start">
+                    {importResults.success ? 
+                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 mr-2" /> : 
+                      <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 mr-2" />
+                    }
+                    <div>
+                      <h4 className="font-medium">
+                        {importResults.success ? 'Import Completed' : 'Import Partially Completed'}
+                      </h4>
+                      <div className="mt-2 space-y-1 text-sm">
+                        <p>Total processed: <span className="font-medium">{importResults.totalProcessed}</span></p>
+                        <p>Successfully imported: <span className="font-medium text-green-600">{importResults.inserted}</span></p>
+                        <p>Duplicates skipped: <span className="font-medium text-amber-600">{importResults.duplicates}</span></p>
+                        <p>Errors: <span className="font-medium text-red-600">{importResults.errors}</span></p>
+                      </div>
+                      <div className="mt-3 text-xs text-gray-500">
+                        Please check the status panel to confirm the subscribers appear in the "Pending" count.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex space-x-2">
+                  <Button variant="outline" size="sm" onClick={resetImport}>
+                    Import Another File
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={refreshData}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh Stats
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <div className="mb-4 space-y-2">
+                  <div className="flex items-center mb-4">
+                    <Upload className="h-5 w-5 text-blue-500 mr-2" />
+                    <h4 className="text-md font-medium">Upload CSV or JSON File</h4>
+                  </div>
+                  
+                  <div>
+                    <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center">
+                      <FileUp className="h-8 w-8 text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-500 mb-2">Click to select a file or drag and drop</p>
+                      <p className="text-xs text-gray-400">CSV or JSON format</p>
+                      <input
+                        type="file"
+                        accept=".csv,.json"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        onChange={handleFileSelect}
+                        ref={fileInputRef}
+                      />
+                    </div>
+                    {file && (
+                      <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded flex items-center justify-between">
+                        <div className="flex items-center">
+                          <FileText className="h-4 w-4 text-blue-500 mr-2" />
+                          <span className="text-sm">{file.name} ({Math.round(file.size / 1024)} KB)</span>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => {
+                            setFile(null);
+                            if (fileInputRef.current) fileInputRef.current.value = '';
+                          }}
+                          className="h-6 px-2 text-xs"
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {parseError && (
+                    <Alert variant="destructive" className="mt-2">
+                      <AlertCircle className="h-4 w-4 mr-2" />
+                      <AlertDescription>
+                        {parseError}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  <Button
+                    onClick={processFile}
+                    disabled={isProcessing || !file}
+                    className="w-full mt-4"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Processing File...
+                      </>
+                    ) : (
+                      'Upload and Import'
+                    )}
+                  </Button>
+                </div>
+                
+                <div className="mt-4 text-sm text-gray-600">
+                  <p>
+                    The system will automatically detect email addresses, first names, and last names in your file.
+                    If you're having trouble with large files, try splitting them into smaller chunks first.
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {isProcessing && (
+              <div className="space-y-2">
+                <div className="text-sm flex justify-between">
+                  <span>
+                    {isUploading ? 'Uploading and processing file...' : 
+                    progress < 40 ? 'Processing file...' : 
+                    progress < 90 ? 'Importing subscribers...' : 
+                    'Finalizing import...'}
+                  </span>
+                  <span>{progress}%</span>
+                </div>
+                <Progress value={progress} className="h-2" />
+              </div>
+            )}
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="manual" className="space-y-4">
+          <Alert className="bg-amber-50 border-amber-200">
+            <AlertDescription className="text-amber-800">
+              If automatic repository detection isn't working, you can enter a direct URL to a CSV or JSON file.
+              This can be useful if the files are accessible via URL but not being detected properly.
+            </AlertDescription>
+          </Alert>
+          
+          <div className="flex flex-col space-y-4">
+            {importResults ? (
+              <div className="space-y-4">
+                <div className={`p-4 rounded-lg ${importResults.success ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+                  <div className="flex items-start">
+                    {importResults.success ? 
+                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 mr-2" /> : 
+                      <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 mr-2" />
+                    }
+                    <div>
+                      <h4 className="font-medium">
+                        {importResults.success ? 'Manual URL Import Completed' : 'Manual URL Import Failed'}
+                      </h4>
+                      <div className="mt-2 space-y-1 text-sm">
+                        <p>Total processed: <span className="font-medium">{importResults.totalProcessed}</span></p>
+                        <p>Successfully imported: <span className="font-medium text-green-600">{importResults.inserted}</span></p>
+                        <p>Duplicates skipped: <span className="font-medium text-amber-600">{importResults.duplicates}</span></p>
+                        <p>Errors: <span className="font-medium text-red-600">{importResults.errors}</span></p>
+                      </div>
+                      <div className="mt-3 text-xs text-gray-500">
+                        Please check the status panel to confirm the subscribers appear in the "Pending" count.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex space-x-2">
+                  <Button variant="outline" size="sm" onClick={resetImport}>
+                    Import Another File
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={refreshData}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh Stats
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <div className="mb-4 space-y-2">
+                  <div className="flex items-center mb-4">
+                    <FileText className="h-5 w-5 text-amber-500 mr-2" />
+                    <h4 className="text-md font-medium">Enter Direct File URL</h4>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">
+                      Enter the full URL to a CSV or JSON file. For example:
+                    </p>
+                    <div className="font-mono text-xs bg-gray-50 p-2 rounded">
+                      {window.location.origin}/emails/chunk_aa.csv
+                    </div>
+                    
+                    <Input
+                      placeholder="https://your-domain.com/emails/your-file.csv"
+                      value={manualFileUrl}
+                      onChange={(e) => setManualFileUrl(e.target.value)}
+                      className="mt-2"
+                    />
+                  </div>
+                  
+                  <Button
+                    onClick={processManualFileUrl}
+                    disabled={isProcessing || !manualFileUrl}
+                    className="w-full mt-4"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Processing URL...
+                      </>
+                    ) : (
+                      'Import from URL'
+                    )}
+                  </Button>
+                </div>
+                
+                <div className="mt-4 text-sm text-gray-600">
+                  <p>
+                    <strong>Tip:</strong> Use this method if you know the exact URL to your file. The file must be publicly accessible.
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {isProcessing && (
+              <div className="space-y-2">
+                <div className="text-sm flex justify-between">
+                  <span>
+                    {progress < 40 ? 'Fetching and processing file...' : 
+                    progress < 90 ? 'Importing subscribers...' : 
+                    'Finalizing import...'}
+                  </span>
+                  <span>{progress}%</span>
+                </div>
+                <Progress value={progress} className="h-2" />
+              </div>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+    </Card>
+  );
+}
