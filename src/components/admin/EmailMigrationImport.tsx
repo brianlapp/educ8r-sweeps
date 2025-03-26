@@ -229,8 +229,11 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
             const { data, error } = await supabase.functions.invoke('email-migration', {
               method: 'POST',
               body: { 
-                subscribers: chunk,
-                fileName: fileName 
+                action: 'import',
+                params: {
+                  subscribers: chunk,
+                  fileName: fileName 
+                }
               }
             });
             

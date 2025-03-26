@@ -32,6 +32,26 @@
 - Set daily target limits
 - Define operating hours
 
+### Repository File Handling
+
+#### HTTP-Based File Access
+- Files are accessed via HTTP requests rather than direct filesystem access
+- Supports both local development and production environments
+- Uses the host's URL to dynamically determine file locations
+- Works with both relative and absolute URL paths
+
+#### Repository File Detection
+- Probes for files based on common naming patterns
+- Supports automatic discovery of CSV and JSON files
+- Handles file detection through HEAD requests to minimize bandwidth
+- Provides detailed error reporting for troubleshooting
+
+#### File Processing
+- Supports both CSV and JSON formats
+- Automatically normalizes field names (e.g., "Email" → "email")
+- Handles various common export formats from email providers
+- Validates emails and skips invalid records
+
 ### Database Schema Extensions
 - Added `last_heartbeat` timestamp to `email_migration_automation` table
 - Added `status_details` JSONB field for detailed status reporting
