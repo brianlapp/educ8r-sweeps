@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { AlertTriangle, CheckCircle, Upload, Globe, FolderOpen } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Upload, Globe, FolderOpen, RefreshCw } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 
 export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: () => void }) => {
   const [file, setFile] = useState<File | null>(null);
@@ -18,6 +20,8 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
   const [repositoryImportLoading, setRepositoryImportLoading] = useState(false);
   const [directFileName, setDirectFileName] = useState('');
   const [directImportLoading, setDirectImportLoading] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const [currentOperation, setCurrentOperation] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,12 +95,16 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
     if (!file) return;
     
     setLoading(true);
+    setImportProgress(0);
+    setCurrentOperation('Reading file...');
+    
     try {
       const reader = new FileReader();
       
       reader.onload = async (e) => {
         if (e.target?.result) {
           try {
+            setCurrentOperation('Processing file content...');
             const content = e.target.result as string;
             const subscribers = processFileContent(content);
             
@@ -106,10 +114,15 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
             let successCount = 0;
             let errorCount = 0;
             let duplicateCount = 0;
+            const totalChunks = Math.ceil(subscribers.length / CHUNK_SIZE);
             
-            console.log(`Importing ${subscribers.length} subscribers using chunked upload`);
+            console.log(`Importing ${subscribers.length} subscribers using chunked upload (${totalChunks} chunks)`);
             
             for (let i = 0; i < subscribers.length; i += CHUNK_SIZE) {
+              const chunkNumber = Math.floor(i / CHUNK_SIZE) + 1;
+              setCurrentOperation(`Importing chunk ${chunkNumber}/${totalChunks}...`);
+              setImportProgress(Math.floor((chunkNumber / totalChunks) * 100));
+              
               const chunk = subscribers.slice(i, i + CHUNK_SIZE);
               try {
                 const { data, error } = await supabase.functions.invoke('email-migration', {
@@ -123,16 +136,24 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
                   }
                 });
                 
-                if (error) throw error;
+                if (error) {
+                  console.error('Error from import function:', error);
+                  throw error;
+                }
                 
                 successCount += data.inserted || 0;
                 duplicateCount += data.duplicates || 0;
                 errorCount += data.errors || 0;
+                
+                console.log(`Chunk ${chunkNumber}/${totalChunks} completed: ${data.inserted} inserted, ${data.duplicates} duplicates, ${data.errors} errors`);
               } catch (err) {
-                console.error(`Error importing chunk ${i / CHUNK_SIZE + 1}:`, err);
+                console.error(`Error importing chunk ${chunkNumber}/${totalChunks}:`, err);
                 errorCount += chunk.length;
               }
             }
+            
+            setImportProgress(100);
+            setCurrentOperation('Import complete!');
             
             toast.success(`Import complete: ${successCount} imported, ${duplicateCount} duplicates, ${errorCount} errors`);
             if (onImportComplete) onImportComplete();
@@ -142,11 +163,13 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
           }
         }
         setLoading(false);
+        setCurrentOperation('');
       };
       
       reader.onerror = () => {
         toast.error('Error reading file');
         setLoading(false);
+        setCurrentOperation('');
       };
       
       reader.readAsText(file);
@@ -154,6 +177,7 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
       console.error('File upload error:', err);
       toast.error(`File upload failed: ${err.message}`);
       setLoading(false);
+      setCurrentOperation('');
     }
   };
 
@@ -164,6 +188,9 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
     }
     
     setUrlImportLoading(true);
+    setImportProgress(0);
+    setCurrentOperation('Connecting to URL...');
+    
     console.info(`----- STARTING MANUAL URL IMPORT [${new Date().toISOString()}] -----`);
     console.info(`Starting import of file from URL: ${manualUrl}`);
     
@@ -173,6 +200,9 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
       if (!response.ok) {
         throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
       }
+      
+      setCurrentOperation('Reading file content...');
+      setImportProgress(20);
       
       const content = await response.text();
       console.info(`Successfully fetched file (${content.length} bytes)`);
@@ -187,6 +217,9 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
       } else if (fileName.endsWith('.json')) {
         fileType = 'JSON';
       }
+      
+      setCurrentOperation(`Parsing ${fileType} file...`);
+      setImportProgress(40);
       
       console.info(`Parsing ${fileType} file...`);
       const subscribers = processFileContent(content);
@@ -206,6 +239,9 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
       for (let i = 0; i < subscribers.length; i += CHUNK_SIZE) {
         const chunk = subscribers.slice(i, i + CHUNK_SIZE);
         const chunkNumber = Math.floor(i / CHUNK_SIZE) + 1;
+        
+        setCurrentOperation(`Importing chunk ${chunkNumber}/${totalChunks}...`);
+        setImportProgress(40 + Math.floor(60 * (chunkNumber / totalChunks)));
         
         console.info(`Processing chunk ${chunkNumber}/${totalChunks} with ${chunk.length} subscribers`);
         console.info(`Sample record: ${JSON.stringify(chunk[0])}`);
@@ -257,6 +293,9 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
         }
       }
       
+      setImportProgress(100);
+      setCurrentOperation('Import complete!');
+      
       const resultMessage = `Import complete: ${successCount} imported, ${duplicateCount} duplicates, ${errorCount} errors`;
       console.info(`----- MANUAL URL IMPORT COMPLETE: ${resultMessage} -----`);
       
@@ -267,12 +306,18 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
       toast.error(`Import failed: ${err.message}`);
     } finally {
       setUrlImportLoading(false);
+      setTimeout(() => {
+        setCurrentOperation('');
+        setImportProgress(0);
+      }, 3000);
     }
   };
   
   const fetchRepositoryFiles = async () => {
     setLoadingRepositoryFiles(true);
     try {
+      toast.info('Searching for files in the /emails/ directory...');
+      
       const { data, error } = await supabase.functions.invoke('email-migration', {
         method: 'POST',
         body: { action: 'repository-files' }
@@ -280,13 +325,13 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
       
       if (error) throw error;
       
-      if (data.success && data.files) {
+      if (data.success && data.files && data.files.length > 0) {
         setRepositoryFiles(data.files);
-        if (data.files.length > 0) {
-          setSelectedRepositoryFile(data.files[0]);
-        }
+        setSelectedRepositoryFile(data.files[0]);
+        toast.success(`Found ${data.files.length} file(s) in repository`);
       } else {
         toast.error('No import files found in repository');
+        setRepositoryFiles([]);
       }
     } catch (err: any) {
       console.error('Failed to fetch repository files:', err);
@@ -303,7 +348,12 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
     }
     
     setRepositoryImportLoading(true);
+    setImportProgress(0);
+    setCurrentOperation(`Importing ${selectedRepositoryFile}...`);
+    
     try {
+      toast.info(`Starting import of ${selectedRepositoryFile}`);
+      
       const { data, error } = await supabase.functions.invoke('email-migration', {
         method: 'POST',
         body: { 
@@ -315,6 +365,9 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
       if (error) throw error;
       
       if (data.success) {
+        setImportProgress(100);
+        setCurrentOperation('Import complete!');
+        
         toast.success(`Import complete: ${data.inserted} imported, ${data.duplicates} duplicates, ${data.errors} errors`);
         if (onImportComplete) onImportComplete();
         fetchRepositoryFiles(); // Refresh the list
@@ -326,6 +379,10 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
       toast.error(`Import failed: ${err.message}`);
     } finally {
       setRepositoryImportLoading(false);
+      setTimeout(() => {
+        setCurrentOperation('');
+        setImportProgress(0);
+      }, 3000);
     }
   };
 
@@ -336,20 +393,79 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
     }
     
     setDirectImportLoading(true);
+    setImportProgress(0);
+    setCurrentOperation(`Preparing direct import of ${directFileName}...`);
+    
     try {
       const baseUrl = window.location.origin;
       const fileUrl = `${baseUrl}/emails/${directFileName}`;
       
       toast.info(`Attempting to import file from: ${fileUrl}`);
+      setImportProgress(10);
       
-      setManualUrl(fileUrl);
-      await handleManualUrlImport();
+      console.log(`[DIRECT IMPORT] Starting import of ${directFileName} from ${fileUrl}`);
       
+      // First check if the file exists
+      try {
+        const checkResponse = await fetch(fileUrl, { method: 'HEAD' });
+        if (!checkResponse.ok) {
+          throw new Error(`File not found: ${checkResponse.status} ${checkResponse.statusText}`);
+        }
+        
+        setImportProgress(20);
+        setCurrentOperation(`File ${directFileName} found. Starting import...`);
+        console.log(`[DIRECT IMPORT] File exists: ${fileUrl}`);
+      } catch (err) {
+        console.error(`[DIRECT IMPORT] File check failed:`, err);
+        throw new Error(`Could not find file "${directFileName}" in the /emails/ directory. Make sure the file exists and is accessible.`);
+      }
+      
+      // File exists, proceed with import
+      setCurrentOperation(`Importing ${directFileName}...`);
+      setImportProgress(30);
+      
+      const { data, error } = await supabase.functions.invoke('email-migration', {
+        method: 'POST',
+        body: { 
+          action: 'import-repository-file',
+          fileName: directFileName 
+        }
+      });
+      
+      if (error) {
+        console.error(`[DIRECT IMPORT] API error:`, error);
+        throw error;
+      }
+      
+      if (!data) {
+        throw new Error("No data returned from import function");
+      }
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      setImportProgress(100);
+      setCurrentOperation('Import complete!');
+      
+      console.log(`[DIRECT IMPORT] Success:`, data);
+      
+      if (data.inserted !== undefined) {
+        toast.success(`Import complete: ${data.inserted} imported, ${data.duplicates || 0} duplicates, ${data.errors || 0} errors`);
+      } else {
+        toast.success(`Import completed successfully`);
+      }
+      
+      if (onImportComplete) onImportComplete();
     } catch (err: any) {
-      console.error('Direct file import error:', err);
+      console.error('[DIRECT IMPORT] Error:', err);
       toast.error(`Import failed: ${err.message}`);
     } finally {
       setDirectImportLoading(false);
+      setTimeout(() => {
+        setCurrentOperation('');
+        setImportProgress(0);
+      }, 3000);
     }
   };
 
@@ -357,7 +473,14 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
     <Card className="p-4 bg-white shadow-sm">
       <h3 className="text-lg font-semibold mb-4">Import Subscribers</h3>
       
-      <Tabs defaultValue="file">
+      {(loading || urlImportLoading || repositoryImportLoading || directImportLoading) && (
+        <div className="mb-4">
+          <div className="text-sm font-medium text-slate-700 mb-1">{currentOperation}</div>
+          <Progress value={importProgress} className="h-2" />
+        </div>
+      )}
+      
+      <Tabs defaultValue="direct">
         <TabsList className="mb-4">
           <TabsTrigger value="file">File Upload</TabsTrigger>
           <TabsTrigger value="url">URL Import</TabsTrigger>
@@ -452,8 +575,17 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
             ) : repositoryFiles.length > 0 ? (
               <>
                 <div className="grid gap-4">
-                  <div className="text-sm text-slate-700 mb-2">
-                    Select a file to import from the repository:
+                  <div className="text-sm text-slate-700 mb-2 flex justify-between items-center">
+                    <span>Select a file to import from the repository:</span>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={fetchRepositoryFiles}
+                      disabled={loadingRepositoryFiles}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-1" />
+                      Refresh
+                    </Button>
                   </div>
                   
                   <select
@@ -492,6 +624,16 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
                 <p className="text-sm text-slate-400">
                   Add CSV or JSON files to the <code>/public/emails/</code> directory
                 </p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={fetchRepositoryFiles}
+                  className="mt-4"
+                  disabled={loadingRepositoryFiles}
+                >
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Retry Detection
+                </Button>
               </div>
             )}
           </div>

@@ -1,10 +1,9 @@
-
 // Import required dependencies
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 // Version identifier for tracking deployments
-const FUNCTION_VERSION = "1.3.0-http-repository-fix";
+const FUNCTION_VERSION = "1.3.1-import-fix";
 
 // Initialize Supabase client with admin privileges
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -48,6 +47,21 @@ serve(async (req) => {
       })
     );
 
+    // Log request to database for debugging
+    try {
+      await supabaseAdmin
+        .from('email_migration_logs')
+        .insert({
+          context: `request-${action}`,
+          data: { 
+            action, 
+            params: { ...params, subscribers: params.subscribers ? `[${params.subscribers?.length} items]` : undefined }
+          }
+        });
+    } catch (logError) {
+      console.error('[EMAIL-MIGRATION] Error logging request:', logError);
+    }
+
     // Route request to appropriate handler based on action
     switch (action) {
       case 'stats':
@@ -77,6 +91,19 @@ serve(async (req) => {
         );
     }
   } catch (error) {
+    // Log error to database
+    try {
+      await supabaseAdmin
+        .from('email_migration_logs')
+        .insert({
+          context: 'function-error',
+          data: { error: error.message, stack: error.stack },
+          is_error: true
+        });
+    } catch (logError) {
+      console.error('[EMAIL-MIGRATION] Error logging to database:', logError);
+    }
+
     console.error('[EMAIL-MIGRATION] Unexpected error:', error);
     return new Response(
       JSON.stringify({ error: 'An unexpected error occurred', details: error.message }),
@@ -158,6 +185,13 @@ async function getStats() {
 // Import subscribers from provided data
 async function importSubscribers(params) {
   try {
+    console.log('[EMAIL-MIGRATION] Starting import process with params:', 
+      JSON.stringify({ 
+        fileName: params.fileName,
+        subscribersLength: params.subscribers?.length
+      })
+    );
+
     // Extract subscribers ensuring we handle both formats
     let subscribers = [];
     
@@ -179,58 +213,54 @@ async function importSubscribers(params) {
     
     console.log(`[EMAIL-MIGRATION] Importing ${subscribers.length} subscribers from ${params.fileName || 'direct upload'}`);
     
-    // Prepare data for insertion
-    const records = subscribers.map(sub => ({
-      email: sub.email,
-      first_name: sub.first_name || '',
-      last_name: sub.last_name || '',
-      source_file: params.fileName || 'direct import',
-      status: 'pending',
-      import_date: new Date().toISOString()
-    }));
-    
-    // Determine duplicates that already exist in the system
-    const emails = subscribers.map(s => s.email);
-    const { data: existingEmails, error: existingError } = await supabaseAdmin
-      .from('email_migration')
-      .select('email')
-      .in('email', emails);
+    // Use the database function to import subscribers
+    const payload = {
+      subscribers: subscribers,
+      fileName: params.fileName || 'direct import'
+    };
+
+    // Log the payload structure to debug
+    console.log('[EMAIL-MIGRATION] Import payload structure:', 
+      JSON.stringify({
+        payloadKeys: Object.keys(payload),
+        sampleSubscriber: subscribers[0],
+        fileName: params.fileName
+      })
+    );
+
+    const { data, error } = await supabaseAdmin.rpc('import_subscribers', {
+      subscribers_data: payload
+    });
+
+    if (error) {
+      // Log error details
+      console.error('[EMAIL-MIGRATION] Import function error:', error);
       
-    if (existingError) {
-      throw existingError;
-    }
-    
-    const existingSet = new Set(existingEmails.map(e => e.email));
-    const newRecords = records.filter(r => !existingSet.has(r.email));
-    const duplicateCount = records.length - newRecords.length;
-    
-    // Insert new records
-    let insertedCount = 0;
-    let errorCount = 0;
-    
-    if (newRecords.length > 0) {
-      const { data, error } = await supabaseAdmin
-        .from('email_migration')
-        .insert(newRecords)
-        .select();
+      // Log to database
+      await supabaseAdmin
+        .from('email_migration_logs')
+        .insert({
+          context: 'import-error',
+          data: { 
+            error: error.message, 
+            details: error.details,
+            hint: error.hint,
+            payload: {
+              subscribersLength: subscribers.length,
+              fileName: params.fileName
+            }
+          },
+          is_error: true
+        });
         
-      if (error) {
-        errorCount = newRecords.length;
-        throw error;
-      }
-      
-      insertedCount = data.length;
+      throw error;
     }
     
-    // Return summary of operation
+    console.log('[EMAIL-MIGRATION] Import success:', data);
+    
+    // Return result
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        inserted: insertedCount, 
-        duplicates: duplicateCount,
-        errors: errorCount,
-        total: records.length
-      }),
+      JSON.stringify(data),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
@@ -374,63 +404,11 @@ async function importRepositoryFile(fileName, baseUrl) {
       throw new Error('No valid subscribers found in file');
     }
     
-    // Set up data for insertion
-    const records = subscribers.map(sub => ({
-      email: sub.email,
-      first_name: sub.first_name || '',
-      last_name: sub.last_name || '',
-      source_file: fileName,
-      status: 'pending',
-      import_date: new Date().toISOString()
-    }));
-    
-    // Determine duplicates
-    const emails = subscribers.map(s => s.email);
-    const { data: existingEmails, error: existingError } = await supabaseAdmin
-      .from('email_migration')
-      .select('email')
-      .in('email', emails);
-      
-    if (existingError) {
-      throw existingError;
-    }
-    
-    const existingSet = new Set(existingEmails.map(e => e.email));
-    const newRecords = records.filter(r => !existingSet.has(r.email));
-    const duplicateCount = records.length - newRecords.length;
-    
-    // Insert new records
-    let insertedCount = 0;
-    let errorCount = 0;
-    
-    if (newRecords.length > 0) {
-      const { data, error } = await supabaseAdmin
-        .from('email_migration')
-        .insert(newRecords)
-        .select();
-        
-      if (error) {
-        errorCount = newRecords.length;
-        throw error;
-      }
-      
-      insertedCount = data.length;
-    }
-    
-    // Move file to completed folder
-    // Note: This is handled differently in HTTP mode - we can't move the file
-    
-    // Return summary
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        inserted: insertedCount, 
-        duplicates: duplicateCount,
-        errors: errorCount,
-        total: records.length
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    // Use the import function with the processed data
+    return await importSubscribers({
+      subscribers,
+      fileName
+    });
   } catch (error) {
     console.error('[EMAIL-MIGRATION] Import repository file error:', error);
     return new Response(
@@ -514,7 +492,7 @@ async function migrateBatch(batchSize, publicationId) {
             .from('email_migration')
             .update({ 
               status: 'failed', 
-              migration_date: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
               error_message: 'Simulated API failure'
             })
             .eq('id', subscriber.id);
@@ -526,7 +504,7 @@ async function migrateBatch(batchSize, publicationId) {
             .from('email_migration')
             .update({ 
               status: 'already_exists', 
-              migration_date: new Date().toISOString()
+              updated_at: new Date().toISOString()
             })
             .eq('id', subscriber.id);
             
@@ -537,8 +515,8 @@ async function migrateBatch(batchSize, publicationId) {
             .from('email_migration')
             .update({ 
               status: 'migrated', 
-              migration_date: new Date().toISOString(),
-              beehiiv_id: `mock-${crypto.randomUUID()}`
+              updated_at: new Date().toISOString(),
+              subscriber_id: `mock-${crypto.randomUUID()}`
             })
             .eq('id', subscriber.id);
             
@@ -552,7 +530,7 @@ async function migrateBatch(batchSize, publicationId) {
           .from('email_migration')
           .update({ 
             status: 'failed', 
-            migration_date: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
             error_message: error.message
           })
           .eq('id', subscriber.id);

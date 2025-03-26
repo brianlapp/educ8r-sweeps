@@ -58,23 +58,33 @@
 - Validates emails and skips invalid records
 
 ### Database Schema Extensions
+- Added `source_file` TEXT field to `email_migration` table for tracking file origin
+- Added `import_date` timestamp to `email_migration` table for import timing
 - Added `last_heartbeat` timestamp to `email_migration_automation` table
 - Added `status_details` JSONB field for detailed status reporting
 - Added `current_batch_id` for tracking active processing batch
 
 ### UI Enhancements
-- Real-time heartbeat status display with color coding
-- Pulsing heart icon to indicate active automation
-- Progress tracking for current batch processing
-- Human-readable timestamps for better monitoring
-- Direct import feature for bypassing repository file detection issues
+- Real-time import progress tracking with progress bar
+- Detailed operation status messaging
+- Improved error handling and reporting
+- Retry mechanisms for failed imports
+- Repository file refresh button
+- Direct import validation with pre-checks
+
+### Error Handling and Logging
+- Comprehensive database logging system
+- Detailed error capture and reporting
+- Multiple retry attempts for transient failures
+- Validation before import attempts
+- Clear user feedback for all operations
 
 ### Scheduled Jobs
 - Cron job to ensure server-automation runs consistently
 - Automatic cleanup of stalled migration records
 
-### Error Handling
-- Comprehensive error reporting in UI
-- Automatic retry mechanism for failed migrations
-- Rate limiting detection and handling
-- Detailed logging with context information
+### Import Process Database Function
+- `import_subscribers` database function for efficient, transactional imports
+- Handles duplicate detection
+- Provides detailed import statistics
+- Supports different input formats and field normalizations
