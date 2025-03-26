@@ -1,33 +1,46 @@
 
-# Email Migration: Product Requirements
+# Product Requirements Document
 
-## Project Goals
-- **Primary Goal**: Migrate ~200,000 email subscribers from OnGage to BeehiiV while maintaining data integrity and minimizing disruption.
-- **Success Criteria**: 100% of valid subscribers transferred with correct tags and custom fields within 30 days.
+## Project Overview
+The Email Migration Tool provides a seamless way to migrate email subscribers from OnGage to BeehiiV. The tool manages the complexities of API rate limiting, error recovery, and provides a user-friendly interface for monitoring migration progress.
 
-## Key Requirements
+## Core Features
 
-### Must-Have
-1. **Batch Processing**: Process subscribers in small batches to respect API limits
-2. **Data Integrity**: Ensure all subscriber data is transferred correctly
-3. **Error Management**: Track and resolve migration errors
-4. **Progress Tracking**: Provide clear metrics on migration status
-5. **No Duplicate Emails**: Prevent sending welcome emails to migrated subscribers
+### Subscriber Import
+- Support for CSV and JSON import formats
+- Data validation and error handling
+- Duplicate detection
 
-### Should-Have
-1. **Automation**: Process batches automatically without manual intervention
-2. **Rate Limit Handling**: Intelligently handle API rate limits
-3. **Reporting**: Generate detailed reports on migration progress
-4. **Troubleshooting**: Tools to identify and fix migration issues
+### Manual Migration
+- Manual migration of subscriber batches
+- Configuration of batch size
+- Visual progress tracking
 
-### Nice-to-Have
-1. **Analytics**: Detailed insights on migration performance
-2. **Optimization**: Dynamic batch sizing based on API response patterns
-3. **Self-Healing**: Automatic detection and correction of issues
+### Troubleshooting
+- Tools to identify and fix failed migrations
+- Ability to reset stalled records
+- Detailed error reporting
 
-## User Stories
-1. As an admin, I want to import subscribers from OnGage so I can begin the migration process.
-2. As an admin, I want to see migration progress so I can report on status to stakeholders.
-3. As an admin, I want automation to continue even when I'm offline so the process completes efficiently.
-4. As an admin, I want to troubleshoot failed migrations so all subscribers are successfully transferred.
-5. As a migrated subscriber, I don't want to receive duplicate welcome emails so my experience remains positive.
+### Client-Side Automation
+- Scheduled migration processing
+- Configuration of operating hours
+- Configuration of daily target and batch sizes
+
+### Server-Side Automation
+- Continuous background processing regardless of browser state
+- Heartbeat monitoring to verify automation is running
+- Automatic stalled record detection and recovery
+- Smart rate limiting handling with exponential backoff
+- Configurable batch size and processing intervals
+
+## User Experience
+- Clear visual indicators of migration progress
+- Real-time status updates
+- Intuitive controls for starting/stopping automation
+- Comprehensive dashboard for monitoring all aspects of the migration
+
+## Technical Requirements
+- Integration with BeehiiV API
+- Integration with Supabase Edge Functions
+- Responsive design for all screen sizes
+- Error resilience and recovery mechanisms

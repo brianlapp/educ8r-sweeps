@@ -1,58 +1,57 @@
 
-# Email Migration System Architecture
+# Architecture Documentation
 
-## Tech Stack
-- **Frontend**: React, TypeScript, Tailwind CSS, shadcn/ui
-- **Backend**: Supabase Edge Functions (Deno runtime)
-- **Database**: PostgreSQL (Supabase)
-- **External APIs**: BeehiiV API
-- **Scheduling**: pg_cron for automated processing
+## System Architecture
 
-## System Components
+### Frontend Components
+- React-based admin interface
+- Tailwind CSS for styling
+- ShadCN UI component library
+- Real-time status monitoring
 
-### Database
-- **Tables**:
-  - `email_migration`: Stores subscriber data and tracks migration status
-  - `email_migration_automation`: Stores automation settings and heartbeat
-  - `email_migration_logs`: Records detailed logs for troubleshooting
-  - `email_migration_stats`: Tracks overall statistics
+### Backend Services
+- Supabase PostgreSQL database for subscriber storage
+- Edge Functions for serverless processing
+- Server-side automation for continuous background processing
+- Scheduled cronjobs to ensure background automation runs reliably
 
-### Edge Functions
-- **email-migration**: Multi-purpose function handling various migration operations:
-  - Import subscribers
-  - Process migration batches
-  - Get migration statistics
-  - Toggle and configure automation
-- **server-automation**: Handles continuous background processing:
-  - Provides heartbeat mechanism
-  - Processes batches continuously
-  - Detects and resets stalled records
-  - Runs independently of browser sessions
+### Data Flow
+1. Admin imports subscribers via CSV/JSON upload
+2. Subscribers are stored in the PostgreSQL database
+3. Migration processing occurs via Edge Functions
+4. BeehiiV API is used to create subscribers in the target system
+5. Status updates are written back to the database
+6. UI reflects current migration status
 
-### Admin Interface
-- **Pages**:
-  - Email Migration Dashboard: Shows overall progress
-  - Import Tool: Handles subscriber data import
-  - Batch Control: Manual migration processing
-  - Automation Settings: Configure server-side automation
-  - Troubleshooting: Tools to address migration issues
+## Server-Side Automation Architecture
 
-## Data Flow
-1. **Import Flow**:
-   - Admin uploads OnGage export → Edge Function processes data → Subscriber records created in `email_migration` table
+### Components
+- `server-automation` Edge Function for continuous processing
+- Heartbeat mechanism to track automation status
+- Database tables for configuration and status tracking
+- Cron job to ensure automation runs consistently
 
-2. **Migration Flow**:
-   - Edge Function selects batch → Process subscribers through BeehiiV API → Update status in database → Repeat until complete
+### Workflow
+1. Automation is enabled/disabled via admin UI
+2. Server-automation function processes batches of subscribers
+3. Heartbeat updates confirm automation is running
+4. UI displays current automation status
+5. Processing continues even when browser is closed
 
-3. **Automation Flow**:
-   - Server-side job checks for pending subscribers → Processes batches → Handles rate limits → Updates database → Automatic heartbeat → Repeats on schedule
+### Resilience Features
+- Automatic detection and reset of stalled migrations
+- Exponential backoff for API rate limiting
+- Configurable batch sizes and timing
+- Processing outside browser context
 
-## Integration Points
-- **BeehiiV API**: Create subscribers, add tags, and verify existing subscribers
-- **Admin UI**: Dashboard and controls for monitoring and management
-- **Cron Job**: Scheduled tasks for continuous processing
+## Database Schema
 
-## Background Processing
-- **Edge Runtime Waitlist**: For long-running tasks without timeouts
-- **pg_cron**: Scheduled jobs that run independent of browser sessions
-- **Heartbeat System**: Tracks automation health and detects stalls
+### Main Tables
+- `email_migration_subscribers` - Stores subscriber data and migration status
+- `email_migration_automation` - Stores automation configuration and status
+- `email_migration_logs` - Stores detailed logs of migration activities
+
+### Key Fields
+- Status tracking (pending, in_progress, migrated, failed)
+- Timestamps for monitoring and debugging
+- Heartbeat tracking for automation health monitoring
