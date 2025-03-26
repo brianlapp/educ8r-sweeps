@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { AlertTriangle, CheckCircle, Upload, FolderOpen, RefreshCw, FileText } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Upload, FolderOpen, RefreshCw, FileText, Info } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: () => void }) => {
@@ -18,9 +18,15 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
   const [currentOperation, setCurrentOperation] = useState('');
   const [repositoryFiles, setRepositoryFiles] = useState<string[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
+  const [baseUrl, setBaseUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
+    // Set base URL on component mount
+    const url = window.location.origin;
+    setBaseUrl(url);
+    console.log('Base URL set to:', url);
+    
     // Load available files when component mounts
     listRepositoryFiles();
   }, []);
@@ -31,7 +37,10 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
       console.log('Listing repository files...');
       const { data, error } = await supabase.functions.invoke('email-migration', {
         method: 'POST',
-        body: { action: 'repository-files' }
+        body: { 
+          action: 'repository-files',
+          baseUrl: baseUrl // Explicitly pass the baseUrl
+        }
       });
       
       if (error) throw error;
@@ -131,13 +140,34 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
     
     try {
       console.log(`[DIRECT IMPORT] Attempting to import file: ${directFileName}`);
+      console.log(`[DIRECT IMPORT] Using base URL: ${baseUrl}`);
+      
+      // First, test if we can access the file directly to provide better error messages
+      try {
+        const testUrl = `${baseUrl}/emails/${directFileName}`;
+        console.log(`[DIRECT IMPORT] Testing file access with: ${testUrl}`);
+        
+        const testResponse = await fetch(testUrl, { method: 'HEAD' });
+        if (!testResponse.ok) {
+          console.error(`[DIRECT IMPORT] File access test failed: ${testResponse.status} ${testResponse.statusText}`);
+          throw new Error(`File not accessible (${testResponse.status}). Please check if "${directFileName}" exists in the /public/emails/ directory.`);
+        }
+        console.log(`[DIRECT IMPORT] File access test succeeded`);
+      } catch (accessErr: any) {
+        console.error(`[DIRECT IMPORT] File access error:`, accessErr);
+        throw new Error(`Cannot access file: ${accessErr.message}`);
+      }
+      
+      setImportProgress(20);
+      setCurrentOperation(`File found, requesting import...`);
       
       // Call the edge function to import the repository file
       const { data, error } = await supabase.functions.invoke('email-migration', {
         method: 'POST',
         body: { 
           action: 'import-repository-file',
-          fileName: directFileName
+          fileName: directFileName,
+          baseUrl: baseUrl // Explicitly pass the baseUrl
         }
       });
       
@@ -157,6 +187,12 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
     } catch (err: any) {
       console.error('[DIRECT IMPORT] Error:', err);
       toast.error(`Import failed: ${err.message}`);
+      
+      // Show additional help information
+      toast.info(
+        'Import Troubleshooting',
+        `Make sure the file exists in the /public/emails/ directory. Try the example import button as a test.`
+      );
     } finally {
       setDirectImportLoading(false);
       setTimeout(() => {
@@ -209,6 +245,40 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
     }
   };
 
+  const testFileUrl = async () => {
+    if (!directFileName) {
+      toast.error('Please enter a file name');
+      return;
+    }
+    
+    try {
+      const fileUrl = `${baseUrl}/emails/${directFileName}`;
+      console.log(`Testing file access at: ${fileUrl}`);
+      
+      toast.info(
+        'Testing file access',
+        `Checking if file exists at: ${fileUrl}`
+      );
+      
+      const response = await fetch(fileUrl, { method: 'HEAD' });
+      
+      if (response.ok) {
+        toast.success(
+          'File accessible',
+          `The file "${directFileName}" is accessible and ready for import.`
+        );
+      } else {
+        toast.error(
+          'File not accessible',
+          `Status: ${response.status} ${response.statusText}. Check if the file exists in the correct location.`
+        );
+      }
+    } catch (err: any) {
+      console.error('File test error:', err);
+      toast.error(`File test failed: ${err.message}`);
+    }
+  };
+
   return (
     <Card className="p-4 bg-white shadow-sm">
       <h3 className="text-lg font-semibold mb-4">Import Subscribers</h3>
@@ -230,22 +300,39 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
           <div className="space-y-4">
             <div className="flex items-center space-x-2">
               <div className="flex-1">
-                <div className="flex items-center space-x-2">
-                  <Input
-                    type="text"
-                    value={directFileName}
-                    onChange={(e) => setDirectFileName(e.target.value)}
-                    placeholder="chunk_ac.csv"
-                    className="flex-1"
-                  />
-                  <Button 
-                    onClick={handleDirectFileImport} 
-                    disabled={directImportLoading || !directFileName}
-                    className="whitespace-nowrap bg-green-600 hover:bg-green-700"
-                  >
-                    <FolderOpen className="h-4 w-4 mr-2" />
-                    {directImportLoading ? "Importing..." : "Import File"}
-                  </Button>
+                <div className="flex flex-col space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="text"
+                      value={directFileName}
+                      onChange={(e) => setDirectFileName(e.target.value)}
+                      placeholder="chunk_ac.csv"
+                      className="flex-1"
+                    />
+                    <Button 
+                      onClick={handleDirectFileImport} 
+                      disabled={directImportLoading || !directFileName}
+                      className="whitespace-nowrap bg-green-600 hover:bg-green-700"
+                    >
+                      <FolderOpen className="h-4 w-4 mr-2" />
+                      {directImportLoading ? "Importing..." : "Import File"}
+                    </Button>
+                  </div>
+                  <div className="flex justify-between">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={testFileUrl}
+                      className="text-xs"
+                      title="Test if the file is accessible"
+                    >
+                      <Info className="h-3 w-3 mr-1" />
+                      Test File Access
+                    </Button>
+                    <div className="text-xs text-slate-500">
+                      Base URL: {baseUrl}
+                    </div>
+                  </div>
                 </div>
               </div>
               <Button
@@ -307,6 +394,7 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
                 <li>System will automatically process and normalize email data</li>
                 <li>Click one of the available files above to select it quickly</li>
                 <li>Try the "Import Example Subscribers Directly" button for a quick test</li>
+                <li>Use "Test File Access" to verify the file is accessible before import</li>
               </ul>
             </div>
           </div>

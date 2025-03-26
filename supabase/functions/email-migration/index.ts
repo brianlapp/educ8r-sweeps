@@ -1,10 +1,9 @@
-
 // Import required dependencies
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 // Version identifier for tracking deployments
-const FUNCTION_VERSION = "1.3.2-direct-import-fix";
+const FUNCTION_VERSION = "1.3.3-file-import-fix";
 
 // Initialize Supabase client with admin privileges
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -26,11 +25,6 @@ serve(async (req) => {
     });
   }
 
-  // Get base URL for HTTP file operations
-  const url = new URL(req.url);
-  const baseUrl = `${url.protocol}//${url.host}`;
-  console.log("[EMAIL-MIGRATION] Server base URL determined as:", baseUrl);
-
   try {
     // Parse request body
     const requestBody = await req.json();
@@ -40,10 +34,26 @@ serve(async (req) => {
     // Handle both formats: { params: { ... } } and direct properties
     const params = requestBody.params || requestBody;
     
+    // Override the base URL if provided
+    let baseUrl;
+    if (params.baseUrl) {
+      baseUrl = params.baseUrl;
+      console.log("[EMAIL-MIGRATION] Using provided base URL:", baseUrl);
+    } else {
+      // Get base URL for HTTP file operations from the request
+      const url = new URL(req.url);
+      baseUrl = `${url.protocol}//${url.host}`;
+      console.log("[EMAIL-MIGRATION] Server base URL determined as:", baseUrl);
+    }
+    
     console.log(`[EMAIL-MIGRATION][${new Date().toISOString()}][request]:`, 
       JSON.stringify({ 
         action, 
-        params: { ...params, subscribers: params.subscribers ? `[${params.subscribers?.length} items]` : undefined }, 
+        params: { 
+          ...params, 
+          subscribers: params.subscribers ? `[${params.subscribers?.length} items]` : undefined,
+          baseUrl: baseUrl
+        }, 
         functionVersion: FUNCTION_VERSION 
       })
     );
@@ -56,7 +66,10 @@ serve(async (req) => {
           context: `request-${action}`,
           data: { 
             action, 
-            params: { ...params, subscribers: params.subscribers ? `[${params.subscribers?.length} items]` : undefined }
+            params: { 
+              ...params, 
+              subscribers: params.subscribers ? `[${params.subscribers?.length} items]` : undefined 
+            }
           }
         });
     } catch (logError) {
@@ -342,6 +355,16 @@ async function listRepositoryFiles(baseUrl) {
     console.log("[EMAIL-MIGRATION] Listing repository files using HTTP method");
     console.log("[EMAIL-MIGRATION] Base URL:", baseUrl);
     
+    // Log to database for debugging
+    await supabaseAdmin
+      .from('email_migration_logs')
+      .insert({
+        context: 'repository-files-list-start',
+        data: { 
+          baseUrl
+        }
+      });
+    
     // Common naming patterns for email export chunks
     const patterns = [
       // Standard chunk patterns
@@ -447,16 +470,48 @@ async function importRepositoryFile(fileName, baseUrl) {
       });
     
     // Try fetching the file
-    const response = await fetch(fileUrl);
+    let response;
+    try {
+      response = await fetch(fileUrl);
+      
+      // Log response status for debugging
+      console.log(`[EMAIL-MIGRATION] File fetch response: ${response.status} ${response.statusText}`);
+      await supabaseAdmin
+        .from('email_migration_logs')
+        .insert({
+          context: 'import-repository-file-response',
+          data: { 
+            fileName,
+            fileUrl,
+            status: response.status,
+            statusText: response.statusText
+          }
+        });
+    } catch (fetchErr) {
+      console.error(`[EMAIL-MIGRATION] Error fetching file:`, fetchErr);
+      throw new Error(`Network error fetching file: ${fetchErr.message}`);
+    }
+    
     if (!response.ok) {
       console.error(`[EMAIL-MIGRATION] Failed to fetch file: ${response.status} ${response.statusText}`);
-      
-      // Try a different approach - maybe the domain is different
       throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}. URL: ${fileUrl}`);
     }
     
     const content = await response.text();
     console.log(`[EMAIL-MIGRATION] Successfully fetched file (${content.length} bytes)`);
+    
+    // Log content preview for debugging
+    await supabaseAdmin
+      .from('email_migration_logs')
+      .insert({
+        context: 'import-repository-file-content',
+        data: { 
+          fileName,
+          fileUrl,
+          contentLength: content.length,
+          contentPreview: content.slice(0, 500) // Log first 500 chars as preview
+        }
+      });
     
     // Process file based on extension
     let subscribers = [];

@@ -100,6 +100,9 @@
 - Enhanced logging system to capture more details about import attempts
 - Added example import button for quick verification of system functionality
 - Fixed issues with direct file import functionality
+- Fixed absolute URL construction for file imports
+- Added better error messaging for file access problems
+- Enhanced direct file import with robust error handling
 
 #### Important Notes for Importing Files
 - Direct Import is now the recommended method for importing subscriber files
@@ -108,4 +111,3 @@
 - System will automatically process and normalize email data
 - Use the file browser to quickly select available files
 - If having trouble with files, try the "Import Example Subscribers Directly" button
-
