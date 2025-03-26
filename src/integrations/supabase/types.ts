@@ -210,41 +210,50 @@ export type Database = {
       email_migration_automation: {
         Row: {
           created_at: string | null
+          current_batch_id: string | null
           daily_total_target: number
           enabled: boolean
           end_hour: number
           id: string
           last_automated_run: string | null
+          last_heartbeat: string | null
           max_batch_size: number
           min_batch_size: number
           publication_id: string | null
           start_hour: number
+          status_details: Json | null
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
+          current_batch_id?: string | null
           daily_total_target?: number
           enabled?: boolean
           end_hour?: number
           id?: string
           last_automated_run?: string | null
+          last_heartbeat?: string | null
           max_batch_size?: number
           min_batch_size?: number
           publication_id?: string | null
           start_hour?: number
+          status_details?: Json | null
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
+          current_batch_id?: string | null
           daily_total_target?: number
           enabled?: boolean
           end_hour?: number
           id?: string
           last_automated_run?: string | null
+          last_heartbeat?: string | null
           max_batch_size?: number
           min_batch_size?: number
           publication_id?: string | null
           start_hour?: number
+          status_details?: Json | null
           updated_at?: string | null
         }
         Relationships: []

@@ -36,6 +36,7 @@
 - Added `last_heartbeat` timestamp to `email_migration_automation` table
 - Added `status_details` JSONB field for detailed status reporting
 - Added `current_batch_id` for tracking active processing batch
+- Created `email_migration_logs` table for detailed debugging and monitoring
 
 ### UI Enhancements
 - Real-time heartbeat status display with color coding
@@ -62,3 +63,9 @@
 - JSON Parsing: Import function requires subscribers data as a proper array of objects, not a stringified array
 - Database Function: The `import_subscribers` function expects a JSONB array, not a string
 - Testing Utilities: Added test functions for data format verification
+
+### Logging System
+- Detailed contextual logging with timestamp tracking
+- Error state identification and reporting
+- Performance metrics collection
+- Batch processing analytics
