@@ -1,12 +1,12 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { AlertTriangle, CheckCircle, Upload, FolderOpen } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Upload, FolderOpen, RefreshCw } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: () => void }) => {
@@ -16,72 +16,40 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
   const [directImportLoading, setDirectImportLoading] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [currentOperation, setCurrentOperation] = useState('');
+  const [repositoryFiles, setRepositoryFiles] = useState<string[]>([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  useEffect(() => {
+    // Load available files when component mounts
+    listRepositoryFiles();
+  }, []);
+  
+  const listRepositoryFiles = async () => {
+    setLoadingFiles(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('email-migration', {
+        method: 'POST',
+        body: { action: 'repository-files' }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.files) {
+        setRepositoryFiles(data.files);
+        console.log(`Found ${data.files.length} files in repository:`, data.files);
+      }
+    } catch (err: any) {
+      console.error('Error listing repository files:', err);
+      toast.error('Failed to load file list', err.message);
+    } finally {
+      setLoadingFiles(false);
+    }
+  };
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setFile(e.target.files[0]);
-    }
-  };
-  
-  const processFileContent = (content: string) => {
-    try {
-      console.log('Processing file content...');
-      let subscribers = [];
-      
-      if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
-        console.log('Parsing JSON file...');
-        const parsed = JSON.parse(content);
-        
-        if (Array.isArray(parsed)) {
-          subscribers = parsed;
-        } else if (parsed.subscribers) {
-          subscribers = parsed.subscribers;
-        } else if (parsed.data) {
-          subscribers = parsed.data;
-        } else {
-          throw new Error('Could not find subscriber data in JSON file');
-        }
-      } else {
-        console.log('Parsing CSV file...');
-        const lines = content.split('\n');
-        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-        
-        for (let i = 1; i < lines.length; i++) {
-          if (!lines[i].trim()) continue;
-          
-          const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-          const subscriber: Record<string, string> = {};
-          
-          headers.forEach((header, index) => {
-            if (index < values.length) {
-              subscriber[header] = values[index];
-            }
-          });
-          
-          subscribers.push(subscriber);
-        }
-      }
-      
-      console.log(`Found ${subscribers.length} subscribers`);
-      
-      if (subscribers.length === 0) {
-        throw new Error('No subscribers found in the file');
-      }
-      
-      subscribers = subscribers.map(sub => {
-        return {
-          email: sub.email || sub.Email || sub.EMAIL || '',
-          first_name: sub.first_name || sub.firstName || sub.FirstName || sub['First Name'] || '',
-          last_name: sub.last_name || sub.lastName || sub.LastName || sub['Last Name'] || ''
-        };
-      }).filter(sub => sub.email && sub.email.includes('@'));
-      
-      console.log(`Normalized to ${subscribers.length} valid subscribers`);
-      return subscribers;
-    } catch (err) {
-      console.error('Error processing file:', err);
-      throw err;
     }
   };
   
@@ -100,17 +68,19 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
           try {
             setCurrentOperation('Processing file content...');
             const content = e.target.result as string;
-            const subscribers = processFileContent(content);
             
+            // Process file directly
             setCurrentOperation('Importing subscribers...');
             setImportProgress(50);
+            
+            console.log('Uploading file with size:', content.length);
             
             const { data, error } = await supabase.functions.invoke('email-migration', {
               method: 'POST',
               body: { 
                 action: 'import', 
-                subscribers,
-                fileName: file.name
+                fileName: file.name,
+                fileContent: content
               }
             });
             
@@ -155,26 +125,17 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
     }
     
     setDirectImportLoading(true);
-    setImportProgress(0);
-    setCurrentOperation(`Importing ${directFileName}...`);
+    setImportProgress(10);
+    setCurrentOperation(`Loading file ${directFileName}...`);
     
     try {
-      // Directly use the file content as JSON payload - simpler and more reliable approach
-      const subscribers = [
-        { email: "test1@example.com", first_name: "Test", last_name: "User1" },
-        { email: "test2@example.com", first_name: "Test", last_name: "User2" },
-        { email: "test3@example.com", first_name: "Test", last_name: "User3" },
-      ];
+      console.log(`[DIRECT IMPORT] Attempting to import file: ${directFileName}`);
       
-      console.log(`[DIRECT IMPORT] Using direct import with test data`);
-      
-      setImportProgress(50);
-      
+      // Call the edge function to import the repository file
       const { data, error } = await supabase.functions.invoke('email-migration', {
         method: 'POST',
         body: { 
-          action: 'import',
-          subscribers: subscribers,
+          action: 'import-repository-file',
           fileName: directFileName
         }
       });
@@ -187,7 +148,7 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
       setImportProgress(100);
       setCurrentOperation('Import complete!');
       
-      toast.success(`Test import successful: 3 records loaded into pending status`);
+      toast.success(`File import successful: ${data.inserted} records imported, ${data.duplicates} duplicates, ${data.errors} errors`);
       
       if (onImportComplete) onImportComplete();
     } catch (err: any) {
@@ -215,9 +176,84 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
       
       <Tabs defaultValue="direct">
         <TabsList className="mb-4">
+          <TabsTrigger value="direct">Direct Import</TabsTrigger>
           <TabsTrigger value="file">File Upload</TabsTrigger>
-          <TabsTrigger value="direct">Quick Import</TabsTrigger>
         </TabsList>
+        
+        <TabsContent value="direct" className="space-y-4">
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <div className="flex-1">
+                <div className="flex items-center space-x-2">
+                  <Input
+                    type="text"
+                    value={directFileName}
+                    onChange={(e) => setDirectFileName(e.target.value)}
+                    placeholder="chunk_ac.csv"
+                    className="flex-1"
+                  />
+                  <Button 
+                    onClick={handleDirectFileImport} 
+                    disabled={directImportLoading}
+                    className="whitespace-nowrap bg-green-600 hover:bg-green-700"
+                  >
+                    <FolderOpen className="h-4 w-4 mr-2" />
+                    {directImportLoading ? "Importing..." : "Import File"}
+                  </Button>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={listRepositoryFiles}
+                disabled={loadingFiles}
+                title="Refresh file list"
+              >
+                <RefreshCw className={`h-4 w-4 ${loadingFiles ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+            
+            {repositoryFiles.length > 0 && (
+              <div className="bg-slate-50 p-3 rounded border border-slate-200">
+                <h4 className="font-medium mb-2 flex items-center">
+                  <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                  Available Files ({repositoryFiles.length})
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {repositoryFiles.slice(0, 12).map((fileName) => (
+                    <Button
+                      key={fileName}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-auto py-1 justify-start overflow-hidden text-ellipsis"
+                      onClick={() => setDirectFileName(fileName)}
+                    >
+                      {fileName}
+                    </Button>
+                  ))}
+                  {repositoryFiles.length > 12 && (
+                    <div className="text-xs text-slate-500 p-1">
+                      and {repositoryFiles.length - 12} more...
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            <div className="text-sm text-slate-500 bg-green-50 p-3 rounded border border-green-100">
+              <h4 className="font-medium flex items-center mb-2">
+                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                Direct File Import
+              </h4>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Enter the exact filename (e.g., "chunk_ac.csv")</li>
+                <li>Files must be located in the <code>/public/emails/</code> directory</li>
+                <li>System will automatically process and normalize email data</li>
+                <li>Click one of the available files above to select it quickly</li>
+              </ul>
+            </div>
+          </div>
+        </TabsContent>
         
         <TabsContent value="file" className="space-y-4">
           <div className="space-y-4">
@@ -256,44 +292,6 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
                 <li>Optional fields: <code>first_name</code>, <code>last_name</code></li>
                 <li>Alternative field names like "Email", "FirstName" are supported</li>
                 <li>Records without a valid email will be skipped</li>
-              </ul>
-            </div>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="direct" className="space-y-4">
-          <div className="space-y-4">
-            <div className="flex items-center space-x-4">
-              <Input
-                type="text"
-                value={directFileName}
-                onChange={(e) => setDirectFileName(e.target.value)}
-                placeholder="test_import.csv"
-                className="flex-1"
-              />
-              <Button 
-                onClick={handleDirectFileImport} 
-                disabled={directImportLoading}
-                className="whitespace-nowrap bg-green-600 hover:bg-green-700"
-              >
-                <FolderOpen className="h-4 w-4 mr-2" />
-                {directImportLoading ? "Importing..." : "Quick Test Import"}
-              </Button>
-            </div>
-            
-            <div className="text-sm text-slate-500 bg-green-50 p-3 rounded border border-green-100">
-              <h4 className="font-medium flex items-center mb-2">
-                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                Quick Test Import
-              </h4>
-              <p className="mb-2">
-                This option will create 3 test subscribers directly in the pending state, ready for migration testing.
-              </p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>No file access required</li>
-                <li>Creates 3 test subscribers in pending status</li>
-                <li>Perfect for testing the migration process</li>
-                <li>The filename field is just for reference in logs</li>
               </ul>
             </div>
           </div>

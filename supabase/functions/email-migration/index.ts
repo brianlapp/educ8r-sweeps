@@ -358,7 +358,12 @@ async function importRepositoryFile(fileName, baseUrl) {
     if (fileName.endsWith('.csv')) {
       // Process CSV
       const lines = content.split('\n');
+      if (lines.length === 0) {
+        throw new Error('Empty CSV file');
+      }
+      
       const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+      console.log(`[EMAIL-MIGRATION] CSV headers: ${headers.join(', ')}`);
       
       for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
@@ -411,6 +416,24 @@ async function importRepositoryFile(fileName, baseUrl) {
     });
   } catch (error) {
     console.error('[EMAIL-MIGRATION] Import repository file error:', error);
+    
+    // Log detailed error to database
+    try {
+      await supabaseAdmin
+        .from('email_migration_logs')
+        .insert({
+          context: 'import-repository-file-error',
+          data: { 
+            error: error.message, 
+            fileName: fileName,
+            baseUrl: baseUrl
+          },
+          is_error: true
+        });
+    } catch (logError) {
+      console.error('[EMAIL-MIGRATION] Error logging to database:', logError);
+    }
+    
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

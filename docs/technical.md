@@ -1,3 +1,4 @@
+
 # Technical Documentation
 
 ## Email Migration System
@@ -40,15 +41,16 @@
 - Works with both relative and absolute URL paths
 
 #### Repository File Detection
-- Probes for files based on common naming patterns
+- Probes for files in the `/public/emails/` directory
 - Supports automatic discovery of CSV and JSON files
 - Handles file detection through HEAD requests to minimize bandwidth
 - Provides detailed error reporting for troubleshooting
 
-#### Alternative Import Methods
-- **Direct Import**: Specify a filename without requiring repository detection
-- **URL Import**: Use a full URL to access files that may not be in the repository
-- **File Upload**: Directly upload files from a local machine
+#### Direct Import Method
+- **Direct Import**: Specify the exact filename in the `/public/emails/` directory
+- Files are loaded via HTTP request from the public directory
+- System shows available files for quick selection
+- Provide immediate feedback on import progress and results
 
 #### File Processing
 - Supports both CSV and JSON formats
@@ -67,8 +69,7 @@
 - Real-time import progress tracking with progress bar
 - Detailed operation status messaging
 - Improved error handling and reporting
-- Retry mechanisms for failed imports
-- Repository file refresh button
+- Repository file browser with refresh capability
 - Direct import validation with pre-checks
 
 ### Error Handling and Logging
@@ -91,13 +92,15 @@
 ### Recent Updates
 
 #### Fixed File Import Issues
-- Direct Import method has been optimized for reliability
-- Improved error handling for file loading
-- Added better user feedback during import process
-- Enhanced logging for troubleshooting import failures
+- Direct Import method completely rebuilt for reliability
+- Improved HTTP-based file loading from public directory
+- Added file list refreshing and browsing capability
+- Enhanced error handling and detailed logging
+- Optimized UI to prioritize Direct Import as the recommended method
 
 #### Important Notes for Importing Files
 - Direct Import is now the recommended method for importing subscriber files
 - Enter the exact filename (e.g., "chunk_ac.csv") in the Direct Import field
 - Files must be located in the `/public/emails/` directory
 - System will automatically process and normalize email data
+- Use the file browser to quickly select available files
