@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { cors } from '../_shared/cors.ts';
@@ -167,7 +168,7 @@ const readRepositoryFile = async (fileName: string) => {
       for (let i = 1; i < rows.length; i++) {
         if (!rows[i].trim()) continue;
         
-        const values = rows[i].split(',').map(v => v.trim().replace(/^"|"$/g, '));
+        const values = rows[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
         
         const subscriber: Record<string, string> = {};
         headers.forEach((header, index) => {
@@ -275,7 +276,32 @@ serve(async (req) => {
   }
 
   try {
-    const { action, params, fileName } = await req.json();
+    // Extract the request body and detect what format it's in
+    const requestBody = await req.json();
+    let action, params, fileName;
+
+    // Normalize the request structure to handle both formats
+    if (requestBody.action) {
+      // Standard format: { action, params, fileName }
+      action = requestBody.action;
+      params = requestBody.params || {};
+      fileName = requestBody.fileName;
+    } else if (requestBody.subscribers) {
+      // Direct subscribers format: assume it's an import action
+      action = 'import';
+      params = {
+        subscribers: requestBody.subscribers,
+        fileName: requestBody.fileName
+      };
+      fileName = requestBody.fileName;
+    } else {
+      // Unknown format
+      return new Response(
+        JSON.stringify({ error: 'Invalid request format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     await logDebug('request', { action, params, functionVersion: MIGRATION_FUNCTION_VERSION });
 
     const url = new URL(req.url);
