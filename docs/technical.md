@@ -69,3 +69,8 @@
 - Error state identification and reporting
 - Performance metrics collection
 - Batch processing analytics
+
+### Server Automation Configuration
+- IMPORTANT: The automation record ID used in the system is `1b0139ac-24b3-4cc7-81d5-ea2f86007a9a`
+- Publication ID for BeehiiV API: `pub_7588ba6b-a268-4571-9135-47a68568ee64`
+- Welcome emails are disabled during migration (send_welcome_email: false)

@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -7,7 +8,10 @@ const supabaseAdminKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const supabaseAdmin = createClient(supabaseUrl, supabaseAdminKey);
 
 // Add a version identifier to verify deployment
-const AUTOMATION_FUNCTION_VERSION = "1.0.0";
+const AUTOMATION_FUNCTION_VERSION = "1.0.1";
+
+// The correct automation record ID from your database
+const AUTOMATION_RECORD_ID = "1b0139ac-24b3-4cc7-81d5-ea2f86007a9a";
 
 // Handle CORS
 const corsHeaders = {
@@ -59,7 +63,7 @@ const updateAutomationStatus = async (details: any = {}) => {
         last_heartbeat: new Date().toISOString(),
         status_details: details
       })
-      .eq('id', '7250c6e9-77ab-41c5-a88c-98c764c4f432'); // Default automation record ID
+      .eq('id', AUTOMATION_RECORD_ID); // Using the correct automation record ID
       
     if (error) {
       console.error('Failed to update automation status:', error);
@@ -175,7 +179,7 @@ const processMigrationBatch = async (batchSize: number, publicationId: string) =
           started_at: new Date().toISOString()
         }
       })
-      .eq('id', '7250c6e9-77ab-41c5-a88c-98c764c4f432');
+      .eq('id', AUTOMATION_RECORD_ID); // Using the correct automation record ID
 
     // 4. Process the batch by calling the standard email-migration function
     const response = await fetch(`${supabaseUrl}/functions/v1/email-migration`, {
@@ -216,7 +220,7 @@ const processMigrationBatch = async (batchSize: number, publicationId: string) =
           completed_at: new Date().toISOString()
         }
       })
-      .eq('id', '7250c6e9-77ab-41c5-a88c-98c764c4f432');
+      .eq('id', AUTOMATION_RECORD_ID); // Using the correct automation record ID
 
     return { 
       success: true, 
@@ -240,7 +244,7 @@ const isWithinOperatingHours = async () => {
     const { data, error } = await supabaseAdmin
       .from('email_migration_automation')
       .select('enabled, start_hour, end_hour')
-      .eq('id', '7250c6e9-77ab-41c5-a88c-98c764c4f432')
+      .eq('id', AUTOMATION_RECORD_ID) // Using the correct automation record ID
       .single();
       
     if (error || !data) {
@@ -272,7 +276,7 @@ const getAutomationConfig = async () => {
     const { data, error } = await supabaseAdmin
       .from('email_migration_automation')
       .select('*')
-      .eq('id', '7250c6e9-77ab-41c5-a88c-98c764c4f432')
+      .eq('id', AUTOMATION_RECORD_ID) // Using the correct automation record ID
       .single();
       
     if (error || !data) {
@@ -306,7 +310,7 @@ serve(async (req) => {
       const { data, error } = await supabaseAdmin
         .from('email_migration_automation')
         .select('last_heartbeat, status_details, enabled')
-        .eq('id', '7250c6e9-77ab-41c5-a88c-98c764c4f432')
+        .eq('id', AUTOMATION_RECORD_ID) // Using the correct automation record ID
         .single();
         
       return new Response(
@@ -451,7 +455,7 @@ serve(async (req) => {
             .update({ 
               last_automated_run: new Date().toISOString() 
             })
-            .eq('id', '7250c6e9-77ab-41c5-a88c-98c764c4f432');
+            .eq('id', AUTOMATION_RECORD_ID); // Using the correct automation record ID
             
           await logDebug('continuous-complete', result);
         } catch (err) {
