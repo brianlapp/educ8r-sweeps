@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -8,7 +7,7 @@ const supabaseAdminKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const supabaseAdmin = createClient(supabaseUrl, supabaseAdminKey);
 
 // Add a version identifier to verify deployment
-const AUTOMATION_FUNCTION_VERSION = "1.1.2-file-listing-fix";
+const AUTOMATION_FUNCTION_VERSION = "1.2.0-http-file-access";
 
 // Handle CORS
 const corsHeaders = {
@@ -288,76 +287,130 @@ const getAutomationConfig = async () => {
   }
 };
 
-// List repository files (CSV or JSON files)
-const listRepositoryFiles = async () => {
+// List repository files (CSV or JSON files) using HTTP directly
+const listRepositoryFiles = async (baseUrl: string) => {
   try {
-    await logDebug('list-repository-files-start', 'Starting repository file listing');
-    
-    // Direct API call to list files in the storage - this is more reliable than going through another function
-    const response = await fetch(`${supabaseUrl}/storage/v1/object/list/public/emails`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseAdminKey}`,
-        'apikey': `${supabaseAdminKey}`
-      }
+    await logDebug('list-repository-files-start', {
+      message: 'Starting repository file listing with HTTP method',
+      baseUrl
     });
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      await logDebug('list-repository-files-error', 
-        `Storage API error: ${response.status} ${response.statusText} - ${errorText}`, true);
-      
-      // Fallback to using the email-migration function
-      await logDebug('list-repository-files-fallback', 'Trying fallback method with email-migration function');
-      
-      const fallbackResponse = await fetch(`${supabaseUrl}/functions/v1/email-migration`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAdminKey}`,
-        },
-        body: JSON.stringify({ 
-          action: 'list-repository-files',
-          debug: true
-        }),
-      });
-      
-      if (!fallbackResponse.ok) {
-        const fallbackErrorText = await fallbackResponse.text();
-        await logDebug('list-repository-files-fallback-error', 
-          `Fallback error: ${fallbackResponse.status} ${fallbackResponse.statusText} - ${fallbackErrorText}`, true);
-        throw new Error(`Failed to list repository files: ${fallbackResponse.status} ${fallbackResponse.statusText}`);
-      }
-      
-      const fallbackResult = await fallbackResponse.json();
-      await logDebug('list-repository-files-fallback-result', fallbackResult);
-      return fallbackResult;
+    // We'll use a combination of known patterns and HTTP probing to find files
+    // First, check if the baseUrl ends with a slash, if not add it
+    if (!baseUrl.endsWith('/')) {
+      baseUrl += '/';
     }
     
-    const files = await response.json();
+    // Common naming patterns for email export chunks
+    const patterns = [
+      // Numeric patterns
+      ...Array.from({ length: 10 }, (_, i) => `chunk_${i}.csv`),
+      // Alphabetic patterns (aa, ab, ac, etc.)
+      ...Array.from({ length: 10 }, (_, i) => {
+        const firstChar = 'a';
+        const secondChar = String.fromCharCode(firstChar.charCodeAt(0) + i);
+        return `chunk_${firstChar}${secondChar}.csv`;
+      }),
+      // Alphabetic patterns with uppercase
+      ...Array.from({ length: 10 }, (_, i) => {
+        const firstChar = 'A';
+        const secondChar = String.fromCharCode(firstChar.charCodeAt(0) + i);
+        return `chunk_${firstChar}${secondChar}.csv`;
+      }),
+      // Date-based patterns (for today, yesterday, and the day before)
+      ...[0, 1, 2].map(daysAgo => {
+        const date = new Date();
+        date.setDate(date.getDate() - daysAgo);
+        const formattedDate = date.toISOString().split('T')[0]; // YYYY-MM-DD
+        return `export_${formattedDate}.csv`;
+      }),
+      // Generic patterns
+      'subscribers.csv',
+      'export.csv',
+      'contacts.csv',
+      'email_list.csv',
+      'mailing_list.csv',
+      'ongage_export.csv',
+      'subscribers.json',
+      'export.json',
+    ];
     
-    // Filter to only include .csv and .json files that are not in completed folder
-    const csvAndJsonFiles = files
-      .filter((file: any) => 
-        (file.name.endsWith('.csv') || file.name.endsWith('.json')) && 
-        !file.name.includes('/completed/'))
-      .map((file: any) => file.name);
+    await logDebug('http-probe-patterns', { 
+      count: patterns.length,
+      samples: patterns.slice(0, 5)
+    });
+
+    // Try each pattern by making HEAD requests
+    const foundFiles = [];
+    const filesWithStatus = [];
     
-    await logDebug('list-repository-files-success', { 
-      total_files: files.length,
-      filtered_files: csvAndJsonFiles.length,
-      files: csvAndJsonFiles.slice(0, 10) // Just log first 10 for brevity
+    for (const pattern of patterns) {
+      const url = `${baseUrl}emails/${pattern}`;
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        filesWithStatus.push({ file: pattern, status: response.status });
+        
+        if (response.ok) {
+          foundFiles.push(pattern);
+          await logDebug('http-file-found', { file: pattern, url });
+        }
+      } catch (err) {
+        await logDebug('http-file-check-error', { 
+          file: pattern, 
+          url,
+          error: err.message 
+        }, true);
+      }
+    }
+    
+    // Log a summary of what we found
+    await logDebug('http-file-check-summary', { 
+      totalPatterns: patterns.length,
+      foundFiles: foundFiles.length,
+      filesWithStatus: filesWithStatus.slice(0, 10) // Only show first 10 for brevity
     });
     
+    if (foundFiles.length === 0) {
+      await logDebug('no-files-found', 'No files found using HTTP probing patterns');
+      
+      // Try the /emails/ directory to see if we can at least access it
+      try {
+        const directoryCheckUrl = `${baseUrl}emails/`;
+        const directoryResponse = await fetch(directoryCheckUrl, { method: 'HEAD' });
+        
+        await logDebug('directory-check', { 
+          url: directoryCheckUrl,
+          status: directoryResponse.status,
+          statusText: directoryResponse.statusText
+        });
+        
+        if (directoryResponse.ok) {
+          await logDebug('directory-accessible', 'The /emails/ directory exists but no matching files were found.');
+        } else {
+          await logDebug('directory-not-accessible', 'The /emails/ directory appears to be inaccessible.');
+        }
+      } catch (dirErr) {
+        await logDebug('directory-check-error', { 
+          error: dirErr.message 
+        }, true);
+      }
+    }
+    
     return { 
-      files: csvAndJsonFiles,
-      total: files.length,
-      filtered: csvAndJsonFiles.length
+      success: true,
+      files: foundFiles,
+      total: foundFiles.length,
+      method: "http-probe",
+      baseUrl: baseUrl
     };
   } catch (err) {
     await logDebug('list-repository-files-exception', err, true);
-    return { files: [], error: err.message };
+    return { 
+      success: false, 
+      files: [], 
+      error: err.message,
+      method: "http-probe-failed"
+    };
   }
 };
 
@@ -401,7 +454,9 @@ serve(async (req) => {
     // Handle list-repository-files action
     if (action === 'list-repository-files') {
       console.log('[SERVER-AUTOMATION] Processing list-repository-files request');
-      const result = await listRepositoryFiles();
+      // Extract the base URL from the request if provided, otherwise use the request URL
+      const baseUrl = requestData.baseUrl || new URL(req.url).origin;
+      const result = await listRepositoryFiles(baseUrl);
       return new Response(
         JSON.stringify(result),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

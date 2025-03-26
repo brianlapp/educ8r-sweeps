@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { RefreshCw, Upload, FileUp, AlertCircle, CheckCircle2, Info, FileText } from 'lucide-react';
+import { RefreshCw, Upload, FileUp, AlertCircle, CheckCircle2, Info, FileText, FolderSearch } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from '@/components/ui/input';
 
 export function EmailMigrationImport({ onImportComplete }: { onImportComplete: () => void }) {
   const [isUploading, setIsUploading] = useState(false);
@@ -31,6 +32,7 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
   const [selectedRepoFile, setSelectedRepoFile] = useState<string>('');
   const [isLoadingRepoFiles, setIsLoadingRepoFiles] = useState(false);
   const [repoFilesLoadError, setRepoFilesLoadError] = useState<string | null>(null);
+  const [manualFileUrl, setManualFileUrl] = useState<string>('');
 
   useEffect(() => {
     fetchRepositoryFiles();
@@ -45,13 +47,18 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
       console.log('Fetching repository files...');
       setDiagnosticInfo(prev => prev + `Attempting to fetch repository files via server-automation function\n`);
       
-      // Try server-automation endpoint first (should be more reliable)
+      // Get the base URL for the current site
+      const baseUrl = window.location.origin;
+      setDiagnosticInfo(prev => prev + `Using base URL: ${baseUrl}\n`);
+      
+      // Try server-automation endpoint with HTTP method
       let response;
       try {
         response = await supabase.functions.invoke('server-automation', {
           method: 'POST',
           body: { 
             action: 'list-repository-files',
+            baseUrl: baseUrl,
             timestamp: new Date().toISOString() // Prevent caching
           }
         });
@@ -573,9 +580,167 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
     }
   };
 
+  const processManualFileUrl = async () => {
+    if (!manualFileUrl) {
+      toast({
+        title: "No File URL Entered",
+        description: "Please enter a repository file URL to import.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsProcessing(true);
+    setProgress(10);
+    setImportResults(null);
+    setDiagnosticInfo(`\n----- STARTING MANUAL URL IMPORT [${new Date().toISOString()}] -----\n`);
+    setDiagnosticInfo(prev => prev + `Starting import of file from URL: ${manualFileUrl}\n`);
+    
+    try {
+      // First, try to fetch the file content directly
+      setDiagnosticInfo(prev => prev + `Fetching file content from URL...\n`);
+      let fileResponse;
+      
+      try {
+        fileResponse = await fetch(manualFileUrl);
+        
+        if (!fileResponse.ok) {
+          throw new Error(`Failed to fetch file: ${fileResponse.status} ${fileResponse.statusText}`);
+        }
+      } catch (fetchErr) {
+        setDiagnosticInfo(prev => prev + `Error fetching file: ${fetchErr.message}\n`);
+        throw new Error(`Failed to fetch file: ${fetchErr.message}`);
+      }
+      
+      // Get the file content as text
+      const fileContent = await fileResponse.text();
+      setDiagnosticInfo(prev => prev + `Successfully fetched file (${fileContent.length} bytes)\n`);
+      
+      // Extract file name from URL
+      const fileName = manualFileUrl.split('/').pop() || 'manual_import.csv';
+      setDiagnosticInfo(prev => prev + `Extracted filename: ${fileName}\n`);
+      
+      // Process the file content similar to processFile
+      setProgress(30);
+      
+      let subscribers;
+      
+      if (fileName.endsWith('.json')) {
+        try {
+          setDiagnosticInfo(prev => prev + `Parsing JSON file...\n`);
+          subscribers = JSON.parse(fileContent);
+          
+          if (!Array.isArray(subscribers)) {
+            setDiagnosticInfo(prev => prev + `JSON is not an array, trying to find subscribers property...\n`);
+            if (subscribers.subscribers) {
+              subscribers = subscribers.subscribers;
+              setDiagnosticInfo(prev => prev + `Found subscribers in 'subscribers' property.\n`);
+            } else if (subscribers.data) {
+              subscribers = subscribers.data;
+              setDiagnosticInfo(prev => prev + `Found subscribers in 'data' property.\n`);
+            } else if (subscribers.results) {
+              subscribers = subscribers.results;
+              setDiagnosticInfo(prev => prev + `Found subscribers in 'results' property.\n`);
+            } else {
+              throw new Error('Could not find subscribers array in JSON');
+            }
+          }
+          
+          setDiagnosticInfo(prev => prev + `JSON parsed successfully. Found ${subscribers.length} records.\n`);
+          if (subscribers.length > 0) {
+            setDiagnosticInfo(prev => prev + `Sample record: ${JSON.stringify(subscribers[0])}\n`);
+          }
+        } catch (error) {
+          setParseError('Invalid JSON format: ' + (error as Error).message);
+          setDiagnosticInfo(prev => prev + `JSON parse error: ${(error as Error).message}\n`);
+          throw error;
+        }
+      } else {
+        try {
+          setDiagnosticInfo(prev => prev + `Parsing CSV file...\n`);
+          subscribers = processCSV(fileContent);
+        } catch (error) {
+          setParseError('Invalid CSV format: ' + (error as Error).message);
+          setDiagnosticInfo(prev => prev + `CSV parse error: ${(error as Error).message}\n`);
+          throw error;
+        }
+      }
+      
+      if (!Array.isArray(subscribers) || subscribers.length === 0) {
+        setParseError('No subscribers found in file');
+        setDiagnosticInfo(prev => prev + `No subscribers found in file or not an array.\n`);
+        throw new Error('No subscribers found in file');
+      }
+      
+      const formattedSubscribers = subscribers.map((sub: any) => {
+        const email = sub.email || sub.Email || sub.EMAIL;
+        const firstName = sub.first_name || sub.firstName || sub.FirstName || sub['First Name'] || '';
+        const lastName = sub.last_name || sub.lastName || sub.LastName || sub['Last Name'] || '';
+        
+        return { email, first_name: firstName, last_name: lastName };
+      }).filter((sub: any) => sub.email);
+      
+      if (formattedSubscribers.length === 0) {
+        setParseError('No valid email addresses found in file');
+        setDiagnosticInfo(prev => prev + `No valid email addresses found after mapping fields.\n`);
+        throw new Error('No valid email addresses found in file');
+      }
+      
+      setDiagnosticInfo(prev => prev + `Formatted ${formattedSubscribers.length} subscribers for import.\n`);
+      setDiagnosticInfo(prev => prev + `First subscriber: ${JSON.stringify(formattedSubscribers[0])}\n`);
+
+      console.log(`Importing ${formattedSubscribers.length} subscribers using chunked upload`);
+      setProgress(40);
+      
+      const result = await uploadSubscribersInChunks(formattedSubscribers, fileName);
+      
+      console.log('Import completed:', result);
+      setImportResults(result);
+      
+      if (result.success) {
+        toast({
+          title: "Import Successful",
+          description: `Imported ${result.inserted} subscribers (${result.duplicates} duplicates, ${result.errors} errors).`,
+          variant: "default"
+        });
+      } else {
+        toast({
+          title: "Import Partially Completed",
+          description: `Partially imported ${result.inserted} subscribers with some errors. Please check logs.`,
+          variant: "destructive"
+        });
+      }
+      
+      setManualFileUrl('');
+      
+      if (onImportComplete) {
+        onImportComplete();
+        setTimeout(onImportComplete, 1000);
+        setTimeout(onImportComplete, 3000);
+      }
+    } catch (error: any) {
+      console.error('Manual file URL import error:', error);
+      setDiagnosticInfo(prev => prev + `MANUAL URL IMPORT ERROR: ${error.message}\n`);
+      setImportResults({
+        success: false,
+        error: error.message || "Failed to import subscribers from URL"
+      });
+      toast({
+        title: "Import Failed",
+        description: error.message || "Failed to import subscribers from URL.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+      setProgress(0);
+      setDiagnosticInfo(prev => prev + `----- MANUAL URL IMPORT COMPLETE [${new Date().toISOString()}] -----\n`);
+    }
+  };
+
   const resetImport = () => {
     setFile(null);
     setSelectedRepoFile('');
+    setManualFileUrl('');
     setParseError(null);
     setImportResults(null);
     setDiagnosticInfo('');
@@ -591,7 +756,7 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
   };
 
   const forceDirectPath = async () => {
-    setDiagnosticInfo(prev => prev + "\n----- TRYING DIRECT PATH CHECK [${new Date().toISOString()}] -----\n");
+    setDiagnosticInfo(prev => prev + `\n----- TRYING DIRECT PATH CHECK [${new Date().toISOString()}] -----\n`);
     
     try {
       // Direct fetch to check if the files exist on the URL path
@@ -605,6 +770,32 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
         setDiagnosticInfo(prev => prev + `Direct path access WORKS! Files should be accessible directly.\n`);
       } else {
         setDiagnosticInfo(prev => prev + `Direct path access FAILED. Files may not be in the correct location.\n`);
+      }
+      
+      // Try some other common patterns
+      const patterns = [
+        'chunk_0.csv',
+        'chunk_1.csv',
+        'subscribers.csv',
+        'export.csv'
+      ];
+      
+      for (const pattern of patterns) {
+        const patternUrl = `${window.location.origin}/emails/${pattern}`;
+        try {
+          const patternResponse = await fetch(patternUrl, { method: 'HEAD' });
+          setDiagnosticInfo(prev => prev + `Testing ${pattern}: ${patternResponse.status} ${patternResponse.statusText}\n`);
+          
+          if (patternResponse.ok) {
+            setDiagnosticInfo(prev => prev + `Found file at ${patternUrl}\n`);
+            // If found, add it to the repository files list
+            if (!repositoryFiles.includes(pattern)) {
+              setRepositoryFiles(prev => [...prev, pattern]);
+            }
+          }
+        } catch (err) {
+          setDiagnosticInfo(prev => prev + `Error checking ${pattern}: ${(err as Error).message}\n`);
+        }
       }
     } catch (err) {
       setDiagnosticInfo(prev => prev + `Direct path test error: ${(err as Error).message}\n`);
@@ -637,182 +828,4 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
         </div>
       </div>
       
-      <Tabs defaultValue="repository">
-        <TabsList className="mb-4">
-          <TabsTrigger value="repository">Repository Import</TabsTrigger>
-          <TabsTrigger value="file">File Upload</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="repository" className="space-y-4">
-          <Alert className="bg-green-50 border-green-200">
-            <AlertDescription className="text-green-800">
-              Import subscriber files directly from the repository. Files placed in the <code>public/emails/</code> directory 
-              are automatically detected and can be selected from the dropdown below. This method is recommended for large datasets.
-            </AlertDescription>
-          </Alert>
-          
-          <div className="flex flex-col space-y-4">
-            {importResults ? (
-              <div className="space-y-4">
-                <div className={`p-4 rounded-lg ${importResults.success ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
-                  <div className="flex items-start">
-                    {importResults.success ? 
-                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 mr-2" /> : 
-                      <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 mr-2" />
-                    }
-                    <div>
-                      <h4 className="font-medium">
-                        {importResults.success ? 'Repository Import Completed' : 'Repository Import Failed'}
-                      </h4>
-                      <div className="mt-2 space-y-1 text-sm">
-                        <p>Total processed: <span className="font-medium">{importResults.totalProcessed}</span></p>
-                        <p>Successfully imported: <span className="font-medium text-green-600">{importResults.inserted}</span></p>
-                        <p>Duplicates skipped: <span className="font-medium text-amber-600">{importResults.duplicates}</span></p>
-                        <p>Errors: <span className="font-medium text-red-600">{importResults.errors}</span></p>
-                      </div>
-                      <div className="mt-3 text-xs text-gray-500">
-                        Please check the status panel to confirm the subscribers appear in the "Pending" count.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex space-x-2">
-                  <Button variant="outline" size="sm" onClick={resetImport}>
-                    Import Another File
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={refreshData}>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Refresh Stats
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white border border-gray-200 rounded-lg p-6">
-                <div className="mb-4 space-y-2">
-                  <div className="flex items-center mb-4">
-                    <FileText className="h-5 w-5 text-blue-500 mr-2" />
-                    <h4 className="text-md font-medium">Select Repository File</h4>
-                  </div>
-                  
-                  <div className="w-full">
-                    <Select 
-                      value={selectedRepoFile} 
-                      onValueChange={setSelectedRepoFile}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a file" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {isLoadingRepoFiles ? (
-                          <div className="flex items-center justify-center p-2">
-                            <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                            <span>Loading files...</span>
-                          </div>
-                        ) : repositoryFiles.length > 0 ? (
-                          repositoryFiles.map(file => (
-                            <SelectItem key={file} value={file}>
-                              {file}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <div className="p-2 text-sm text-gray-500">
-                            {repoFilesLoadError ? (
-                              <div className="text-red-500">
-                                <AlertCircle className="h-4 w-4 inline mr-1" />
-                                {repoFilesLoadError}
-                              </div>
-                            ) : (
-                              "No files found in repository. Check that files are in public/emails/ directory and click Refresh."
-                            )}
-                          </div>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Files must be placed in the <code>public/emails/</code> directory to appear here
-                    </p>
-                  </div>
-                  
-                  <div className="flex mt-4 space-x-2">
-                    <Button
-                      variant="outline"
-                      onClick={refreshData}
-                      disabled={isProcessing}
-                    >
-                      <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingRepoFiles ? 'animate-spin' : ''}`} />
-                      Refresh Files
-                    </Button>
-                    
-                    <Button
-                      variant="outline"
-                      onClick={forceDirectPath}
-                      disabled={isProcessing}
-                      className="text-amber-600 border-amber-300 hover:bg-amber-50"
-                    >
-                      Check Paths
-                    </Button>
-                    
-                    <Button
-                      onClick={processRepositoryFile}
-                      disabled={isProcessing || !selectedRepoFile}
-                      className="flex-1"
-                    >
-                      {isProcessing ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          Processing Repository File...
-                        </>
-                      ) : (
-                        'Import Selected File'
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="mt-4 text-sm text-gray-600">
-                  <p>
-                    <strong>Repository Import</strong> processes files that have been pre-loaded into the repository. 
-                    This method is more reliable for large subscriber lists and doesn't require uploading through the browser.
-                  </p>
-                </div>
-              </div>
-            )}
-            
-            {isProcessing && (
-              <div className="space-y-2">
-                <div className="text-sm text-center">
-                  {progress < 40 ? 'Processing repository file...' : 
-                   progress < 90 ? 'Importing subscribers...' : 
-                   'Finalizing import...'}
-                </div>
-                <Progress value={progress} className="h-2" />
-              </div>
-            )}
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="file" className="space-y-4">
-          <Alert className="bg-blue-50 border-blue-200">
-            <AlertDescription className="text-blue-800">
-              Upload a CSV or JSON file containing subscribers to import from OnGage. 
-              Large files will be automatically processed in smaller chunks for reliability.
-              The import process uses smaller batch sizes (50 subscribers per chunk) for improved reliability.
-            </AlertDescription>
-          </Alert>
-          
-          <div className="flex flex-col space-y-4">
-            {importResults ? (
-              <div className="space-y-4">
-                <div className={`p-4 rounded-lg ${importResults.success ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
-                  <div className="flex items-start">
-                    {importResults.success ? 
-                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 mr-2" /> : 
-                      <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 mr-2" />
-                    }
-                    <div>
-                      <h4 className="font-medium">
-                        {importResults.success ? 'Import Completed' : 'Import Partially Completed'}
-                      </h4>
-                      <div className="mt-2 space-y-1 text-sm">
-                        <p>Total processed: <span className="font-medium">{importResults.totalProcessed}</span></p>
-                        <p>Successfully imported: <span className="font-medium text-green-600">{importResults.inserted}</span></p>
+      {diagnosticMode

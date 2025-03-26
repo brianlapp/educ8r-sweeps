@@ -45,4 +45,6 @@ If your files aren't appearing in the repository dropdown:
 3. File names should not contain special characters
 4. Try clicking the "Refresh Data" button on the import page
 5. Enable the diagnostic panel to see detailed logs
-6. Check if you can access the file directly at `/emails/your_file.csv`
+6. Try the "Check Paths" button to validate file accessibility
+7. If automatic detection fails, use the "Manual URL" tab and enter the full path to your file (e.g., `https://your-domain.com/emails/your_file.csv`)
+8. Check if you can access the file directly in your browser at `/emails/your_file.csv`
