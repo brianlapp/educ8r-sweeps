@@ -51,3 +51,14 @@
 - Comprehensive error reporting in UI
 - Automatic retry mechanism for failed migrations
 - Rate limiting detection and handling
+
+### Data Import Process
+- CSV and JSON file imports supported
+- Direct file import implementation
+- File parsing with proper JSONB array format handling
+- Data validation before database insertion
+
+### Known Issues & Solutions
+- JSON Parsing: Import function requires subscribers data as a proper array of objects, not a stringified array
+- Database Function: The `import_subscribers` function expects a JSONB array, not a string
+- Testing Utilities: Added test functions for data format verification

@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { cors } from '../_shared/cors.ts';
 
 // Add a version identifier to verify deployment
-const MIGRATION_FUNCTION_VERSION = "1.1.0-array-format-fix";
+const MIGRATION_FUNCTION_VERSION = "1.2.0-jsonb-array-fix";
 
 // Initialize Supabase client
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
@@ -59,6 +59,81 @@ const logDebug = async (context: string, data: any, isError = false) => {
   } catch (err) {
     // Fail silently to not disrupt the main process
     console.error(`${logPrefix} Exception during database logging:`, err);
+  }
+};
+
+// New function for verifying data format and logging actual data structure
+const logDataStructure = async (data: any, context: string) => {
+  try {
+    const structure = {
+      type: typeof data,
+      isArray: Array.isArray(data),
+      jsonType: data && typeof data === 'object' ? (Array.isArray(data) ? 'array' : 'object') : 'primitive',
+      value: data && typeof data === 'object' ? (
+        Array.isArray(data) ? 
+        `Array with ${data.length} items` : 
+        `Object with keys: ${Object.keys(data).join(', ')}`
+      ) : String(data),
+      sample: data && typeof data === 'object' && Array.isArray(data) && data.length > 0 ? 
+        JSON.stringify(data[0]).substring(0, 200) + (JSON.stringify(data[0]).length > 200 ? '...' : '') : 
+        'No sample available'
+    };
+    
+    await logDebug(`${context}-data-structure`, structure);
+    return structure;
+  } catch (error) {
+    await logDebug(`${context}-data-structure-error`, { error: error.message }, true);
+    return { error: error.message };
+  }
+};
+
+// Function to test JSONB handling directly
+const testJsonbHandling = async (data: any) => {
+  try {
+    // First log what we received
+    await logDebug('test-jsonb-input', {
+      type: typeof data,
+      isArray: Array.isArray(data),
+      sample: typeof data === 'object' ? JSON.stringify(data).substring(0, 100) : data
+    });
+    
+    // Test direct insertion with the data as-is
+    const directResult = await supabaseAdmin.rpc('import_subscribers', {
+      subscribers_data: data
+    });
+    
+    await logDebug('test-jsonb-direct-result', {
+      success: !directResult.error,
+      data: directResult.data,
+      error: directResult.error
+    });
+    
+    // Test with manual JSON stringification
+    const stringifiedResult = await supabaseAdmin.rpc('import_subscribers', {
+      subscribers_data: JSON.stringify(data)
+    });
+    
+    await logDebug('test-jsonb-stringified-result', {
+      success: !stringifiedResult.error,
+      data: stringifiedResult.data,
+      error: stringifiedResult.error
+    });
+    
+    return {
+      directResult: {
+        success: !directResult.error,
+        data: directResult.data,
+        error: directResult.error
+      },
+      stringifiedResult: {
+        success: !stringifiedResult.error,
+        data: stringifiedResult.data,
+        error: stringifiedResult.error
+      }
+    };
+  } catch (error) {
+    await logDebug('test-jsonb-exception', error, true);
+    return { error: error.message };
   }
 };
 
@@ -129,16 +204,53 @@ serve(async (req) => {
   }
 
   try {
-    const { action, ...params } = await req.json();
-    await logDebug('request', { action, params, functionVersion: MIGRATION_FUNCTION_VERSION });
+    const requestData = await req.json();
+    const { action, ...params } = requestData;
+    
+    await logDebug('request', { 
+      action, 
+      params, 
+      functionVersion: MIGRATION_FUNCTION_VERSION,
+      url: req.url
+    });
+
+    if (action === 'test-jsonb') {
+      try {
+        const { data } = params;
+        const result = await testJsonbHandling(data);
+        return new Response(
+          JSON.stringify(result),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (err) {
+        await logDebug('test-jsonb-error', err, true);
+        return new Response(
+          JSON.stringify({ error: err.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     if (action === 'import') {
       try {
         const { subscribers, fileName } = params;
 
         if (!subscribers || !Array.isArray(subscribers)) {
+          await logDebug('import-validation-error', { 
+            error: 'Subscribers must be a non-empty array',
+            receivedType: typeof subscribers,
+            isArray: Array.isArray(subscribers),
+            subscribers: subscribers ? JSON.stringify(subscribers).substring(0, 200) : null
+          }, true);
+          
           return new Response(
-            JSON.stringify({ error: 'Subscribers must be a non-empty array' }),
+            JSON.stringify({ 
+              error: 'Subscribers must be a non-empty array',
+              received: {
+                type: typeof subscribers,
+                isArray: Array.isArray(subscribers)
+              }
+            }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -148,22 +260,46 @@ serve(async (req) => {
         });
 
         if (validSubscribers.length === 0) {
+          await logDebug('import-no-valid-subscribers', { 
+            totalReceived: subscribers.length,
+            sample: subscribers.length > 0 ? JSON.stringify(subscribers[0]) : 'No subscribers'
+          }, true);
+          
           return new Response(
             JSON.stringify({ error: 'No valid subscribers found in the import data' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        await logDebug('import-start', { fileName, count: validSubscribers.length });
+        await logDebug('import-start', { 
+          fileName, 
+          count: validSubscribers.length,
+          sample: validSubscribers.length > 0 ? validSubscribers[0] : null,
+          dataStructure: await logDataStructure(validSubscribers, 'import-subscribers')
+        });
 
+        // IMPORTANT: Do NOT stringify the subscribers_data, as the RPC function expects a JSONB object
         const { data, error } = await supabaseAdmin.rpc('import_subscribers', {
-          subscribers_data: JSON.stringify(validSubscribers),
+          subscribers_data: validSubscribers,
         });
 
         if (error) {
-          await logDebug('import-error', error, true);
+          await logDebug('import-error', { 
+            error: error.message, 
+            details: error.details,
+            hint: error.hint, 
+            code: error.code,
+            subscribers_sample: validSubscribers.length > 0 ? 
+              JSON.stringify(validSubscribers[0]) : 'No subscribers'
+          }, true);
+          
           return new Response(
-            JSON.stringify({ error: "Failed to import subscribers", details: error.message }),
+            JSON.stringify({ 
+              error: "Failed to import subscribers", 
+              details: error.message,
+              code: error.code,
+              hint: error.hint
+            }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -171,13 +307,24 @@ serve(async (req) => {
         await logDebug('import-complete', data);
 
         return new Response(
-          JSON.stringify({ message: `Successfully queued ${validSubscribers.length} subscribers for migration.`, ...data }),
+          JSON.stringify({ 
+            message: `Successfully queued ${validSubscribers.length} subscribers for migration.`, 
+            ...data 
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
-        await logDebug('import-exception', err, true);
+        await logDebug('import-exception', { 
+          error: err.message,
+          stack: err.stack
+        }, true);
+        
         return new Response(
-          JSON.stringify({ error: 'An unexpected error occurred during import', details: err.message }),
+          JSON.stringify({ 
+            error: 'An unexpected error occurred during import', 
+            details: err.message,
+            stack: err.stack 
+          }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -748,7 +895,6 @@ serve(async (req) => {
       }
     }
 
-    // Add a new action to get subscribers stuck in the "in_progress" state
     if (action === 'get-stuck-subscribers') {
       try {
         // Get all subscribers in the "in_progress" state
@@ -785,7 +931,6 @@ serve(async (req) => {
       }
     }
 
-    // Add a new action to analyze subscribers stuck in the "in_progress" state
     if (action === 'analyze-stuck-subscribers') {
       try {
         // Get all subscribers in the "in_progress" state

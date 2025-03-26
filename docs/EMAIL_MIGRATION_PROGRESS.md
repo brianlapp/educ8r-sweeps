@@ -1,18 +1,23 @@
 
 # Email Migration Progress Tracker
 
-## Status: Implementation Phase - Debugging & Automation Issues
+## Status: Implementation Phase - Fixed JSONB Format Issues
 
 ## Current Issues
 - ✅ Fixed: Incorrect custom fields format causing HTTP 400 errors
+- ✅ Fixed: JSONB array format handling issues in the database function
 - ⚠️ Automation stopping after processing a few batches
 - ⚠️ Potential rate limiting causing interruptions in processing
 - ⚠️ Possible stalled records in "in_progress" state preventing new batch processing
 
 ## Recent Fixes
-- Added enhanced SQL monitoring functions for detailed analytics
+- Fixed JSONB array handling in the import process to prevent "cannot extract elements from a scalar" errors
+- Added JSON format testing tools to diagnose data format issues
+- Added enhanced file access testing for direct imports
+- Added direct file import functionality with better error handling
+- Added comprehensive debugging and data format validation
 - Fixed BeehiiV API integration by using correct custom fields format
-- Added comprehensive documentation to prevent regression
+- Added documentation to prevent regression
 - Enhanced error logging for better troubleshooting
 
 ## Next Steps
@@ -43,6 +48,15 @@
 - Current completion: ~60.5%
 
 ## Technical Insights
+
+### JSONB Array Handling Issue
+We identified and fixed a critical issue with how the JSONB data was being passed to the database function:
+
+1. **Root Issue**: The edge function was incorrectly passing the JSONB data to the `import_subscribers` database function, causing the "cannot extract elements from a scalar" error.
+
+2. **Data Format Requirements**: The `import_subscribers` function expects a JSONB array of objects directly, not a stringified array.
+
+3. **Validation Tools**: Added new testing tools to verify JSONB data format handling and diagnose import issues.
 
 ### Automation Stopping Issues
 The automation appears to process a few batches successfully but then stops. Potential causes:
