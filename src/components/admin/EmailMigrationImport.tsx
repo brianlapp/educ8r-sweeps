@@ -100,6 +100,76 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
     return data;
   };
 
+  // New function to chunk subscribers into smaller batches
+  const chunkArray = <T extends any>(array: T[], size: number): T[][] => {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+      chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
+  };
+
+  // New function to handle uploading subscribers in chunks
+  const uploadSubscribersInChunks = async (subscribers: any[], fileName: string) => {
+    const CHUNK_SIZE = 500; // Import 500 subscribers at a time
+    const chunks = chunkArray(subscribers, CHUNK_SIZE);
+    
+    let totalProcessed = 0;
+    let totalInserted = 0;
+    let totalDuplicates = 0;
+    let totalErrors = 0;
+    let hasFailure = false;
+    
+    console.log(`Splitting ${subscribers.length} subscribers into ${chunks.length} chunks of ${CHUNK_SIZE}`);
+    
+    for (let i = 0; i < chunks.length; i++) {
+      try {
+        setProgress(Math.round((i / chunks.length) * 100));
+        
+        console.log(`Processing chunk ${i+1}/${chunks.length} with ${chunks[i].length} subscribers`);
+        
+        const { data, error } = await supabase.functions.invoke('email-migration', {
+          method: 'POST',
+          body: { 
+            action: 'import', 
+            subscribers: chunks[i],
+            fileName: `${fileName}.chunk-${i+1}-of-${chunks.length}`
+          }
+        });
+
+        if (error) {
+          console.error(`Chunk ${i+1} import error:`, error);
+          hasFailure = true;
+          throw error;
+        }
+        
+        console.log(`Chunk ${i+1} processed:`, data);
+        
+        // Update totals
+        totalProcessed += chunks[i].length;
+        totalInserted += data.inserted || 0;
+        totalDuplicates += data.duplicates || 0;
+        totalErrors += data.errors || 0;
+      } catch (err) {
+        console.error(`Error processing chunk ${i+1}:`, err);
+        hasFailure = true;
+        
+        // We'll continue with the next chunk even if this one failed
+        // This ensures we import as many subscribers as possible
+      }
+    }
+    
+    setProgress(100);
+    
+    return {
+      success: !hasFailure,
+      totalProcessed,
+      inserted: totalInserted,
+      duplicates: totalDuplicates,
+      errors: totalErrors
+    };
+  };
+
   const processFile = async () => {
     if (!file) {
       toast({
@@ -168,33 +238,29 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
         return { email, first_name: firstName, last_name: lastName };
       }).filter((sub: any) => sub.email); // Filter out entries with no email
       
-      setProgress(50);
+      setProgress(40);
       
-      // Submit to API
-      console.log(`Importing ${formattedSubscribers.length} subscribers`);
+      // Submit to API in chunks
+      console.log(`Importing ${formattedSubscribers.length} subscribers using chunked upload`);
       
-      const { data, error } = await supabase.functions.invoke('email-migration', {
-        method: 'POST',
-        body: { 
-          action: 'import', 
-          subscribers: formattedSubscribers,
-          fileName: file.name
-        }
-      });
-
-      if (error) {
-        console.error('Import Error:', error);
-        throw new Error(error.message);
-      }
+      const result = await uploadSubscribersInChunks(formattedSubscribers, file.name);
       
       setProgress(100);
-      console.log('Import Response:', data);
+      console.log('Import completed:', result);
       
-      toast({
-        title: "Import Successful",
-        description: `Imported ${data.inserted} subscribers (${data.duplicates} duplicates, ${data.errors} errors).`,
-        variant: "default"
-      });
+      if (result.success) {
+        toast({
+          title: "Import Successful",
+          description: `Imported ${result.inserted} subscribers (${result.duplicates} duplicates, ${result.errors} errors).`,
+          variant: "default"
+        });
+      } else {
+        toast({
+          title: "Import Partially Completed",
+          description: `Partially imported ${result.inserted} subscribers with some errors. Please check logs.`,
+          variant: "destructive"
+        });
+      }
       
       // Reset form
       setFile(null);
@@ -225,7 +291,7 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
         <Alert className="bg-blue-50 border-blue-200">
           <AlertDescription className="text-blue-800">
             Upload a CSV or JSON file containing subscribers to import from OnGage. 
-            File should include email, first_name, and last_name fields.
+            Large files will be automatically processed in smaller chunks for reliability.
           </AlertDescription>
         </Alert>
         
@@ -313,9 +379,14 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
           {isProcessing && (
             <div className="space-y-2">
               <div className="text-sm text-center">
-                {progress < 50 ? 'Processing file...' : 'Importing subscribers...'}
+                {progress < 40 ? 'Processing file...' : 
+                 progress < 90 ? 'Importing subscribers in chunks...' : 
+                 'Finalizing import...'}
               </div>
               <Progress value={progress} className="h-2" />
+              <div className="text-xs text-center text-gray-500">
+                Large files are processed in smaller batches for reliability
+              </div>
             </div>
           )}
         </div>

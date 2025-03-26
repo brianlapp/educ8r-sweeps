@@ -156,22 +156,63 @@ serve(async (req) => {
 
         await logDebug('import-start', { fileName, count: validSubscribers.length });
 
-        const { data, error } = await supabaseAdmin.rpc('import_subscribers', {
-          subscribers_data: JSON.stringify(validSubscribers),
-        });
+        // Process in smaller batches to prevent database timeouts
+        const BATCH_SIZE = 100;
+        let inserted = 0;
+        let duplicates = 0;
+        let errors = 0;
+        
+        // Process in batches of 100 to avoid overwhelming the database
+        for (let i = 0; i < validSubscribers.length; i += BATCH_SIZE) {
+          const batch = validSubscribers.slice(i, i + BATCH_SIZE);
+          try {
+            const { data, error } = await supabaseAdmin.rpc('import_subscribers', {
+              subscribers_data: JSON.stringify(batch),
+            });
 
-        if (error) {
-          await logDebug('import-error', error, true);
-          return new Response(
-            JSON.stringify({ error: "Failed to import subscribers", details: error.message }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+            if (error) {
+              await logDebug('import-batch-error', {
+                batchIndex: i / BATCH_SIZE,
+                error: error.message
+              }, true);
+              errors += batch.length;
+              continue; // Continue with next batch despite error
+            }
+
+            // Accumulate results
+            inserted += data.inserted || 0;
+            duplicates += data.duplicates || 0;
+            errors += data.errors || 0;
+            
+            await logDebug('import-batch-complete', {
+              batchIndex: i / BATCH_SIZE,
+              batchSize: batch.length,
+              results: data
+            });
+          } catch (batchError: any) {
+            await logDebug('import-batch-exception', {
+              batchIndex: i / BATCH_SIZE, 
+              error: batchError.message
+            }, true);
+            errors += batch.length;
+            // Continue with next batch despite error
+          }
         }
 
-        await logDebug('import-complete', data);
+        const results = {
+          inserted,
+          duplicates,
+          errors,
+          total: validSubscribers.length
+        };
+        
+        await logDebug('import-complete', results);
 
         return new Response(
-          JSON.stringify({ message: `Successfully queued ${validSubscribers.length} subscribers for migration.`, ...data }),
+          JSON.stringify({ 
+            message: `Successfully processed ${validSubscribers.length} subscribers.`, 
+            ...results 
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (err) {
@@ -865,95 +906,4 @@ serve(async (req) => {
         }
         
         // Check for batch age
-        if (oldestTimestamp) {
-          const hoursSinceBatch = (Date.now() - oldestTimestamp) / (1000 * 60 * 60);
-          if (hoursSinceBatch > 24) {
-            potentialIssues.push(`Batch ${oldestBatch?.id} has been stuck for ${Math.round(hoursSinceBatch)} hours`);
-            recommendations.push("Reset in-progress subscribers and restart migration");
-          }
-        }
-        
-        // Check for email issues
-        if (potentialInvalidEmails.length > 0) {
-          potentialIssues.push(`${potentialInvalidEmails.length} subscribers may have invalid email formats`);
-          if (potentialInvalidEmails.length <= 5) {
-            const examples = potentialInvalidEmails.map(s => s.email).join(", ");
-            potentialIssues.push(`Examples of potentially problematic emails: ${examples}`);
-          }
-          recommendations.push("Manually check and fix these email addresses or reset them to failed status");
-        }
-        
-        // Check for rate limiting issues
-        const { data: logs, error: logsError } = await supabaseAdmin
-          .from('email_migration_logs')
-          .select('*')
-          .eq('is_error', true)
-          .ilike('context', '%rate-limited%')
-          .order('timestamp', { ascending: false })
-          .limit(5);
-          
-        if (!logsError && logs && logs.length > 0) {
-          potentialIssues.push(`Found ${logs.length} recent rate limiting errors from BeehiiV API`);
-          recommendations.push("Wait for rate limits to reset before retrying, or reduce batch sizes");
-        }
-        
-        // Check if subscribers might already exist in BeehiiV
-        const { data: existingLogs, error: existingLogsError } = await supabaseAdmin
-          .from('email_migration_logs')
-          .select('*')
-          .eq('is_error', false)
-          .ilike('context', '%duplicate-subscriber%')
-          .order('timestamp', { ascending: false })
-          .limit(5);
-          
-        if (!existingLogsError && existingLogs && existingLogs.length > 0) {
-          potentialIssues.push(`Found recent duplicate subscriber responses from BeehiiV API`);
-          recommendations.push("Subscribers may already exist in BeehiiV. Consider marking them as 'already_exists'");
-        }
-          
-        // Prepare the analysis object
-        const analysis = {
-          stuckSubscriberCount: stuckSubscribers.length,
-          batchCount: Object.keys(batchGroups).length,
-          batchSizes: Object.entries(batchGroups).map(([batchId, subscribers]) => ({
-            batchId,
-            count: subscribers.length
-          })),
-          oldestBatch,
-          potentialIssues,
-          recommendations,
-          sampleEmails: stuckSubscribers.slice(0, 5).map(s => s.email),
-          problematicEmails: potentialInvalidEmails.slice(0, 5).map(s => s.email)
-        };
-        
-        return new Response(
-          JSON.stringify({ 
-            count: stuckSubscribers.length,
-            message: `Found ${stuckSubscribers.length} stuck subscribers across ${Object.keys(batchGroups).length} batches`,
-            analysis,
-            functionVersion: MIGRATION_FUNCTION_VERSION 
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } catch (err) {
-        await logDebug('analyze-stuck-subscribers-exception', err, true);
-        return new Response(
-          JSON.stringify({ error: 'An unexpected error occurred', details: err.message }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    }
-
-    // If action is not recognized
-    return new Response(
-      JSON.stringify({ error: `Unsupported action: ${action}` }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch (err) {
-    console.error('Unexpected error:', err);
-    return new Response(
-      JSON.stringify({ error: 'An unexpected error occurred', details: err.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-});
+        if (old
