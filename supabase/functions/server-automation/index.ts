@@ -1,4 +1,3 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -8,7 +7,7 @@ const supabaseAdminKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const supabaseAdmin = createClient(supabaseUrl, supabaseAdminKey);
 
 // Add a version identifier to verify deployment
-const AUTOMATION_FUNCTION_VERSION = "1.1.0";
+const AUTOMATION_FUNCTION_VERSION = "1.1.1";
 
 // Handle CORS
 const corsHeaders = {
@@ -293,26 +292,8 @@ const listRepositoryFiles = async () => {
   try {
     await logDebug('list-repository-files', 'Listing files in the repository');
     
-    // This function uses Deno.readDir to list files in the /public/emails directory
-    // Since in production this runs as an edge function with no filesystem access,
-    // we need to use a different approach
-    
-    // For local development testing only:
-    if (Deno.env.get('ENVIRONMENT') === 'development') {
-      try {
-        const files = [];
-        for await (const dirEntry of Deno.readDir('/public/emails')) {
-          if (dirEntry.isFile && (dirEntry.name.endsWith('.csv') || dirEntry.name.endsWith('.json'))) {
-            files.push(dirEntry.name);
-          }
-        }
-        return { files };
-      } catch (err) {
-        console.error('Error reading directory (development only):', err);
-      }
-    }
-    
-    // In production, we use an API call to get the list of files
+    // Since we can't directly access the filesystem in edge functions, 
+    // let's call the email-migration function to list the files
     const response = await fetch(`${supabaseUrl}/functions/v1/email-migration`, {
       method: 'POST',
       headers: {
@@ -325,10 +306,12 @@ const listRepositoryFiles = async () => {
     });
     
     if (!response.ok) {
-      throw new Error(`Failed to list repository files: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to list repository files: ${response.status} ${response.statusText} - ${errorText}`);
     }
     
     const result = await response.json();
+    await logDebug('list-repository-result', result);
     return result;
   } catch (err) {
     await logDebug('list-repository-error', err, true);

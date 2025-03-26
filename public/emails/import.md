@@ -37,3 +37,11 @@ You can monitor the import progress in the status panel. The migration system wi
 - Handle rate limiting
 - Retry failed imports
 - Track duplicate subscribers
+
+## Troubleshooting
+
+If your files aren't appearing in the repository dropdown:
+1. Make sure they're placed in the `/public/emails/` directory
+2. Verify the files have a `.csv` or `.json` extension
+3. The repository scan may take a few seconds to refresh
+4. Try clicking the "Refresh Data" button on the import page

@@ -27,12 +27,10 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
   const [diagnosticInfo, setDiagnosticInfo] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Repository import state
   const [repositoryFiles, setRepositoryFiles] = useState<string[]>([]);
   const [selectedRepoFile, setSelectedRepoFile] = useState<string>('');
   const [isLoadingRepoFiles, setIsLoadingRepoFiles] = useState(false);
 
-  // Fetch repository files on component mount
   useEffect(() => {
     fetchRepositoryFiles();
   }, []);
@@ -40,20 +38,44 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
   const fetchRepositoryFiles = async () => {
     setIsLoadingRepoFiles(true);
     try {
-      const { data, error } = await supabase.functions.invoke('email-migration', {
+      console.log('Fetching repository files...');
+      
+      let response = await supabase.functions.invoke('server-automation', {
         method: 'POST',
         body: { action: 'list-repository-files' }
       });
-
-      if (error) {
-        throw error;
+      
+      if (response.error) {
+        console.warn('Server automation endpoint failed, trying email-migration endpoint:', response.error);
+        
+        response = await supabase.functions.invoke('email-migration', {
+          method: 'POST',
+          body: { action: 'list-repository-files' }
+        });
+        
+        if (response.error) throw response.error;
       }
-
-      if (data?.files) {
-        setRepositoryFiles(data.files);
+      
+      console.log('Repository files response:', response.data);
+      
+      if (response.data?.files) {
+        setRepositoryFiles(response.data.files);
+        if (response.data.files.length === 0) {
+          console.warn('No files found in repository. Make sure files are in public/emails/ directory');
+          setDiagnosticInfo(prev => prev + `No files found in repository. Make sure files are in public/emails/ directory\n`);
+        } else {
+          console.log(`Found ${response.data.files.length} files in repository`);
+          setDiagnosticInfo(prev => prev + `Found ${response.data.files.length} files in repository\n`);
+        }
       }
     } catch (err) {
       console.error('Failed to load repository files:', err);
+      setDiagnosticInfo(prev => prev + `Error loading repository files: ${(err as Error).message}\n`);
+      toast({
+        title: "Repository Error",
+        description: "Failed to load files from repository. Check console for details.",
+        variant: "destructive"
+      });
     } finally {
       setIsLoadingRepoFiles(false);
     }
@@ -80,7 +102,6 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
     setDiagnosticInfo('');
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
-      // Check if it's a CSV or JSON file
       if (!/\.(csv|json)$/i.test(selectedFile.name)) {
         toast({
           title: "Invalid File Type",
@@ -95,8 +116,6 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
 
   const processCSV = (csvText: string): Array<any> => {
     try {
-      // Simple CSV parser for comma-separated values
-      // This handles quoted values, commas within quoted values, and escaped quotes
       const rows = csvText.split(/\r?\n/);
       const headers = rows[0].split(',').map(header => 
         header.trim().replace(/^"|"$/g, '')
@@ -105,9 +124,8 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
       const data: Array<any> = [];
       
       for (let i = 1; i < rows.length; i++) {
-        if (!rows[i].trim()) continue; // Skip empty rows
+        if (!rows[i].trim()) continue;
         
-        // Split by commas but respect quoted values
         const values: string[] = [];
         let currentValue = '';
         let inQuotes = false;
@@ -116,23 +134,18 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
           const char = rows[i][j];
           
           if (char === '"') {
-            // Handle quotes (toggle inQuotes flag)
             inQuotes = !inQuotes;
             currentValue += char;
           } else if (char === ',' && !inQuotes) {
-            // Handle commas (only split if not inside quotes)
             values.push(currentValue.trim().replace(/^"|"$/g, ''));
             currentValue = '';
           } else {
-            // Add character to current value
             currentValue += char;
           }
         }
         
-        // Add the last value
         values.push(currentValue.trim().replace(/^"|"$/g, ''));
         
-        // Create object from headers and values
         const obj: Record<string, string> = {};
         headers.forEach((header, index) => {
           if (index < values.length) {
@@ -143,7 +156,6 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
         data.push(obj);
       }
 
-      // Let's add some diagnostic info
       setDiagnosticInfo(prev => prev + `CSV processing successful. Found ${data.length} records with headers: ${headers.join(', ')}\n`);
       
       return data;
@@ -153,7 +165,6 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
     }
   };
 
-  // New function to chunk subscribers into smaller batches
   const chunkArray = <T extends any>(array: T[], size: number): T[][] => {
     const chunks: T[][] = [];
     for (let i = 0; i < array.length; i += size) {
@@ -162,10 +173,8 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
     return chunks;
   };
 
-  // New function to handle uploading subscribers in chunks
   const uploadSubscribersInChunks = async (subscribers: any[], fileName: string) => {
-    // Use smaller chunks for more reliability
-    const CHUNK_SIZE = 50; // Reduced from 250 to 50 for better reliability
+    const CHUNK_SIZE = 50;
     const chunks = chunkArray(subscribers, CHUNK_SIZE);
     
     let totalProcessed = 0;
@@ -182,7 +191,6 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
         
         setDiagnosticInfo(prev => prev + `Processing chunk ${i+1}/${chunks.length} with ${chunks[i].length} subscribers\n`);
         
-        // Check the first record for diagnostic info
         if (i === 0 && chunks[i].length > 0) {
           setDiagnosticInfo(prev => prev + `Sample record: ${JSON.stringify(chunks[i][0])}\n`);
         }
@@ -204,20 +212,17 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
             description: error.message || "Import error occurred",
             variant: "destructive"
           });
-          // Continue with next chunk despite error
           totalErrors += chunks[i].length;
         } else {
           setDiagnosticInfo(prev => prev + `Chunk ${i+1} processed: ${JSON.stringify(data)}\n`);
           
-          // Update totals
           totalProcessed += chunks[i].length;
           totalInserted += data.inserted || 0;
           totalDuplicates += data.duplicates || 0;
           totalErrors += data.errors || 0;
         }
         
-        // Add a short delay between chunks to prevent overwhelming the server
-        await new Promise(resolve => setTimeout(resolve, 500)); // Increased from 200ms to 500ms
+        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (err) {
         setDiagnosticInfo(prev => prev + `Error processing chunk ${i+1}: ${(err as Error).message}\n`);
         hasFailure = true;
@@ -227,7 +232,6 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
           description: (err as Error).message || "Unexpected error during import",
           variant: "destructive"
         });
-        // Continue with next chunk even if this one failed
       }
     }
     
@@ -266,15 +270,12 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
       let subscribers;
       
       if (file.name.endsWith('.json')) {
-        // Parse JSON
         try {
           setDiagnosticInfo(prev => prev + `Parsing JSON file...\n`);
           subscribers = JSON.parse(fileContent);
           
-          // If data is not an array, check for common parent properties
           if (!Array.isArray(subscribers)) {
             setDiagnosticInfo(prev => prev + `JSON is not an array, trying to find subscribers property...\n`);
-            // Try to find subscribers in common JSON structures
             if (subscribers.subscribers) {
               subscribers = subscribers.subscribers;
               setDiagnosticInfo(prev => prev + `Found subscribers in 'subscribers' property.\n`);
@@ -297,7 +298,6 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
           throw error;
         }
       } else {
-        // Parse CSV
         try {
           setDiagnosticInfo(prev => prev + `Parsing CSV file...\n`);
           subscribers = processCSV(fileContent);
@@ -308,22 +308,19 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
         }
       }
       
-      // Validate the subscribers array
       if (!Array.isArray(subscribers) || subscribers.length === 0) {
         setParseError('No subscribers found in file');
         setDiagnosticInfo(prev => prev + `No subscribers found in file or not an array.\n`);
         throw new Error('No subscribers found in file');
       }
       
-      // Extract required fields
       const formattedSubscribers = subscribers.map((sub: any) => {
-        // Try different field name variations
         const email = sub.email || sub.Email || sub.EMAIL;
         const firstName = sub.first_name || sub.firstName || sub.FirstName || sub['First Name'] || '';
         const lastName = sub.last_name || sub.lastName || sub.LastName || sub['Last Name'] || '';
         
         return { email, first_name: firstName, last_name: lastName };
-      }).filter((sub: any) => sub.email); // Filter out entries with no email
+      }).filter((sub: any) => sub.email);
       
       if (formattedSubscribers.length === 0) {
         setParseError('No valid email addresses found in file');
@@ -337,7 +334,6 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
       console.log(`Importing ${formattedSubscribers.length} subscribers using chunked upload`);
       setProgress(40);
       
-      // Submit to API in chunks
       const result = await uploadSubscribersInChunks(formattedSubscribers, file.name);
       
       console.log('Import completed:', result);
@@ -357,20 +353,14 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
         });
       }
       
-      // Reset form
       if (fileInputRef.current) fileInputRef.current.value = '';
       setFile(null);
       
-      // Force refresh stats immediately and multiple times afterward
       if (onImportComplete) {
         onImportComplete();
-        
-        // Schedule additional refreshes to catch any delayed processing
         setTimeout(onImportComplete, 1000);
         setTimeout(onImportComplete, 3000);
-        setTimeout(onImportComplete, 6000);
       }
-      
     } catch (error: any) {
       console.error('Import Error:', error);
       setDiagnosticInfo(prev => prev + `FATAL ERROR: ${error.message}\n`);
@@ -406,7 +396,6 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
     setDiagnosticInfo(`Starting import of repository file: ${selectedRepoFile}\n`);
     
     try {
-      // Invoke the server function to process the file
       const { data, error } = await supabase.functions.invoke('email-migration', {
         method: 'POST',
         body: { 
@@ -422,7 +411,6 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
       setDiagnosticInfo(prev => prev + `Repository file processed: ${JSON.stringify(data)}\n`);
       setProgress(100);
       
-      // Update the results
       setImportResults({
         success: data.success,
         totalProcessed: data.total || 0,
@@ -445,7 +433,6 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
         });
       }
       
-      // Force refresh stats
       if (onImportComplete) {
         onImportComplete();
         setTimeout(onImportComplete, 1000);
@@ -478,8 +465,8 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Manually refresh repository files and stats
   const refreshData = () => {
+    setDiagnosticInfo(prev => prev + "Manually refreshing repository files...\n");
     fetchRepositoryFiles();
     if (onImportComplete) {
       onImportComplete();
@@ -510,7 +497,7 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
         </div>
       </div>
       
-      <Tabs defaultValue="file">
+      <Tabs defaultValue="repository">
         <TabsList className="mb-4">
           <TabsTrigger value="file">File Upload</TabsTrigger>
           <TabsTrigger value="repository">Repository Import</TabsTrigger>
@@ -728,7 +715,7 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
                           ))
                         ) : (
                           <div className="p-2 text-sm text-gray-500">
-                            No files found in repository
+                            No files found in repository. Check that files are in <code>public/emails/</code> directory and click Refresh.
                           </div>
                         )}
                       </SelectContent>
@@ -738,11 +725,20 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
                     </p>
                   </div>
                   
-                  <div className="mt-4">
+                  <div className="flex mt-4 space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={refreshData}
+                      disabled={isProcessing}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Refresh Files
+                    </Button>
+                    
                     <Button
                       onClick={processRepositoryFile}
                       disabled={isProcessing || !selectedRepoFile}
-                      className="w-full"
+                      className="flex-1"
                     >
                       {isProcessing ? (
                         <>
