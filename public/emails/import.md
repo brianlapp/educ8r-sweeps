@@ -36,6 +36,12 @@ To import these files:
 3. Select a file from the dropdown list
 4. Click "Import" to start the process
 
+## Direct Import Command
+
+If the repository dropdown isn't displaying files, you can use the Direct Import button 
+with a specific filename (e.g., "chunk_ac.csv"). The system will load this file directly
+from the /public/emails/ directory and import it.
+
 ## Troubleshooting Repository Files
 
 If your files aren't appearing in the repository dropdown:

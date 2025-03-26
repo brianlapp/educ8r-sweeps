@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { AlertTriangle, CheckCircle, Upload, Globe } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Upload, Globe, FolderOpen } from 'lucide-react';
 
 export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: () => void }) => {
   const [file, setFile] = useState<File | null>(null);
@@ -17,6 +16,8 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
   const [loadingRepositoryFiles, setLoadingRepositoryFiles] = useState(false);
   const [selectedRepositoryFile, setSelectedRepositoryFile] = useState('');
   const [repositoryImportLoading, setRepositoryImportLoading] = useState(false);
+  const [directFileName, setDirectFileName] = useState('');
+  const [directImportLoading, setDirectImportLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -31,7 +32,6 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
       let subscribers = [];
       
       if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
-        // JSON format
         console.log('Parsing JSON file...');
         const parsed = JSON.parse(content);
         
@@ -45,7 +45,6 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
           throw new Error('Could not find subscriber data in JSON file');
         }
       } else {
-        // CSV format
         console.log('Parsing CSV file...');
         const lines = content.split('\n');
         const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
@@ -72,7 +71,6 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
         throw new Error('No subscribers found in the file');
       }
       
-      // Normalize data to ensure each record has email, first_name, and last_name
       subscribers = subscribers.map(sub => {
         return {
           email: sub.email || sub.Email || sub.EMAIL || '',
@@ -104,7 +102,6 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
             
             console.log(`Importing ${subscribers.length} subscribers`);
             
-            // Split into chunks to avoid payload limits
             const CHUNK_SIZE = 50;
             let successCount = 0;
             let errorCount = 0;
@@ -171,8 +168,6 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
     console.info(`Starting import of file from URL: ${manualUrl}`);
     
     try {
-      // Fetch the file content from the URL
-      console.info('Fetching file content from URL...');
       const response = await fetch(manualUrl);
       
       if (!response.ok) {
@@ -182,12 +177,10 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
       const content = await response.text();
       console.info(`Successfully fetched file (${content.length} bytes)`);
       
-      // Extract filename from URL
       const urlParts = manualUrl.split('/');
       const fileName = urlParts[urlParts.length - 1];
       console.info(`Extracted filename: ${fileName}`);
       
-      // Process the file content
       let fileType = 'unknown';
       if (fileName.endsWith('.csv')) {
         fileType = 'CSV';
@@ -202,7 +195,6 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
       console.info(`Formatted ${subscribers.length} subscribers for import.`);
       console.info(`First subscriber: ${JSON.stringify(subscribers[0])}`);
       
-      // Upload the data in chunks
       const CHUNK_SIZE = 50;
       const totalChunks = Math.ceil(subscribers.length / CHUNK_SIZE);
       console.info(`Splitting ${subscribers.length} subscribers into ${totalChunks} chunks of ${CHUNK_SIZE}`);
@@ -218,7 +210,6 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
         console.info(`Processing chunk ${chunkNumber}/${totalChunks} with ${chunk.length} subscribers`);
         console.info(`Sample record: ${JSON.stringify(chunk[0])}`);
         
-        // Retry logic for API calls
         let success = false;
         let attempts = 0;
         const MAX_ATTEMPTS = 3;
@@ -338,6 +329,30 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
     }
   };
 
+  const handleDirectFileImport = async () => {
+    if (!directFileName) {
+      toast.error('Please enter a file name');
+      return;
+    }
+    
+    setDirectImportLoading(true);
+    try {
+      const baseUrl = window.location.origin;
+      const fileUrl = `${baseUrl}/emails/${directFileName}`;
+      
+      toast.info(`Attempting to import file from: ${fileUrl}`);
+      
+      setManualUrl(fileUrl);
+      await handleManualUrlImport();
+      
+    } catch (err: any) {
+      console.error('Direct file import error:', err);
+      toast.error(`Import failed: ${err.message}`);
+    } finally {
+      setDirectImportLoading(false);
+    }
+  };
+
   return (
     <Card className="p-4 bg-white shadow-sm">
       <h3 className="text-lg font-semibold mb-4">Import Subscribers</h3>
@@ -347,6 +362,7 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
           <TabsTrigger value="file">File Upload</TabsTrigger>
           <TabsTrigger value="url">URL Import</TabsTrigger>
           <TabsTrigger value="repository" onClick={fetchRepositoryFiles}>Repository Files</TabsTrigger>
+          <TabsTrigger value="direct">Direct Import</TabsTrigger>
         </TabsList>
         
         <TabsContent value="file" className="space-y-4">
@@ -478,6 +494,41 @@ export const EmailMigrationImport = ({ onImportComplete }: { onImportComplete: (
                 </p>
               </div>
             )}
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="direct" className="space-y-4">
+          <div className="space-y-4">
+            <div className="flex items-center space-x-4">
+              <Input
+                type="text"
+                value={directFileName}
+                onChange={(e) => setDirectFileName(e.target.value)}
+                placeholder="chunk_ac.csv"
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleDirectFileImport} 
+                disabled={!directFileName || directImportLoading}
+                className="whitespace-nowrap"
+              >
+                <FolderOpen className="h-4 w-4 mr-2" />
+                {directImportLoading ? "Importing..." : "Direct Import"}
+              </Button>
+            </div>
+            
+            <div className="text-sm text-slate-500 bg-blue-50 p-3 rounded border border-blue-100">
+              <h4 className="font-medium flex items-center mb-2">
+                <AlertTriangle className="h-4 w-4 text-amber-500 mr-2" />
+                Direct Import Instructions
+              </h4>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Enter just the filename (e.g., "chunk_ac.csv") without any path</li>
+                <li>The file must exist in the <code>/public/emails/</code> directory</li>
+                <li>This is useful when the repository file list isn't working properly</li>
+                <li>File must follow the same format requirements as regular imports</li>
+              </ul>
+            </div>
           </div>
         </TabsContent>
       </Tabs>

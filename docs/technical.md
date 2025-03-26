@@ -46,6 +46,11 @@
 - Handles file detection through HEAD requests to minimize bandwidth
 - Provides detailed error reporting for troubleshooting
 
+#### Alternative Import Methods
+- **Direct Import**: Specify a filename without requiring repository detection
+- **URL Import**: Use a full URL to access files that may not be in the repository
+- **File Upload**: Directly upload files from a local machine
+
 #### File Processing
 - Supports both CSV and JSON formats
 - Automatically normalizes field names (e.g., "Email" → "email")
@@ -62,6 +67,7 @@
 - Pulsing heart icon to indicate active automation
 - Progress tracking for current batch processing
 - Human-readable timestamps for better monitoring
+- Direct import feature for bypassing repository file detection issues
 
 ### Scheduled Jobs
 - Cron job to ensure server-automation runs consistently
@@ -71,3 +77,4 @@
 - Comprehensive error reporting in UI
 - Automatic retry mechanism for failed migrations
 - Rate limiting detection and handling
+- Detailed logging with context information
