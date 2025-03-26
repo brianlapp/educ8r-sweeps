@@ -32,82 +32,22 @@
 - Set daily target limits
 - Define operating hours
 
-### Repository File Handling
-
-#### HTTP-Based File Access
-- Files are accessed via HTTP requests rather than direct filesystem access
-- Supports both local development and production environments
-- Uses the host's URL to dynamically determine file locations
-- Works with both relative and absolute URL paths
-
-#### Repository File Detection
-- Probes for files in the `/public/emails/` directory
-- Supports automatic discovery of CSV and JSON files
-- Handles file detection through HEAD requests to minimize bandwidth
-- Provides detailed error reporting for troubleshooting
-
-#### Direct Import Methods
-- **Direct Import**: Specify the exact filename in the `/public/emails/` directory
-- Files are loaded via HTTP request from the public directory
-- System shows available files for quick selection
-- Provide immediate feedback on import progress and results
-- **Example Import**: Added "Import Example Subscribers Directly" button for quick testing
-
-#### File Processing
-- Supports both CSV and JSON formats
-- Automatically normalizes field names (e.g., "Email" → "email")
-- Handles various common export formats from email providers
-- Validates emails and skips invalid records
-
 ### Database Schema Extensions
-- Added `source_file` TEXT field to `email_migration` table for tracking file origin
-- Added `import_date` timestamp to `email_migration` table for import timing
 - Added `last_heartbeat` timestamp to `email_migration_automation` table
 - Added `status_details` JSONB field for detailed status reporting
 - Added `current_batch_id` for tracking active processing batch
 
 ### UI Enhancements
-- Real-time import progress tracking with progress bar
-- Detailed operation status messaging
-- Improved error handling and reporting
-- Repository file browser with refresh capability
-- Direct import validation with pre-checks
-- One-click example import option for testing
-
-### Error Handling and Logging
-- Comprehensive database logging system
-- Detailed error capture and reporting
-- Multiple retry attempts for transient failures
-- Validation before import attempts
-- Clear user feedback for all operations
-- Enhanced logging for file access issues
+- Real-time heartbeat status display with color coding
+- Pulsing heart icon to indicate active automation
+- Progress tracking for current batch processing
+- Human-readable timestamps for better monitoring
 
 ### Scheduled Jobs
 - Cron job to ensure server-automation runs consistently
 - Automatic cleanup of stalled migration records
 
-### Import Process Database Function
-- `import_subscribers` database function for efficient, transactional imports
-- Handles duplicate detection
-- Provides detailed import statistics
-- Supports different input formats and field normalizations
-
-### Recent Updates
-
-#### Improved File Import Reliability
-- Added direct import mode for quick testing without needing to access files
-- Expanded HTTP-based file loading with improved error handling
-- Enhanced logging system to capture more details about import attempts
-- Added example import button for quick verification of system functionality
-- Fixed issues with direct file import functionality
-- Fixed absolute URL construction for file imports
-- Added better error messaging for file access problems
-- Enhanced direct file import with robust error handling
-
-#### Important Notes for Importing Files
-- Direct Import is now the recommended method for importing subscriber files
-- Enter the exact filename (e.g., "chunk_ac.csv") in the Direct Import field
-- Files must be located in the `/public/emails/` directory
-- System will automatically process and normalize email data
-- Use the file browser to quickly select available files
-- If having trouble with files, try the "Import Example Subscribers Directly" button
+### Error Handling
+- Comprehensive error reporting in UI
+- Automatic retry mechanism for failed migrations
+- Rate limiting detection and handling

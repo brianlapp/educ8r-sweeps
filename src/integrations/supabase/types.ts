@@ -164,11 +164,9 @@ export type Database = {
           error_message: string | null
           first_name: string | null
           id: string
-          import_date: string | null
           last_name: string | null
           migrated_at: string | null
           migration_batch: string | null
-          source_file: string | null
           status: string
           subscriber_id: string | null
           updated_at: string | null
@@ -180,11 +178,9 @@ export type Database = {
           error_message?: string | null
           first_name?: string | null
           id?: string
-          import_date?: string | null
           last_name?: string | null
           migrated_at?: string | null
           migration_batch?: string | null
-          source_file?: string | null
           status?: string
           subscriber_id?: string | null
           updated_at?: string | null
@@ -196,11 +192,9 @@ export type Database = {
           error_message?: string | null
           first_name?: string | null
           id?: string
-          import_date?: string | null
           last_name?: string | null
           migrated_at?: string | null
           migration_batch?: string | null
-          source_file?: string | null
           status?: string
           subscriber_id?: string | null
           updated_at?: string | null
