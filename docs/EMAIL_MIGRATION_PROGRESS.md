@@ -15,6 +15,7 @@
 - ✅ Server-side automation working reliably
 - ✅ Repository file import system functioning correctly
 - ✅ Fixed repository file listing to properly detect files in the `/public/emails/` directory
+- ✅ Enhanced error handling and diagnostic logging for troubleshooting
 
 ## Technical Insights
 
@@ -25,11 +26,18 @@
 - **Batch Sizing**: Dynamic batch sizing based on configuration
 
 ### Repository Import System
-The system now includes a repository-based import feature that:
+The system includes a repository-based import feature that:
 1. Scans the `/public/emails/` directory for CSV files
 2. Allows admins to select files for import via the UI
 3. Processes and imports the selected files
 4. Automatically moves processed files to `/public/emails/completed/`
+
+### Debugging & Diagnostics
+The system now includes enhanced diagnostic features:
+1. Diagnostic logging panel for troubleshooting
+2. Path checking utilities to verify file system access
+3. Multiple fallback mechanisms for file listing
+4. Detailed error reporting for import attempts
 
 ## Next Steps
 1. **Archive migration infrastructure**:

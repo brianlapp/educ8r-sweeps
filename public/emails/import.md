@@ -15,6 +15,12 @@ Files can be in either CSV or JSON format, and should follow these guidelines:
 
 Files are automatically processed in smaller batches (50 subscribers per chunk) for reliability and to respect API rate limits.
 
+## File Location Requirements
+
+It's **critically important** that files be placed in:
+- `/public/emails/` directory (not in subdirectories)
+- Files should have `.csv` or `.json` extension 
+
 ## Naming Convention
 
 It's recommended to name files with a descriptive format such as:
@@ -30,6 +36,17 @@ To import these files:
 3. Select a file from the dropdown list
 4. Click "Import" to start the process
 
+## Troubleshooting Repository Files
+
+If your files aren't appearing in the repository dropdown:
+
+1. Make sure they're placed in the `/public/emails/` directory directly (not in subdirectories)
+2. Verify the files have a `.csv` or `.json` extension
+3. File names should not contain special characters
+4. Try clicking the "Refresh Data" button on the import page
+5. Enable the diagnostic panel to see detailed logs
+6. Check if you can access the file directly at `/emails/your_file.csv`
+
 ## Monitoring
 
 You can monitor the import progress in the status panel. The migration system will automatically:
@@ -37,11 +54,3 @@ You can monitor the import progress in the status panel. The migration system wi
 - Handle rate limiting
 - Retry failed imports
 - Track duplicate subscribers
-
-## Troubleshooting
-
-If your files aren't appearing in the repository dropdown:
-1. Make sure they're placed in the `/public/emails/` directory
-2. Verify the files have a `.csv` or `.json` extension
-3. The repository scan may take a few seconds to refresh
-4. Try clicking the "Refresh Data" button on the import page

@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -7,7 +8,7 @@ const supabaseAdminKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const supabaseAdmin = createClient(supabaseUrl, supabaseAdminKey);
 
 // Add a version identifier to verify deployment
-const AUTOMATION_FUNCTION_VERSION = "1.1.1";
+const AUTOMATION_FUNCTION_VERSION = "1.1.2-file-listing-fix";
 
 // Handle CORS
 const corsHeaders = {
@@ -290,31 +291,72 @@ const getAutomationConfig = async () => {
 // List repository files (CSV or JSON files)
 const listRepositoryFiles = async () => {
   try {
-    await logDebug('list-repository-files', 'Listing files in the repository');
+    await logDebug('list-repository-files-start', 'Starting repository file listing');
     
-    // Since we can't directly access the filesystem in edge functions, 
-    // let's call the email-migration function to list the files
-    const response = await fetch(`${supabaseUrl}/functions/v1/email-migration`, {
-      method: 'POST',
+    // Direct API call to list files in the storage - this is more reliable than going through another function
+    const response = await fetch(`${supabaseUrl}/storage/v1/object/list/public/emails`, {
+      method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${supabaseAdminKey}`,
-      },
-      body: JSON.stringify({ 
-        action: 'list-repository-files'
-      }),
+        'apikey': `${supabaseAdminKey}`
+      }
     });
     
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to list repository files: ${response.status} ${response.statusText} - ${errorText}`);
+      await logDebug('list-repository-files-error', 
+        `Storage API error: ${response.status} ${response.statusText} - ${errorText}`, true);
+      
+      // Fallback to using the email-migration function
+      await logDebug('list-repository-files-fallback', 'Trying fallback method with email-migration function');
+      
+      const fallbackResponse = await fetch(`${supabaseUrl}/functions/v1/email-migration`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAdminKey}`,
+        },
+        body: JSON.stringify({ 
+          action: 'list-repository-files',
+          debug: true
+        }),
+      });
+      
+      if (!fallbackResponse.ok) {
+        const fallbackErrorText = await fallbackResponse.text();
+        await logDebug('list-repository-files-fallback-error', 
+          `Fallback error: ${fallbackResponse.status} ${fallbackResponse.statusText} - ${fallbackErrorText}`, true);
+        throw new Error(`Failed to list repository files: ${fallbackResponse.status} ${fallbackResponse.statusText}`);
+      }
+      
+      const fallbackResult = await fallbackResponse.json();
+      await logDebug('list-repository-files-fallback-result', fallbackResult);
+      return fallbackResult;
     }
     
-    const result = await response.json();
-    await logDebug('list-repository-result', result);
-    return result;
+    const files = await response.json();
+    
+    // Filter to only include .csv and .json files that are not in completed folder
+    const csvAndJsonFiles = files
+      .filter((file: any) => 
+        (file.name.endsWith('.csv') || file.name.endsWith('.json')) && 
+        !file.name.includes('/completed/'))
+      .map((file: any) => file.name);
+    
+    await logDebug('list-repository-files-success', { 
+      total_files: files.length,
+      filtered_files: csvAndJsonFiles.length,
+      files: csvAndJsonFiles.slice(0, 10) // Just log first 10 for brevity
+    });
+    
+    return { 
+      files: csvAndJsonFiles,
+      total: files.length,
+      filtered: csvAndJsonFiles.length
+    };
   } catch (err) {
-    await logDebug('list-repository-error', err, true);
+    await logDebug('list-repository-files-exception', err, true);
     return { files: [], error: err.message };
   }
 };
@@ -331,7 +373,10 @@ serve(async (req) => {
 
   try {
     // Parse request
-    const { action } = await req.json();
+    const requestData = await req.json();
+    const { action } = requestData;
+    
+    console.log(`[SERVER-AUTOMATION] Request received: action=${action}`);
     
     // Handle heartbeat check
     if (action === 'heartbeat') {
@@ -355,6 +400,7 @@ serve(async (req) => {
     
     // Handle list-repository-files action
     if (action === 'list-repository-files') {
+      console.log('[SERVER-AUTOMATION] Processing list-repository-files request');
       const result = await listRepositoryFiles();
       return new Response(
         JSON.stringify(result),
@@ -511,6 +557,7 @@ serve(async (req) => {
     }
 
     // If action is not recognized
+    console.warn(`[SERVER-AUTOMATION] Unsupported action: ${action}`);
     return new Response(
       JSON.stringify({ error: `Unsupported action: ${action}` }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
