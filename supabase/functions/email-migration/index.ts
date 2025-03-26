@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { cors } from '../_shared/cors.ts';
@@ -157,7 +158,7 @@ const readRepositoryFile = async (fileName: string) => {
       for (let i = 1; i < rows.length; i++) {
         if (!rows[i].trim()) continue;
         
-        const values = rows[i].split(',').map(v => v.trim().replace(/^"|"$/g, '));
+        const values = rows[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
         
         const subscriber: Record<string, string> = {};
         headers.forEach((header, index) => {
@@ -234,6 +235,7 @@ const importRepositoryFile = async (fileName: string) => {
       try {
         await Deno.mkdir('./public/emails/completed', { recursive: true });
       } catch (e) {
+        // Directory may already exist, ignore error
       }
       
       await Deno.rename(sourcePath, destPath);
@@ -989,6 +991,123 @@ serve(async (req) => {
           recommendations.push("Configure the BEEHIIV_API_KEY environment variable in Supabase");
         }
         
-        if (old
+        if (Object.keys(batchGroups).length > 1) {
+          potentialIssues.push("Multiple migration batches are stuck");
+          recommendations.push("Use the 'Reset In-Progress Subscribers' function to reset all stuck subscribers");
+        }
+        
+        if (oldestTimestamp && (Date.now() - oldestTimestamp) > 30 * 60 * 1000) {
+          potentialIssues.push("Subscribers have been stuck for more than 30 minutes");
+          recommendations.push("Reset in-progress subscribers and check for system-wide issues");
+        }
+        
+        if (potentialInvalidEmails.length > 0) {
+          potentialIssues.push("Some subscribers have potentially invalid email addresses");
+          recommendations.push("Check for and fix invalid email formats in the database");
+        }
+        
+        const analysis = {
+          total_stuck: stuckSubscribers.length,
+          batch_groups: Object.keys(batchGroups).map(batchId => ({
+            batch_id: batchId,
+            count: batchGroups[batchId].length
+          })),
+          oldest_batch: oldestBatch,
+          potential_invalid_emails: potentialInvalidEmails.length,
+          potential_issues: potentialIssues,
+          recommendations: recommendations
+        };
+        
+        return new Response(
+          JSON.stringify({ 
+            count: stuckSubscribers.length,
+            analysis,
+            functionVersion: MIGRATION_FUNCTION_VERSION 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (err) {
+        await logDebug('analyze-stuck-subscribers-exception', err, true);
+        return new Response(
+          JSON.stringify({ error: 'An unexpected error occurred', details: err.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
-[END_OF_TEXT]
+    if (action === 'repository-files') {
+      try {
+        const result = await listRepositoryFiles();
+        
+        return new Response(
+          JSON.stringify({
+            ...result,
+            functionVersion: MIGRATION_FUNCTION_VERSION
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (err) {
+        await logDebug('repository-files-exception', err, true);
+        return new Response(
+          JSON.stringify({ error: 'An unexpected error occurred', details: err.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    if (action === 'import-repository-file') {
+      try {
+        if (!fileName) {
+          return new Response(
+            JSON.stringify({ error: 'fileName is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        await logDebug('import-repository-file', { fileName });
+        
+        const result = await importRepositoryFile(fileName);
+        
+        return new Response(
+          JSON.stringify({
+            ...result,
+            fileName,
+            functionVersion: MIGRATION_FUNCTION_VERSION
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (err) {
+        await logDebug('import-repository-file-exception', err, true);
+        return new Response(
+          JSON.stringify({ error: 'An unexpected error occurred', details: err.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    if (action === 'version-check') {
+      return new Response(
+        JSON.stringify({ 
+          version: MIGRATION_FUNCTION_VERSION,
+          customFieldsFormat: "ARRAY",
+          environment: {
+            apiKey: !!Deno.env.get('BEEHIIV_API_KEY'),
+            hasSupabaseKeys: !!supabaseUrl && !!supabaseKey && !!supabaseAdminKey
+          }
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ error: `Unknown action: ${action}` }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (err) {
+    console.error('Unexpected error:', err);
+    return new Response(
+      JSON.stringify({ error: 'An unexpected error occurred', details: err.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
