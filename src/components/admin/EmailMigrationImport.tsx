@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from '@/hooks/use-toast';
-import { RefreshCw, Upload, FileUp, AlertCircle } from 'lucide-react';
+import { RefreshCw, Upload, FileUp, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 
@@ -14,6 +14,7 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [importResults, setImportResults] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const readFileAsText = (file: File): Promise<string> => {
@@ -33,6 +34,7 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     setParseError(null);
+    setImportResults(null);
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
       // Check if it's a CSV or JSON file
@@ -111,7 +113,7 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
 
   // New function to handle uploading subscribers in chunks
   const uploadSubscribersInChunks = async (subscribers: any[], fileName: string) => {
-    const CHUNK_SIZE = 500; // Import 500 subscribers at a time
+    const CHUNK_SIZE = 250; // Import 250 subscribers at a time (smaller chunks for reliability)
     const chunks = chunkArray(subscribers, CHUNK_SIZE);
     
     let totalProcessed = 0;
@@ -140,29 +142,42 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
         if (error) {
           console.error(`Chunk ${i+1} import error:`, error);
           hasFailure = true;
-          throw error;
+          toast({
+            title: `Chunk ${i+1} Failed`,
+            description: error.message || "Import error occurred",
+            variant: "destructive"
+          });
+          // Continue with next chunk despite error
+          totalErrors += chunks[i].length;
+        } else {
+          console.log(`Chunk ${i+1} processed:`, data);
+          
+          // Update totals
+          totalProcessed += chunks[i].length;
+          totalInserted += data.inserted || 0;
+          totalDuplicates += data.duplicates || 0;
+          totalErrors += data.errors || 0;
         }
         
-        console.log(`Chunk ${i+1} processed:`, data);
-        
-        // Update totals
-        totalProcessed += chunks[i].length;
-        totalInserted += data.inserted || 0;
-        totalDuplicates += data.duplicates || 0;
-        totalErrors += data.errors || 0;
+        // Add a short delay between chunks to prevent overwhelming the server
+        await new Promise(resolve => setTimeout(resolve, 200));
       } catch (err) {
         console.error(`Error processing chunk ${i+1}:`, err);
         hasFailure = true;
-        
-        // We'll continue with the next chunk even if this one failed
-        // This ensures we import as many subscribers as possible
+        totalErrors += chunks[i].length;
+        toast({
+          title: `Chunk ${i+1} Failed`,
+          description: (err as Error).message || "Unexpected error during import",
+          variant: "destructive"
+        });
+        // Continue with next chunk even if this one failed
       }
     }
     
     setProgress(100);
     
     return {
-      success: !hasFailure,
+      success: !hasFailure || totalInserted > 0,
       totalProcessed,
       inserted: totalInserted,
       duplicates: totalDuplicates,
@@ -183,6 +198,7 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
     setIsProcessing(true);
     setIsUploading(true);
     setProgress(10);
+    setImportResults(null);
     
     try {
       const fileContent = await readFileAsText(file);
@@ -238,15 +254,19 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
         return { email, first_name: firstName, last_name: lastName };
       }).filter((sub: any) => sub.email); // Filter out entries with no email
       
+      if (formattedSubscribers.length === 0) {
+        setParseError('No valid email addresses found in file');
+        throw new Error('No valid email addresses found in file');
+      }
+      
+      console.log(`Importing ${formattedSubscribers.length} subscribers using chunked upload`);
       setProgress(40);
       
       // Submit to API in chunks
-      console.log(`Importing ${formattedSubscribers.length} subscribers using chunked upload`);
-      
       const result = await uploadSubscribersInChunks(formattedSubscribers, file.name);
       
-      setProgress(100);
       console.log('Import completed:', result);
+      setImportResults(result);
       
       if (result.success) {
         toast({
@@ -265,12 +285,23 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
       // Reset form
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      setFile(null);
       
-      // Refresh stats
-      if (onImportComplete) onImportComplete();
+      // Force refresh stats immediately
+      if (onImportComplete) {
+        onImportComplete();
+        
+        // Schedule additional refreshes to catch any delayed processing
+        setTimeout(onImportComplete, 2000);
+        setTimeout(onImportComplete, 5000);
+      }
       
     } catch (error: any) {
       console.error('Import Error:', error);
+      setImportResults({
+        success: false,
+        error: error.message || "Failed to import subscribers"
+      });
       toast({
         title: "Import Failed",
         description: error.message || "Failed to import subscribers.",
@@ -280,6 +311,20 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
       setIsProcessing(false);
       setIsUploading(false);
       setProgress(0);
+    }
+  };
+
+  const resetImport = () => {
+    setFile(null);
+    setParseError(null);
+    setImportResults(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Manually refresh stats
+  const refreshStats = () => {
+    if (onImportComplete) {
+      onImportComplete();
     }
   };
 
@@ -296,76 +341,109 @@ export function EmailMigrationImport({ onImportComplete }: { onImportComplete: (
         </Alert>
         
         <div className="flex flex-col space-y-4">
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              accept=".csv,.json"
-              className="hidden"
-              disabled={isProcessing}
-            />
-            
-            {!file ? (
-              <div className="space-y-2">
-                <div className="mx-auto w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center">
-                  <FileUp className="h-6 w-6 text-blue-500" />
+          {importResults ? (
+            <div className="space-y-4">
+              <div className={`p-4 rounded-lg ${importResults.success ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+                <div className="flex items-start">
+                  {importResults.success ? 
+                    <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 mr-2" /> : 
+                    <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 mr-2" />
+                  }
+                  <div>
+                    <h4 className="font-medium">
+                      {importResults.success ? 'Import Completed' : 'Import Partially Completed'}
+                    </h4>
+                    <div className="mt-2 space-y-1 text-sm">
+                      <p>Total processed: <span className="font-medium">{importResults.totalProcessed}</span></p>
+                      <p>Successfully imported: <span className="font-medium text-green-600">{importResults.inserted}</span></p>
+                      <p>Duplicates skipped: <span className="font-medium text-amber-600">{importResults.duplicates}</span></p>
+                      <p>Errors: <span className="font-medium text-red-600">{importResults.errors}</span></p>
+                    </div>
+                    <div className="mt-3 text-xs text-gray-500">
+                      Please check the status panel to confirm the subscribers appear in the "Pending" count.
+                      If they don't appear within a few seconds, try refreshing the stats.
+                    </div>
+                  </div>
                 </div>
-                <div className="text-sm text-gray-600">
-                  Click to select a CSV or JSON file
-                </div>
-                <Button 
-                  variant="outline" 
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isProcessing}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Choose File
+              </div>
+              <div className="flex space-x-2">
+                <Button variant="outline" size="sm" onClick={resetImport}>
+                  Import Another File
+                </Button>
+                <Button variant="secondary" size="sm" onClick={refreshStats}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Stats
                 </Button>
               </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="p-2 bg-blue-50 rounded">
-                    <FileUp className="h-5 w-5 text-blue-500" />
+            </div>
+          ) : (
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                accept=".csv,.json"
+                className="hidden"
+                disabled={isProcessing}
+              />
+              
+              {!file ? (
+                <div className="space-y-2">
+                  <div className="mx-auto w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center">
+                    <FileUp className="h-6 w-6 text-blue-500" />
                   </div>
-                  <div className="text-sm font-medium truncate max-w-xs">
-                    {file.name}
+                  <div className="text-sm text-gray-600">
+                    Click to select a CSV or JSON file
                   </div>
-                </div>
-                
-                <div className="flex space-x-2 justify-center">
                   <Button 
                     variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setFile(null);
-                      if (fileInputRef.current) fileInputRef.current.value = '';
-                      setParseError(null);
-                    }}
+                    onClick={() => fileInputRef.current?.click()}
                     disabled={isProcessing}
                   >
-                    Remove
-                  </Button>
-                  <Button 
-                    variant="default" 
-                    size="sm"
-                    onClick={processFile}
-                    disabled={isProcessing}
-                  >
-                    {isProcessing ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      'Import Subscribers'
-                    )}
+                    <Upload className="h-4 w-4 mr-2" />
+                    Choose File
                   </Button>
                 </div>
-              </div>
-            )}
-          </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="p-2 bg-blue-50 rounded">
+                      <FileUp className="h-5 w-5 text-blue-500" />
+                    </div>
+                    <div className="text-sm font-medium truncate max-w-xs">
+                      {file.name}
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-2 justify-center">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={resetImport}
+                      disabled={isProcessing}
+                    >
+                      Remove
+                    </Button>
+                    <Button 
+                      variant="default" 
+                      size="sm"
+                      onClick={processFile}
+                      disabled={isProcessing}
+                    >
+                      {isProcessing ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        'Import Subscribers'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           
           {parseError && (
             <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
