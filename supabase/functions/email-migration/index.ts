@@ -2,10 +2,8 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { cors } from '../_shared/cors.ts';
 
-// Add a version identifier to verify deployment
 const MIGRATION_FUNCTION_VERSION = "1.1.0-array-format-fix";
 
-// Initialize Supabase client
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const supabaseAdminKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -13,25 +11,21 @@ const supabaseAdminKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 const supabaseAdmin = createClient(supabaseUrl, supabaseAdminKey);
 
-// Handle CORS
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Utility function to handle errors
 const handleDbError = (error: any, message: string) => {
   console.error(message, error);
   return { error: `${message}: ${error.message}` };
 };
 
-// Utility function to validate email format
 const isValidEmail = (email: string) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 };
 
-// New function to log detailed debugging information
 const logDebug = async (context: string, data: any, isError = false) => {
   const timestamp = new Date().toISOString();
   const logPrefix = `[EMAIL-MIGRATION][${timestamp}][${context}]`;
@@ -42,7 +36,6 @@ const logDebug = async (context: string, data: any, isError = false) => {
     console.log(`${logPrefix}:`, typeof data === 'object' ? JSON.stringify(data) : data);
   }
   
-  // Log to the database for persistent debugging
   try {
     const { error } = await supabaseAdmin
       .from('email_migration_logs')
@@ -57,22 +50,18 @@ const logDebug = async (context: string, data: any, isError = false) => {
       console.error(`${logPrefix} Failed to log to database:`, error);
     }
   } catch (err) {
-    // Fail silently to not disrupt the main process
     console.error(`${logPrefix} Exception during database logging:`, err);
   }
 };
 
-// New function to handle API responses with detailed logging
 const handleApiResponse = async (response: Response, email: string, context: string) => {
   const responseStatus = response.status;
   let responseData = null;
   let responseText = null;
   
   try {
-    // First try to get the raw text to have a fallback
     responseText = await response.clone().text();
     
-    // Then try to parse as JSON
     try {
       responseData = await response.json();
     } catch (jsonError) {
@@ -83,7 +72,6 @@ const handleApiResponse = async (response: Response, email: string, context: str
         responseText 
       }, true);
       
-      // Return the text response if JSON parsing fails
       responseData = { message: responseText };
     }
   } catch (e) {
@@ -99,7 +87,6 @@ const handleApiResponse = async (response: Response, email: string, context: str
     };
   }
 
-  // Log full response details including all headers
   await logDebug(`${context}-response`, { 
     email, 
     status: responseStatus, 
@@ -116,11 +103,159 @@ const handleApiResponse = async (response: Response, email: string, context: str
   };
 };
 
-// New function to add delay for rate limiting
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+const listRepositoryFiles = async () => {
+  try {
+    const command = new Deno.Command("ls", {
+      args: ["./public/emails"],
+      stdout: "piped",
+    });
+    
+    const output = await command.output();
+    const files = new TextDecoder().decode(output.stdout).trim().split("\n");
+    
+    const filteredFiles = files
+      .filter(file => file.endsWith('.csv') || file.endsWith('.json'))
+      .filter(file => !file.includes('/'));
+    
+    console.log(`Found ${filteredFiles.length} files in repository`);
+    
+    return { success: true, files: filteredFiles };
+  } catch (error) {
+    console.error('Error listing repository files:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+const readRepositoryFile = async (fileName: string) => {
+  try {
+    const filePath = `./public/emails/${fileName}`;
+    const fileContent = await Deno.readTextFile(filePath);
+    
+    if (fileName.endsWith('.json')) {
+      const data = JSON.parse(fileContent);
+      
+      let subscribers = Array.isArray(data) ? data : null;
+      
+      if (!subscribers) {
+        if (data.subscribers) subscribers = data.subscribers;
+        else if (data.data) subscribers = data.data;
+        else if (data.results) subscribers = data.results;
+        else {
+          throw new Error('Could not find subscribers array in JSON file');
+        }
+      }
+      
+      return subscribers;
+    } else if (fileName.endsWith('.csv')) {
+      const rows = fileContent.split('\n');
+      
+      const headers = rows[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+      
+      const subscribers = [];
+      for (let i = 1; i < rows.length; i++) {
+        if (!rows[i].trim()) continue;
+        
+        const values = rows[i].split(',').map(v => v.trim().replace(/^"|"$/g, '));
+        
+        const subscriber: Record<string, string> = {};
+        headers.forEach((header, index) => {
+          if (index < values.length) {
+            subscriber[header] = values[index];
+          }
+        });
+        
+        subscribers.push(subscriber);
+      }
+      
+      return subscribers;
+    } else {
+      throw new Error('Unsupported file format');
+    }
+  } catch (error) {
+    console.error(`Error reading repository file ${fileName}:`, error);
+    throw error;
+  }
+};
+
+const importRepositoryFile = async (fileName: string) => {
+  try {
+    const subscribers = await readRepositoryFile(fileName);
+    
+    if (!Array.isArray(subscribers) || subscribers.length === 0) {
+      return { success: false, error: 'No subscribers found in file' };
+    }
+    
+    const formattedSubscribers = subscribers.map((sub: any) => {
+      const email = sub.email || sub.Email || sub.EMAIL;
+      const firstName = sub.first_name || sub.firstName || sub.FirstName || sub['First Name'] || '';
+      const lastName = sub.last_name || sub.lastName || sub.LastName || sub['Last Name'] || '';
+      
+      return { email, first_name: firstName, last_name: lastName };
+    }).filter((sub: any) => sub.email);
+    
+    if (formattedSubscribers.length === 0) {
+      return { success: false, error: 'No valid email addresses found in file' };
+    }
+    
+    const CHUNK_SIZE = 50;
+    
+    let totalInserted = 0;
+    let totalDuplicates = 0;
+    let totalErrors = 0;
+    let batchCount = 0;
+    
+    for (let i = 0; i < formattedSubscribers.length; i += CHUNK_SIZE) {
+      const chunk = formattedSubscribers.slice(i, i + CHUNK_SIZE);
+      batchCount++;
+      
+      const { data, error } = await supabaseAdmin.rpc('import_subscribers', {
+        subscribers_data: chunk
+      });
+      
+      if (error) {
+        console.error(`Chunk ${batchCount} error:`, error);
+        totalErrors += chunk.length;
+      } else {
+        console.log(`Chunk ${batchCount} processed:`, data);
+        totalInserted += data.inserted || 0;
+        totalDuplicates += data.duplicates || 0;
+        totalErrors += data.errors || 0;
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    try {
+      const sourcePath = `./public/emails/${fileName}`;
+      const destPath = `./public/emails/completed/${fileName}`;
+      
+      try {
+        await Deno.mkdir('./public/emails/completed', { recursive: true });
+      } catch (e) {
+      }
+      
+      await Deno.rename(sourcePath, destPath);
+      console.log(`Moved file to ${destPath}`);
+    } catch (moveError) {
+      console.error('Error moving file to completed folder:', moveError);
+    }
+    
+    return {
+      success: true,
+      total: formattedSubscribers.length,
+      inserted: totalInserted,
+      duplicates: totalDuplicates,
+      errors: totalErrors
+    };
+  } catch (error) {
+    console.error('Repository import error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 serve(async (req) => {
-  // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
@@ -129,7 +264,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, ...params } = await req.json();
+    const { action, params, fileName } = await req.json();
     await logDebug('request', { action, params, functionVersion: MIGRATION_FUNCTION_VERSION });
 
     if (action === 'import') {
@@ -156,13 +291,11 @@ serve(async (req) => {
 
         await logDebug('import-start', { fileName, count: validSubscribers.length });
 
-        // Process in smaller batches to prevent database timeouts
         const BATCH_SIZE = 100;
         let inserted = 0;
         let duplicates = 0;
         let errors = 0;
         
-        // Process in batches of 100 to avoid overwhelming the database
         for (let i = 0; i < validSubscribers.length; i += BATCH_SIZE) {
           const batch = validSubscribers.slice(i, i + BATCH_SIZE);
           try {
@@ -176,10 +309,9 @@ serve(async (req) => {
                 error: error.message
               }, true);
               errors += batch.length;
-              continue; // Continue with next batch despite error
+              continue;
             }
 
-            // Accumulate results
             inserted += data.inserted || 0;
             duplicates += data.duplicates || 0;
             errors += data.errors || 0;
@@ -195,7 +327,6 @@ serve(async (req) => {
               error: batchError.message
             }, true);
             errors += batch.length;
-            // Continue with next batch despite error
           }
         }
 
@@ -245,7 +376,6 @@ serve(async (req) => {
 
         await logDebug('migrate-batch-start', `Attempting to migrate a batch of ${batchSize} subscribers...`);
 
-        // Fetch subscribers with 'pending' status
         const { data: pendingSubscribers, error: selectError } = await supabaseAdmin
           .from('email_migration')
           .select('*')
@@ -270,7 +400,6 @@ serve(async (req) => {
 
         await logDebug('pending-subscribers-fetched', { count: pendingSubscribers.length });
 
-        // Update status to 'in_progress'
         const subscriberIds = pendingSubscribers.map(subscriber => subscriber.id);
         const batchId = crypto.randomUUID();
 
@@ -289,14 +418,13 @@ serve(async (req) => {
 
         await logDebug('batch-updated', { batchId, count: subscriberIds.length });
 
-        // Call the external API to migrate subscribers
         const migrationResults = {
           success: 0,
           duplicates: 0,
           failed: 0,
           errors: [] as any[],
           total: pendingSubscribers.length,
-          functionVersion: MIGRATION_FUNCTION_VERSION // Include version in results
+          functionVersion: MIGRATION_FUNCTION_VERSION
         };
 
         const apiKey = Deno.env.get('BEEHIIV_API_KEY');
@@ -308,14 +436,12 @@ serve(async (req) => {
           );
         }
 
-        // Process each subscriber
         for (const subscriber of pendingSubscribers) {
           const apiUrl = 'https://api.beehiiv.com/v2/publications/' + publicationId + '/subscriptions';
           
           try {
             await logDebug('processing-subscriber', { email: subscriber.email, id: subscriber.id });
             
-            // Log API request details for debugging - USING CORRECT ARRAY FORMAT
             const requestBody = {
               email: subscriber.email,
               double_opt_in: false,
@@ -338,10 +464,9 @@ serve(async (req) => {
               email: subscriber.email,
               subscriberId: subscriber.id,
               functionVersion: MIGRATION_FUNCTION_VERSION,
-              format: "ARRAY" // Explicitly log the format being used
+              format: "ARRAY"
             });
             
-            // Make the API request
             const startTime = Date.now();
             let response;
             try {
@@ -354,7 +479,6 @@ serve(async (req) => {
                 body: JSON.stringify(requestBody),
               });
             } catch (fetchError) {
-              // Log fetch error details
               await logDebug('fetch-error', { 
                 email: subscriber.email, 
                 error: fetchError.message,
@@ -368,16 +492,12 @@ serve(async (req) => {
             
             await logDebug('api-response-time', { email: subscriber.email, ms: responseTime });
             
-            // Process the API response
             const apiResponse = await handleApiResponse(response, subscriber.email, 'beehiiv-api');
             
-            // Handle the response based on status code
             if (response.status === 201) {
-              // Successful migration
               migrationResults.success++;
               await logDebug('migration-success', { email: subscriber.email, subscriberId: apiResponse.data?.data?.id });
 
-              // Update subscriber status to 'migrated'
               const updateResult = await supabaseAdmin
                 .from('email_migration')
                 .update({ 
@@ -395,11 +515,9 @@ serve(async (req) => {
                 }, true);
               }
             } else if (response.status === 409) {
-              // Duplicate subscriber
               migrationResults.duplicates++;
               await logDebug('duplicate-subscriber', { email: subscriber.email });
 
-              // Update subscriber status to 'already_exists'
               const updateResult = await supabaseAdmin
                 .from('email_migration')
                 .update({ 
@@ -415,7 +533,6 @@ serve(async (req) => {
                 }, true);
               }
             } else if (response.status === 429) {
-              // Rate limited - handle specially
               migrationResults.failed++;
               const retryAfter = response.headers.get('Retry-After') || '60';
               const errorMsg = `Rate limited by BeehiiV API. Retry after ${retryAfter} seconds`;
@@ -431,7 +548,6 @@ serve(async (req) => {
                 error: errorMsg 
               });
 
-              // Update subscriber status back to 'pending' to retry later
               const updateResult = await supabaseAdmin
                 .from('email_migration')
                 .update({ 
@@ -448,13 +564,10 @@ serve(async (req) => {
                 }, true);
               }
               
-              // Add a delay before the next request based on retry-after header
               await delay(parseInt(retryAfter, 10) * 1000);
             } else {
-              // Failed migration for other reasons
               migrationResults.failed++;
               
-              // Get detailed error information
               let errorMsg;
               if (apiResponse.data && apiResponse.data.message) {
                 errorMsg = apiResponse.data.message;
@@ -476,7 +589,6 @@ serve(async (req) => {
                 error: errorMsg 
               });
 
-              // Update subscriber status to 'failed'
               const updateResult = await supabaseAdmin
                 .from('email_migration')
                 .update({ 
@@ -493,11 +605,9 @@ serve(async (req) => {
               }
             }
             
-            // Add a small delay between requests to avoid overwhelming the API
             await delay(300);
           } catch (apiError) {
             migrationResults.failed++;
-            // Enhanced error message
             const errorMsg = apiError.message || 'API request failed';
             
             await logDebug('api-error', { 
@@ -511,7 +621,6 @@ serve(async (req) => {
               error: errorMsg 
             });
 
-            // Update subscriber status to 'failed'
             const updateResult = await supabaseAdmin
               .from('email_migration')
               .update({ 
@@ -527,16 +636,13 @@ serve(async (req) => {
               }, true);
             }
             
-            // Add a delay to recover from potential errors
             await delay(500);
           }
         }
 
         await logDebug('migration-batch-complete', migrationResults);
 
-        // Update the stats table with the latest information
         try {
-          // Get the current counts
           const { data: currentCounts, error: countError } = await supabaseAdmin.rpc('get_status_counts');
           
           if (countError) {
@@ -562,7 +668,6 @@ serve(async (req) => {
             });
           }
           
-          // Update the stats table
           const { error: statsError } = await supabaseAdmin
             .from('email_migration_stats')
             .update({
@@ -572,7 +677,7 @@ serve(async (req) => {
               last_batch_id: batchId,
               last_batch_date: new Date().toISOString()
             })
-            .eq('id', '7250c6e9-77ab-41c5-a88c-98c764c4f432'); // Use the existing stats ID
+            .eq('id', '7250c6e9-77ab-41c5-a88c-98c764c4f432');
             
           if (statsError) {
             await logDebug('update-stats-error', statsError, true);
@@ -601,7 +706,6 @@ serve(async (req) => {
 
     if (action === 'reset-in-progress') {
       try {
-        // Reset in_progress subscribers back to pending
         const { data, error: updateError } = await supabaseAdmin
           .from('email_migration')
           .update({ status: 'pending', migration_batch: null })
@@ -638,7 +742,6 @@ serve(async (req) => {
 
     if (action === 'reset-failed') {
       try {
-        // Reset failed migrations to pending
         const { data, error: updateError } = await supabaseAdmin
           .from('email_migration')
           .update({ status: 'pending', error_message: null })
@@ -677,7 +780,6 @@ serve(async (req) => {
       try {
         await logDebug('getting-stats', 'Fetching migration statistics');
         
-        // Get overall stats
         const { data: statsData, error: statsError } = await supabaseAdmin
           .from('email_migration_stats')
           .select('*')
@@ -692,7 +794,6 @@ serve(async (req) => {
           );
         }
 
-        // Get counts for each status
         const { data: statusCounts, error: countError } = await supabaseAdmin.rpc(
           'get_status_counts'
         );
@@ -705,7 +806,6 @@ serve(async (req) => {
           );
         }
 
-        // Prepare the counts object with default values
         const counts = {
           pending: 0,
           in_progress: 0,
@@ -714,7 +814,6 @@ serve(async (req) => {
           already_exists: 0
         };
 
-        // Format the status counts 
         if (statusCounts && Array.isArray(statusCounts)) {
           statusCounts.forEach(item => {
             if (item && item.status && typeof item.count === 'number') {
@@ -723,7 +822,6 @@ serve(async (req) => {
           });
         }
 
-        // Get latest batches
         const { data: batchesData, error: batchesError } = await supabaseAdmin.rpc(
           'get_migration_batches',
           { limit_count: 5 }
@@ -731,10 +829,8 @@ serve(async (req) => {
 
         if (batchesError) {
           await logDebug('batches-fetch-error', batchesError, true);
-          // Continue with the data we have
         }
 
-        // Get automation settings
         const { data: automationData, error: automationError } = await supabaseAdmin
           .from('email_migration_automation')
           .select('*')
@@ -758,7 +854,6 @@ serve(async (req) => {
           };
         }
 
-        // Prepare and return the response
         const response = {
           stats: statsData || {
             id: '0',
@@ -789,10 +884,8 @@ serve(async (req) => {
       }
     }
 
-    // Add a new action to get subscribers stuck in the "in_progress" state
     if (action === 'get-stuck-subscribers') {
       try {
-        // Get all subscribers in the "in_progress" state
         const { data, error } = await supabaseAdmin
           .from('email_migration')
           .select('*')
@@ -826,10 +919,8 @@ serve(async (req) => {
       }
     }
 
-    // Add a new action to analyze subscribers stuck in the "in_progress" state
     if (action === 'analyze-stuck-subscribers') {
       try {
-        // Get all subscribers in the "in_progress" state
         const { data: stuckSubscribers, error: stuckError } = await supabaseAdmin
           .from('email_migration')
           .select('*')
@@ -844,7 +935,6 @@ serve(async (req) => {
           );
         }
         
-        // If we don't have any stuck subscribers, return an empty analysis
         if (!stuckSubscribers || stuckSubscribers.length === 0) {
           return new Response(
             JSON.stringify({ 
@@ -857,7 +947,6 @@ serve(async (req) => {
           );
         }
         
-        // Group subscribers by batch
         const batchGroups: { [key: string]: any[] } = {};
         for (const subscriber of stuckSubscribers) {
           const batchId = subscriber.migration_batch || 'no_batch';
@@ -867,7 +956,6 @@ serve(async (req) => {
           batchGroups[batchId].push(subscriber);
         }
         
-        // Find the oldest batch
         let oldestBatch = null;
         let oldestTimestamp = null;
         
@@ -882,28 +970,25 @@ serve(async (req) => {
           }
         }
         
-        // Check if we have emails with special characters or formatting issues
         const potentialInvalidEmails = stuckSubscribers.filter(sub => {
-          // Check for unusual patterns in email
           const email = sub.email || '';
           return email.includes('..') || 
                  email.includes(',,') || 
                  email.includes('@@') ||
                  email.startsWith('.') ||
                  email.endsWith('.') ||
-                 /[^\x00-\x7F]/.test(email); // Contains non-ASCII characters
+                 /[^\x00-\x7F]/.test(email);
         });
         
-        // Prepare the analysis results
         const potentialIssues = [];
         const recommendations = [];
         
-        // Check for API key issues
         const apiKey = Deno.env.get('BEEHIIV_API_KEY');
         if (!apiKey) {
           potentialIssues.push("BeehiiV API key not configured");
           recommendations.push("Configure the BEEHIIV_API_KEY environment variable in Supabase");
         }
         
-        // Check for batch age
         if (old
+
+[END_OF_TEXT]
